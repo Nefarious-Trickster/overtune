@@ -160,6 +160,7 @@ const HUD = {
   start() {
     this.el.hidden = false; $('#endscreen').hidden = true; $('#deathpanel').hidden = true; $('#board').hidden = true; this.feedList = []; $('#feed').innerHTML = '';
     this.buildKit();
+    const n = (Settings.tipsShown | 0); if (n < 3) { Settings.tipsShown = n + 1; Settings.save(); $('#tips').hidden = false; $('#tips').style.opacity = 1; clearTimeout(this.tipT); this.tipT = setTimeout(() => { $('#tips').style.opacity = 0; setTimeout(() => $('#tips').hidden = true, 700); }, 9000); }
   },
   stop() { this.el.hidden = true; $('#endscreen').hidden = true; $('#deathpanel').hidden = true; for (const t of this.tags.values()) t.remove(); this.tags.clear(); },
   buildKit() {
@@ -274,6 +275,7 @@ const HUD = {
       a.d.style.transform = `rotate(${-ang}rad)`; a.d.style.opacity = clamp(a.t, 0, 1);
     }
     this.nameTags(me, cam, w, h);
+    $('#clickhint').hidden = Input.locked || !!UI.cur || M.st === 'end';
     $('#xhair').className = 'x' + (Settings.xhair | 0) + (me.alive && cloakLevel(me) < 0.5 && !(me.st.fatigue > 0) && me.reloadT <= 0 ? '' : ' off');
     // death panel countdown
     if (!me.alive) {

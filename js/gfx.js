@@ -362,15 +362,15 @@ const SKY_FRAG = `
       float cov = smoothstep(0.42, 0.8, c) * uCloud * smoothstep(0.0, 0.25, y);
       vec3 cc = uCloudCol * (0.75 + 0.5 * fbm(vec3(uv * 2.6, 3.0))) + uSunCol * pow(sd, 6.0) * 0.6;
       col = mix(col, cc, cov);
-      float st = pow(h3(floor(d * 420.0)), 60.0) * uStars * smoothstep(0.05, 0.4, y) * (1.0 - cov);
-      col += vec3(st) * 3.0;
+      float st = pow(h3(floor(d * 360.0)), 1600.0) * uStars * smoothstep(0.05, 0.4, y) * (1.0 - cov);
+      col += vec3(st) * 6.0;
     }
     gl_FragColor = vec4(col, 1.0);
   }`;
 const SKIES = {
   dusk: { top: 0x1c1f4a, hor: 0xf08a54, bot: 0x2a1a24, sunCol: 0xffa260, stars: 0.04, cloud: 0.75, cloudCol: 0x6b4462, grade: [1.08, 1.0, 0.9] },
   day: { top: 0x2f78d0, hor: 0xc8e2f0, bot: 0x7e8a6a, sunCol: 0xfff2d8, stars: 0, cloud: 0.55, cloudCol: 0xf4f6fa, grade: [1.04, 1.02, 0.95] },
-  night: { top: 0x02040b, hor: 0x1c2a4a, bot: 0x05070c, sunCol: 0x6a8cff, stars: 0.7, cloud: 0.9, cloudCol: 0x1c2436, grade: [0.98, 1.0, 1.08] },
+  night: { top: 0x03050d, hor: 0x24204a, bot: 0x05070c, sunCol: 0x6a8cff, stars: 0.6, cloud: 0.95, cloudCol: 0x1c2436, grade: [0.98, 1.0, 1.08] },
 };
 function makeSky(kind, sunDir) {
   const S = SKIES[kind], c = h => new THREE.Color(h);
@@ -706,6 +706,10 @@ const Props = {
     const box = new THREE.Mesh(new THREE.BoxGeometry(2.5, 2.6, 6), SURF.container3); box.position.y = 5.7; box.castShadow = true; g.add(box);
     const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), glowMat(0xff3a3a, 8)); lamp.position.set(0, 15.4, 0); g.add(lamp);
     G.anim.push(t => { const z = Math.sin(t * 0.12) * 9; trolley.position.z = z; cable.position.z = z; box.position.z = z; lamp.material.color.setScalar(Math.sin(t * 3) > 0 ? 8 : 0.5).multiply(new THREE.Color(1, 0.2, 0.2)); });
+  },
+  neon(p, L) {
+    const t = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, p.h, 8), glowMat(p.color, 6)); t.position.set(p.x, p.h / 2, p.z); L.add(t);
+    G.lightSrc.push({ pos: new V3(p.x, p.h * 0.6, p.z), color: new THREE.Color(p.color), intensity: 1.3, dist: 9 });
   },
   railing(p, L) {
     const a = new V3(p.x, p.y, p.z), b = new V3(p.x2, p.y, p.z2), len = a.distanceTo(b), dir = b.clone().sub(a).normalize(), ang = Math.atan2(dir.x, dir.z);

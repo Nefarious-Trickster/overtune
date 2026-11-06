@@ -295,8 +295,8 @@ const Flow = {
     }
   },
   addBot(team) {
-    const used = Game.actors.map(a => a.nameIdx), taken = new Set(Game.actors.filter(a => a.team === team).map(a => a.heroKey));
-    let n = 0; while (used.includes(n) && n < 40) n++; n = Game.actors.filter(a => a.isBot).length + Math.floor(Math.random() * 3) * 7 + (team * 3);
+    const usedNames = new Set(Game.actors.map(a => a.name)), taken = new Set(Game.actors.filter(a => a.team === team).map(a => a.heroKey));
+    const freeNames = BOT_NAMES.map((nm, i) => i).filter(i => !usedNames.has(BOT_NAMES[i])), n = freeNames.length ? pick(freeNames) : Math.floor(Math.random() * BOT_NAMES.length);
     const free = HERO_KEYS.filter(k => !taken.has(k)), hero = pick(free.length ? free : HERO_KEYS);
     const id = 'b' + (++Game.seq + Math.floor(Math.random() * 1000) * 100);
     const a = addActor({ id, name: BOT_NAMES[n % BOT_NAMES.length], team, hero, addons: randomLoadout(hero), bot: true, nameIdx: n % BOT_NAMES.length });

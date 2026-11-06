@@ -25,7 +25,7 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 // ---------------------------------------------------------------- settings
 const Settings = {
   name: 'Player' + Math.floor(Math.random() * 900 + 100), sens: 1.0, fov: 95, q: 2, vol: 0.8, music: 0.5, invertY: false,
-  hero: 'marrow', loadouts: {}, mode: 'tdm', map: 'kiln', size: 4, diff: 1, ffaSize: 6, showFps: false, xhair: 1,
+  hero: 'marrow', loadouts: {}, tipsShown: 0, mode: 'tdm', map: 'kiln', size: 4, diff: 1, ffaSize: 6, showFps: false, xhair: 1,
   load() {
     try { const s = JSON.parse(localStorage.getItem('overtune.settings') || '{}'); for (const k in s) if (k in this && typeof this[k] !== 'function') this[k] = s[k]; } catch (e) { /* private window */ }
     if (typeof this.loadouts !== 'object' || !this.loadouts) this.loadouts = {};

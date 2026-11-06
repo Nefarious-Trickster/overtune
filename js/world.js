@@ -425,7 +425,7 @@ const MAPS = {
       M.box(-49, 0, 2, 64, 10, { mat: 'shed' }); M.box(49, 0, 2, 64, 10, { mat: 'shed' });
       M.prop('water', {}); M.prop('rain', {});
       // the central warehouse
-      M.box(0, 0, 20, 18, 0.5, { y: 7, mat: 'roof' });
+      M.box(0, 0, 20, 18, 0.5, { y: 7, mat: 'roof', trim: 0xff3ad6 });
       M.zone(0, 0, 0, 4.4);
       M.both(m => {
         m.box(-6.5, 8.7, 7, 0.6, 7, { mat: 'shedwall' }); m.box(6.5, 8.7, 7, 0.6, 7, { mat: 'shedwall' });
@@ -440,19 +440,21 @@ const MAPS = {
         m.light(-4, 6.2, 0, 0xff4ad6, 2.0, 12); m.light(4, 6.2, 3, 0x4adfff, 1.6, 12);
         m.prop('sign', { x: 0, y: 5.6, z: 9.05, yaw: 0, w: 5.2, h: 1.0, text: m.flip ? 'BERTH 9' : 'PIER 34', color: m.flip ? 0xff3a8a : 0x3affea });
         m.prop('stringLights', { x: -9.4, y: 6.5, z: -8.4, x2: 9.4, z2: 8.4 });
+        m.prop('neon', { x: -10.05, z: 9.05, h: 6.6, color: 0x3affea }); m.prop('neon', { x: 10.05, z: 9.05, h: 6.6, color: 0xff3ad6 });
+        m.prop('stringLights', { x: -36, y: 5.4, z: 17.2, x2: -12, z2: 24 });
         // base shed with three roll-up doors
         m.box(-38, -14, 1, 4, 6, { mat: 'shedwall' }); m.box(-38, -5, 1, 4, 6, { mat: 'shedwall' });
         m.box(-38, 5, 1, 4, 6, { mat: 'shedwall' }); m.box(-38, 14, 1, 4, 6, { mat: 'shedwall' });
         m.box(-38, 0, 1, 32, 1.6, { y: 4.4, mat: 'shedwall' });
         m.box(-43, 16.5, 10, 1, 6, { mat: 'shedwall' }); m.box(-43, -16.5, 10, 1, 6, { mat: 'shedwall' });
-        m.box(-43, 0, 11, 34, 0.5, { y: 6, mat: 'roof' });
+        m.box(-43, 0, 11, 34, 0.5, { y: 6, mat: 'roof', trim: m.flip ? 0xff7a2e : 0x2ee6ff });
         for (const z of [-9, -4.5, 0, 4.5, 9]) m.spawn(0, -45, z);
         for (const z of [-6, 0, 6]) m.spawn(0, -41.5, z);
         m.light(-43, 5.2, -6, 0x9ad0ff, 1.8, 13); m.light(-43, 5.2, 6, 0x9ad0ff, 1.8, 13);
         m.prop('sign', { x: -37.45, y: 5.2, z: 9.5, yaw: -Math.PI / 2, w: 4.2, h: 0.8, text: m.flip ? 'EAST DOCK' : 'WEST DOCK', color: m.flip ? 0xff7a2e : 0x2ee6ff });
         // the container stacks
         m.box(-22, 21, 18, 2.5, 2.6, { mat: 'container' });
-        m.box(-22, 21, 6, 2.5, 2.6, { y: 2.6, mat: 'container2' });
+        m.box(-22, 21, 6, 2.5, 2.6, { y: 2.6, mat: 'container2', trim: 0xffd23a });
         m.ramp(-34.5, 21, 7, 2.5, 0, 2.6, 'x+', { mat: 'grate' });
         m.pad(-22, 17.4, 0, -22, 21, 5.25, 2.2);
         m.box(-30, 8, 2.5, 6, 2.6, { mat: 'container2' });

@@ -204,6 +204,7 @@ body.in-menu #menus::before { content: ""; position: absolute; inset: 0; backgro
 
 /* ------------------------------------------------------------ HUD */
 #hud { position: fixed; inset: 0; z-index: 10; pointer-events: none; font-family: var(--fd); }
+#hud::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 190px; background: linear-gradient(0deg, rgba(4, 5, 10, 0.55), rgba(4, 5, 10, 0)); }
 #header { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); text-align: center; }
 .hd { display: flex; align-items: stretch; gap: 3px; }
 .hd .sc { min-width: 92px; padding: 6px 14px 4px; font: 700 30px/1 var(--fd); background: var(--panel); clip-path: var(--cut-s); }
@@ -306,6 +307,9 @@ body.in-menu #menus::before { content: ""; position: absolute; inset: 0; backgro
 #death-by { font: 600 18px var(--fd); } #death-by .how { font-size: 12px; color: var(--mist); text-transform: uppercase; letter-spacing: 0.1em; margin-left: 6px; }
 #death-kit { display: flex; gap: 6px; justify-content: center; margin: 8px 0; }
 #death-timer { font: 700 22px var(--fd); color: var(--amber); margin: 6px 0; }
+#clickhint { position: absolute; left: 50%; top: 58%; transform: translateX(-50%); padding: 10px 22px; background: var(--panel); clip-path: var(--cut-s); font: 700 16px var(--fd); text-transform: uppercase; letter-spacing: 0.12em; color: var(--amber); animation: ultPulse 1.4s ease-in-out infinite; }
+#tips { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); display: flex; gap: 14px; align-items: center; padding: 8px 16px; background: var(--panel); clip-path: var(--cut-s); font: 600 13px var(--fd); color: var(--mist); transition: opacity 0.6s; }
+#tips b { color: var(--amber); text-transform: uppercase; letter-spacing: 0.1em; font-size: 12px; }
 #board { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; gap: 14px; background: var(--panel); padding: 16px; clip-path: var(--cut); }
 #board table, #end-board table { border-collapse: collapse; font: 500 13px var(--fu); }
 #board th, #end-board th { font: 600 10px var(--fd); color: var(--mist); letter-spacing: 0.12em; text-align: left; padding: 4px 8px; text-transform: uppercase; }
