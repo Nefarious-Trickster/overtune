@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Overtune</title>
+<meta name="description" content="Overtune — a browser hero shooter where every power is tuned with add-ons. Play against bots or online with friends.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,500;0,600;0,700;1,700&family=Barlow:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="in-menu">
+<canvas id="cv"></canvas>
+<div id="fps" hidden></div>
+<div id="boot"><div class="boot-in"><div class="logo">OVER<span>TUNE</span></div><div class="boot-bar"><i></i></div><small id="boot-msg">Forging surfaces…</small></div></div>
+
+<!-- ============================================================ HUD -->
+<div id="hud" hidden>
+  <div id="header"></div>
+  <div id="feed"></div>
+  <div id="notes"></div>
+  <div id="tags"></div>
+  <div id="nums"></div>
+  <div id="arcs"></div>
+  <div id="xhair" class="x1"><i></i><i></i><i></i><i></i><b></b></div>
+  <div id="hitmark"><i></i><i></i><i></i><i></i></div>
+  <div id="meter" hidden><i id="meter-fill"></i></div>
+  <div id="killbanner"></div>
+  <div id="vitals">
+    <div id="status"></div>
+    <div class="who"><b id="kit-hero"></b><span id="kit-title"></span></div>
+    <div id="hp"><span id="hp-num">0</span><span id="hp-max"></span><div class="bar"><i id="hp-fill"></i></div></div>
+  </div>
+  <div id="kitbar">
+    <div id="kit-power" class="kit power">
+      <div class="ico" id="kit-power-icon"></div>
+      <div class="body"><small>RMB / E</small><b id="kit-power-name"></b><div class="pips" id="kit-pips"></div><span id="kit-power-state"></span><div class="pbar"><i id="kit-power-bar"></i></div></div>
+      <div id="kit-addons"></div>
+    </div>
+    <div id="kit-util" class="kit util"><small>SHIFT</small><b id="kit-util-name"></b><span id="kit-util-cd"></span></div>
+    <div id="kit-ult" class="kit ult"><div class="ring"></div><span id="kit-ult-pct">0%</span><b id="kit-ult-name"></b></div>
+  </div>
+  <div id="ammo"><small id="weapon-name"></small><div><span id="ammo-num">0</span><span id="ammo-max"></span></div><div class="bar"><i id="reload-fill"></i></div></div>
+  <div id="deathpanel" hidden><div id="death-by"></div><div id="death-kit"></div><div id="death-timer"></div><small class="dim">Press <kbd>L</kbd> to change hero or add-ons</small></div>
+  <div id="board" hidden></div>
+  <div id="endscreen" hidden><div class="end-in"><h1 id="end-title"></h1><div id="end-sub"></div><div id="end-mvp"></div><div id="end-board"></div><div id="end-actions"></div></div></div>
+</div>
+
+<!-- ============================================================ menus -->
+<div id="menus">
+  <section class="screen main" data-screen="main">
+    <div class="brand"><div class="logo">OVER<span>TUNE</span></div><p>Five heroes. Sixty add-ons. Every power, tuned your way.</p></div>
+    <nav class="mainnav">
+      <button class="big" data-act="go" data-arg="play"><b>Play vs Bots</b><span>Four modes · three maps · any team size</span></button>
+      <button class="big" data-act="go" data-arg="online"><b>Play Online</b><span>Host or join friends — no sign-in</span></button>
+      <button class="big" data-act="editLoadout"><b>Heroes &amp; Add-ons</b><span>Tune each hero's power</span></button>
+      <div class="row2"><button data-act="go" data-arg="settings">Settings</button><button data-act="go" data-arg="howto">How to play</button></div>
+    </nav>
+    <label class="namefield"><small>YOUR NAME</small><input id="name" maxlength="14" spellcheck="false" autocomplete="off"></label>
+  </section>
+
+  <section class="screen" data-screen="play" hidden>
+    <div class="panel wide">
+      <header><button class="back" data-act="go" data-arg="main">‹ Back</button><h2>Play vs Bots</h2></header>
+      <h5>Mode</h5><div id="play-modes" class="grid2"></div>
+      <h5>Map</h5><div id="play-maps" class="grid3"></div>
+      <div class="twocol"><div><h5>Size</h5><div id="play-size" class="segs"></div></div><div><h5>Bots</h5><div id="play-diff" class="segs"></div></div></div>
+      <h5>Hero</h5><div id="play-heroes" class="herorow"></div>
+      <div id="play-kit" class="kitsum"></div>
+      <button class="btn primary huge" data-act="start">Deploy</button>
+    </div>
+  </section>
+
+  <section class="screen" data-screen="online" hidden>
+    <div class="panel">
+      <header><button class="back" data-act="go" data-arg="main">‹ Back</button><h2>Play Online</h2><span id="netstate" class="netstate">Offline</span></header>
+      <p class="dim">Host a match and send the code (or link) to a friend. Players connect straight to each other — no account needed. Empty spots are filled with bots.</p>
+      <button class="btn primary huge" data-act="host">Host a match</button>
+      <h5>Join with a code</h5>
+      <div class="joinrow"><input id="joincode" maxlength="4" placeholder="ABCD" spellcheck="false" autocomplete="off"><button class="btn" data-act="join">Join</button></div>
+      <h5>Open matches</h5><div id="openlist"></div>
+    </div>
+  </section>
+
+  <section class="screen" data-screen="lobby" hidden>
+    <div class="panel wide">
+      <header><button class="back" data-act="lobbyLeave">‹ Leave</button><h2>Lobby <code id="lb-code"></code></h2><button class="btn small ghost" data-act="copyLink">Copy invite link</button></header>
+      <p class="dim" id="lb-role"></p>
+      <div id="lb-players" class="lteams"></div>
+      <div id="lb-cfg" class="cfg"></div>
+      <h5>Your hero</h5><div id="lb-kit" class="kitsum"></div>
+      <button id="lb-start" class="btn primary huge" data-act="lobbyStart">Start match</button>
+      <div id="lb-wait" class="dim center">The host starts the match.</div>
+    </div>
+  </section>
+
+  <section class="screen loadout" data-screen="loadout" hidden>
+    <div class="lo-rail"><button class="back" data-act="loadoutBack">‹ Back</button><div id="lo-heroes" class="herocol"></div></div>
+    <div class="lo-panel">
+      <div class="lo-head"><small id="lo-role"></small><h1 id="lo-name"></h1><h3 id="lo-title"></h3><p id="lo-blurb"></p><div id="lo-stats" class="stats"></div></div>
+      <div id="lo-power" class="lo-power"></div>
+      <div class="lo-slots-wrap"><small>ADD-ON SLOTS</small><div id="lo-slots" class="lo-slots"></div></div>
+      <div class="lo-body">
+        <div class="lo-left"><small>ADD-ONS — click to slot, click again to remove</small><div id="lo-grid" class="lo-grid"></div><div id="lo-tip" class="lo-tip"></div></div>
+        <div class="lo-right"><small>YOUR POWER, TUNED</small><div id="lo-numbers" class="lo-numbers"></div><div id="lo-kit" class="lo-kit"></div></div>
+      </div>
+      <button id="lo-use" class="btn primary" data-act="useHero">Play as</button>
+    </div>
+  </section>
+
+  <section class="screen" data-screen="settings" hidden>
+    <div class="panel">
+      <header><button class="back" data-act="settingsBack">‹ Back</button><h2>Settings</h2></header>
+      <div id="settings-form" class="form"></div>
+    </div>
+  </section>
+
+  <section class="screen" data-screen="howto" hidden>
+    <div class="panel wide howto">
+      <header><button class="back" data-act="go" data-arg="main">‹ Back</button><h2>How to play</h2></header>
+      <div class="twocol">
+        <div>
+          <h5>Controls</h5>
+          <dl class="keys">
+            <dt>WASD</dt><dd>Move</dd><dt>Mouse</dt><dd>Aim</dd><dt>Left click</dt><dd>Fire</dd>
+            <dt>Right click / E</dt><dd>Power (hold to charge or wind up)</dd><dt>Shift</dt><dd>Utility</dd>
+            <dt>Q</dt><dd>Ultimate</dd><dt>Space</dt><dd>Jump</dd><dt>R</dt><dd>Reload</dd><dt>Tab</dt><dd>Scoreboard</dd><dt>Esc</dt><dd>Pause / change hero</dd>
+          </dl>
+        </div>
+        <div>
+          <h5>Powers and add-ons</h5>
+          <p>Every hero has a signature <b>power</b> on right click. Before a match, slot <b>two add-ons</b> into it. Each add-on bends the power: more snares, longer blinks, a ram that ploughs through a whole team, a fade that lets you shoot while invisible.</p>
+          <p>Add-ons come in five rarities. <span class="rt r0">Common</span> and <span class="rt r1">Uncommon</span> ones are clean upgrades. <span class="rt r2">Rare</span> and <span class="rt r3">Very Rare</span> ones add new rules. <span class="rt r4">Iridescent</span> ones transform the power — and always cost you something for it.</p>
+          <h5>Modes</h5>
+          <p><b>Team Deathmatch</b> — first team to the kill target. <b>Control</b> — capture the zone and hold it to 100%. <b>Elimination</b> — no respawns, first to three rounds. <b>Free-for-All</b> — first to 15.</p>
+          <p>Jump pads (blue rings) throw you onto high ground. Green crosses restore 75 health.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="screen pause" data-screen="pause" hidden>
+    <div class="panel narrow">
+      <h2>Paused</h2><p class="dim" id="pause-sub"></p>
+      <button class="btn primary" data-act="resume">Resume</button>
+      <button class="btn" data-act="pauseLoadout">Hero &amp; add-ons</button>
+      <button class="btn" data-act="pauseSettings">Settings</button>
+      <button class="btn ghost" data-act="leave">Leave match</button>
+    </div>
+  </section>
+</div>
+<div id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="js/core.js"></script>
+<script src="js/world.js"></script>
+<script src="js/gfx.js"></script>
+<script src="js/heroes.js"></script>
+<script src="js/models.js"></script>
+<script src="js/sim.js"></script>
+<script src="js/bots.js"></script>
+<script src="js/p2p.js"></script>
+<script src="js/net.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
