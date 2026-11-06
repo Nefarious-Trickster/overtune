@@ -459,6 +459,7 @@ const UI = {
   // ------------------------------------------------ the add-on loadout screen
   renderLoadout() {
     const key = this.loadoutHero || Settings.hero, H = HEROES[key], cur = this.pendingLoadout(key);
+    $('.lo-panel').style.setProperty('--hero', '#' + new THREE.Color(H.glow).getHexString());
     $('#lo-heroes').innerHTML = heroCards(key, 'lhero');
     $('#lo-name').textContent = H.name; $('#lo-title').textContent = H.title; $('#lo-role').textContent = H.role; $('#lo-blurb').textContent = H.blurb;
     $('#lo-stats').innerHTML = `<span><b>${H.hp}</b> health</span><span><b>${H.speed.toFixed(1)}</b> m/s</span><span><b>${H.weapon.name}</b> ${weaponLine(H.weapon)}</span>`;
@@ -582,7 +583,7 @@ const Showcase = {
     for (const L of M.legs) { L.hip.rotation.x = L.s * 0.08; L.knee.rotation.x = 0.1; }
     if (M.extra.scarf) M.extra.scarf.rotation.x = 0.4 + Math.sin(this.t * 3) * 0.1;
     const fwd = new V3(-Math.sin(S.yaw), 0, -Math.cos(S.yaw)), right = new V3(-fwd.z, 0, fwd.x);
-    const off = inLoadout ? -0.9 : 0.85, dist = (inLoadout ? 3.4 : 4.2) - this.pop * 0.3;
+    const off = inLoadout ? -1.25 : 0.85, dist = (inLoadout ? 3.4 : 4.2) - this.pop * 0.3;
     const look = new V3(S.x, S.y + 1.15, S.z).addScaledVector(right, off * 0.6);
     const want = new V3(S.x, S.y + 1.45, S.z).addScaledVector(fwd, dist).addScaledVector(right, off + Math.sin(this.t * 0.15) * 0.3);
     cam.position.lerp(want, 1 - Math.exp(-3 * dt)); cam.lookAt(look); cam.updateMatrixWorld();

@@ -23,6 +23,7 @@ const Bots = {
   // can this bot make out that enemy right now?
   sees(a, o) {
     if (!o.alive) return false;
+    if (a.st.blind > 0 && a.pos.distanceTo(o.renderPos || o.pos) > 3) return false;
     const cl = o.remote ? (o.cl || 0) : cloakLevel(o), d = a.pos.distanceTo(o.renderPos || o.pos);
     if (cl > 0.6 && !(o.st && o.st.reveal > 0) && !(o.flags & F_REVEAL)) {
       const shimmer = o.P ? o.P.shimmer || 8 : 8;
