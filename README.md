@@ -1,6 +1,6 @@
 # Overtune
 
-A 3D hero shooter you play in the browser. Eight heroes, each with a weapon that plays nothing like the others and one signature **power** — and every power is tuned with **add-ons**, earned by playing and used up when you deploy, Dead by Daylight style.
+A 3D hero shooter you play in the browser. Nine heroes, each with a weapon that plays nothing like the others and one signature **power** — and every power is tuned with **add-ons**, earned by playing and used up when you deploy, Dead by Daylight style.
 
 **Play:** https://nefarious-trickster.github.io/overtune/
 
@@ -16,6 +16,7 @@ A 3D hero shooter you play in the browser. Eight heroes, each with a weapon that
 | **Wick**, the Lamplighter | Moth Swarm — slow homing moths | **Lanterns** — light that reveals and slows; walk between them | Wax Shell | Flare |
 | **Mire**, the Bog Witch | Brewer's Flasks — lobbed acid pools | **Submerge** — sink, move unseen, erupt in a geyser | Leech | Bog Tide |
 | **Spindle**, the Puppeteer | Thread Needles — bursts that Stitch enemies in place | **Marionette Line** — hook and reel enemies in | Grapple | Cat's Cradle |
+| **Sable**, the Clockbreaker | Second Hand — clock hands fired in pairs that slow what they hit | **Rewind** — snap back 3 s to where you were, with the health you had | Overwind | Stopped Time |
 
 ## Add-ons
 

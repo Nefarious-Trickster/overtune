@@ -245,9 +245,37 @@ const HEROES = {
       { id: 'iriSpindle', name: 'Iridescent Spindle', r: 4, icon: 'gem', d: ['+ The line drags you both together: you meet in the middle with a 100-damage collision', '+ Two stitched needles are enough to Stitch'], m: P => { P.meet = true; } },
     ],
   },
+  sable: {
+    key: 'sable', name: 'Sable', title: 'The Clockbreaker', role: 'Skirmisher', hp: 300, speed: 5.3,
+    blurb: 'A thief of seconds with a cracked clock where a face should be. Dives into a fight, takes what it wants, and is three seconds ago before you can turn around.',
+    look: { skin: 0xd8c8b0, main: 0x1e2a4a, second: 0x2a2a30, cloth: 0x3a2a1e, metal: 0xc89a4a, glow: 0xa8e8ff },
+    weapon: { name: 'Second Hand', kind: 'proj', proj: 'hand', desc: 'Fires clock hands in pairs. Every hit drags at the target\'s time: slowed 20% for a second.', dmg: 26, head: 1.7, speed: 75, grav: 0, rof: 0.6, mag: 12, reload: 1.9, spread: 0.004, spreadMove: 0.012, burst: 2, burstGap: 0.09, slow: [0.8, 1.0], recoil: 0.015, sound: 'hand' },
+    power: { name: 'Rewind', key: 'rewind', desc: 'Snap back to where you were 3 s ago, with the health you had then if it was more.',
+      back: 3, cd: 11, charges: 1, heal: true, bonus: 0, reload: false, silent: false, cleanse: false, decoy: 0, depart: 0, departR: 4, arrive: 0, arriveR: 3.5, sand: 0, paradox: false, retro: false, freeze: 0, freezeR: 6, anchor: 0 },
+    util: { name: 'Overwind', key: 'haste', cd: 12, desc: 'Wind yourself up: 3 s of 40% more speed, and an instant reload.' },
+    ult: { name: 'Stopped Time', key: 'stop', desc: 'Time stops for every enemy in sight within 20 m: frozen for 2.5 s, and they take 25% more damage for 4 s.' },
+    addons: [
+      { id: 'oil', name: 'Oiled Gears', r: 0, icon: 'gear', d: ['+ Cooldown 1.5 s shorter'], m: P => { P.cd -= 1.5; } },
+      { id: 'mainspring', name: 'Spare Mainspring', r: 0, icon: 'spring', d: ['+ Rewind reaches 1 s further back'], m: P => { P.back += 1; } },
+      { id: 'locket', name: 'Tarnished Locket', r: 0, icon: 'ring', d: ['+ Rewinding reloads your weapon'], m: P => { P.reload = true; } },
+      { id: 'crystal', name: 'Polished Crystal', r: 0, icon: 'gem', d: ['+ Rewinding also heals 30'], m: P => { P.bonus += 30; } },
+      { id: 'chime', name: 'Silent Chime', r: 0, icon: 'bell', d: ['+ Rewinding makes no sound and leaves no trail for enemies to see'], m: P => { P.silent = true; } },
+      { id: 'sundial', name: 'Pocket Sundial', r: 1, icon: 'star', d: ['+ Cooldown 3 s shorter', '- Rewind reaches 0.5 s less far back'], m: P => { P.cd -= 3; P.back -= 0.5; } },
+      { id: 'escapement', name: 'Twin Escapement', r: 1, icon: 'twin', d: ['+ Two rewinds before the cooldown', '- Cooldown 2 s longer'], m: P => { P.charges = 2; P.cd += 2; } },
+      { id: 'ash', name: 'Ash of the Hour', r: 1, icon: 'drop', d: ['+ Rewinding shakes off roots, slows, burns, bleeds, poison and blindness'], m: P => { P.cleanse = true; } },
+      { id: 'echo', name: 'Brass Echo', r: 1, icon: 'mask', d: ['+ An echo of you stays behind where you left for 3 s'], m: P => { P.decoy = 3; } },
+      { id: 'shatter', name: 'Shattered Crystal', r: 2, icon: 'shard', d: ['+ The moment you leave, the spot you left explodes: 70 damage within 4 m'], m: P => { P.depart = 70; } },
+      { id: 'weight', name: 'Ticking Weight', r: 2, icon: 'fuse', d: ['+ You arrive with a blast: 50 damage within 3.5 m'], m: P => { P.arrive = 50; } },
+      { id: 'sand', name: 'Hourglass Sand', r: 2, icon: 'vial', d: ['+ Enemies near the spot you left (5 m) are slowed by 50% for 3 s'], m: P => { P.sand = 3; } },
+      { id: 'paradox', name: 'Paradox Engine', r: 3, icon: 'skull', d: ['+ While Rewind is ready, a killing blow rewinds you instead of killing you', '- Rewind reaches 1 s less far back'], m: P => { P.paradox = true; P.back -= 1; } },
+      { id: 'retro', name: 'Retrograde', r: 3, icon: 'chain', d: ['+ The last enemy you hurt is rewound too: dragged back to where they stood when you were there'], m: P => { P.retro = true; } },
+      { id: 'iriAnchor', name: 'Ouroboros Anchor', r: 4, icon: 'coil', d: ['+ Press to drop an anchor. Press again within 15 s to return to it with the health and ammo you had then', '- Cooldown 4 s longer, and it starts only once you return'], m: P => { P.anchor = 15; P.cd += 4; } },
+      { id: 'iriStop', name: 'The Stopped Clock', r: 4, icon: 'clock', d: ['+ Arriving stops time around you: enemies within 8 m are frozen for 2 s', '- Rewind reaches only 2 s back'], m: P => { P.freeze = 2; P.freezeR = 8; P.back = 2; } },
+    ],
+  },
 };
 const HERO_KEYS = Object.keys(HEROES);
-for (const k of HERO_KEYS) HEROES[k].addons.forEach((a, i) => { a.idx = i; a.hero = k; });
+for (const k of HERO_KEYS) { HEROES[k].glow = HEROES[k].look.glow; HEROES[k].addons.forEach((a, i) => { a.idx = i; a.hero = k; }); }
 
 function powerFor(heroKey, addons) {
   const H = HEROES[heroKey], P = Object.assign({}, H.power);
@@ -278,13 +306,14 @@ const Inventory = {
   },
   // first time anyone opens the game: a few commons for every hero, so the slots are never empty to start with
   starter() {
-    if (Settings.invV === 2) return;
-    Settings.inv = {}; Settings.loadouts = {};
+    if (Settings.invV !== 2) { Settings.inv = {}; Settings.loadouts = {}; Settings.given = {}; Settings.invV = 2; }
+    let changed = false;
     for (const k of HERO_KEYS) {
+      if (Settings.given[k]) continue; Settings.given[k] = 1; changed = true;
       const commons = HEROES[k].addons.filter(a => a.r === 0); for (const a of commons.sort(() => Math.random() - 0.5).slice(0, 3)) this.add(k, a.idx, 2);
       this.add(k, pick(HEROES[k].addons.filter(a => a.r === 1)).idx, 1);
     }
-    Settings.invV = 2; Settings.save();
+    if (changed) Settings.save();
   },
   // the slotted add-ons you can actually afford right now
   loadout(hero) { const l = Settings.loadouts[hero]; if (!Array.isArray(l)) return []; return l.filter((i, n) => Number.isInteger(i) && i >= 0 && i < 16 && l.indexOf(i) === n && (this.count(hero, i) > 0 || this.paid(hero, i))).slice(0, 2); },
@@ -352,4 +381,4 @@ const ICONS = {
   web: '<circle cx="32" cy="32" r="22" fill="none" stroke-width="3"/><circle cx="32" cy="32" r="12" fill="none" stroke-width="3"/><path d="M32 8v48M8 32h48M15 15l34 34M49 15L15 49" stroke-width="3"/>',
 };
 function iconSVG(name) { return `<svg viewBox="0 0 64 64" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" fill="none">${ICONS[name] || ICONS.gem}</svg>`; }
-const POWER_ICON = { snare: 'jaw', blink: 'shard', ram: 'piston', fade: 'mask', glaive: 'twin', lantern: 'lantern', sub: 'wave', line: 'spool' };
+const POWER_ICON = { snare: 'jaw', blink: 'shard', ram: 'piston', fade: 'mask', glaive: 'twin', lantern: 'lantern', sub: 'wave', line: 'spool', rewind: 'clock' };

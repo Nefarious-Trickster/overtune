@@ -7,7 +7,7 @@ const BOT_DIFF = [
   { name: 'Veteran', react: 0.34, err: 0.055, track: 8, tol: 0.05, see: 1.0, power: 0.85 },
   { name: 'Elite', react: 0.18, err: 0.025, track: 13, tol: 0.03, see: 1.15, power: 1.0 },
 ];
-const PREF_RANGE = { marrow: 22, lark: 14, gauge: 4.5, veil: 1.8, ivra: 12, wick: 15, mire: 13, spindle: 17 };
+const PREF_RANGE = { marrow: 22, lark: 14, gauge: 4.5, veil: 1.8, ivra: 12, wick: 15, mire: 13, spindle: 17, sable: 14 };
 
 const Bots = {
   B: new Map(),
@@ -197,11 +197,12 @@ const Bots = {
       if (U === 'shell' && vis && a.hp < a.maxHp * 0.6 && Game.t - b.threatT < 1.5) I.util = true;
       if (U === 'leech' && Game.actors.some(o => o.alive && isEnemy(a, o) && o.pos.distanceTo(a.pos) < 6)) I.util = true;
       if (U === 'grapple' && !vis && cool('grapple', rand(8, 16)) && Math.random() < 0.4) I.util = true;
+      if (U === 'haste' && ((vis && (dist > 16 || a.ammo === 0)) || (a.hp < a.maxHp * 0.3 && Game.t - b.threatT < 2))) I.util = true;
     }
     // ultimates
     if (a.ult >= 100) {
       const K = a.H.ult.key, near = Game.actors.filter(o => o.alive && isEnemy(a, o) && o.pos.distanceTo(a.pos) < 7).length;
-      if ((K === 'field' && (!vis || Game.t - b.seenT > 3)) || (K === 'unbound' && vis && a.hp > a.maxHp * 0.4) || (K === 'slam' && near >= 1 && dist < 6) || (K === 'night' && vis && dist < 25) || (K === 'storm' && vis && dist < 24) || (K === 'flare' && [...Game.lanterns.values()].some(L => L.owner === a.id && Game.actors.some(o => o.alive && isEnemy(a, o) && o.pos.distanceTo(L.pos) < L.r))) || (K === 'tide' && near >= 1) || (K === 'cradle' && vis && dist < 20)) I.ult = true;
+      if ((K === 'field' && (!vis || Game.t - b.seenT > 3)) || (K === 'unbound' && vis && a.hp > a.maxHp * 0.4) || (K === 'slam' && near >= 1 && dist < 6) || (K === 'night' && vis && dist < 25) || (K === 'storm' && vis && dist < 24) || (K === 'flare' && [...Game.lanterns.values()].some(L => L.owner === a.id && Game.actors.some(o => o.alive && isEnemy(a, o) && o.pos.distanceTo(L.pos) < L.r))) || (K === 'tide' && near >= 1) || (K === 'cradle' && vis && dist < 20) || (K === 'stop' && (near >= 2 || (vis && dist < 14)))) I.ult = true;
     }
     if (key === 'marrow') {
       b.snareT -= dt;
@@ -249,6 +250,11 @@ const Bots = {
       if (st === 'up') I.power = !a.prev.power && pw.cd <= 0 && a.grounded && ((vis && dist < 13 && dist > 2.5) || (vis && a.hp < a.maxHp * 0.3)) && cool('sub', 0.8);
       else if (st === 'under') I.power = !a.prev.power && ((T && dist < P.radius * 0.6) || pw.t > P.maxTime - 0.3);
       else I.power = false;
+    } else if (key === 'sable') {
+      // rewind out of trouble when it would give health back, or as an escape when nearly dead
+      const to = rewindPoint(a), gain = to ? to.hp - a.hp : 0;
+      if (P.anchor) I.power = !a.prev.power && pw.charges > 0 && ((!pw.anchor && vis && dist < 18 && a.hp > a.maxHp * 0.7) || (pw.anchor && (a.hp < a.maxHp * 0.35 || Game.t - pw.anchor.t > P.anchor - 1))) && cool('rewind', 0.5);
+      else I.power = !a.prev.power && pw.charges > 0 && to && ((gain > 70) || (a.hp < a.maxHp * 0.25 && Game.t - b.threatT < 1.5) || (P.arrive || P.freeze ? (T && to && T.pos.distanceTo(new V3(to.x, to.y, to.z)) < (P.freezeR || 4)) : false)) && cool('rewind', 0.6);
     } else if (key === 'spindle') {
       I.power = !a.prev.power && pw.charges > 0 && vis && dist > 4 && dist < P.range * 0.85 && b.react <= 0 && cool('line', rand(0.6, 1.6));
     }

@@ -66,6 +66,7 @@ function resetKit(a) {
   if (P.key === 'lantern') a.pw = { charges: P.carry, rech: 0, placing: 0, hold: 0, chan: 0, chanTo: null, walkCd: 0, n: 0 };
   if (P.key === 'sub') a.pw = { state: 'up', t: 0, cd: 0, trailT: 0, drownAcc: {} };
   if (P.key === 'line') a.pw = { charges: P.charges, rech: 0 };
+  if (P.key === 'rewind') a.pw = { charges: P.charges, rech: 0, hist: [], ehist: [], histT: 0, anchor: null };
 }
 function spawnActor(a, at) {
   if (a.pendingHero) { const ph = a.pendingHero; a.pendingHero = null; a.alive = false; setHero(a, ph.h, ph.a); }
@@ -138,6 +139,7 @@ function hitActor(src, tgt, dmg, opts = {}) {
   const sid = src ? src.id : opts.srcId;
   if (dmg > 0 && src && !src.remote) { src.ult = Math.min(100, src.ult + dmg * 0.03 * (src.st.unbound || src.st.night ? 0 : 1)); src.dmg += dmg; }
   if (src === Game.me && dmg > 0) HUD.hit(tgt, dmg, !!opts.head);
+  if (src && dmg > 0 && src !== tgt) { src.lastDealt = tgt.id; src.lastDealtT = Game.t; }
   if (!tgt.remote) applyDamage(tgt, dmg, sid, opts);
   else Net.push(['h', tgt.id, r2(dmg), sid, packOpts(opts)]);
 }
@@ -158,6 +160,7 @@ function applyDamage(a, dmg, srcId, opts = {}) {
   if (srcId && srcId !== a.id) { a.lastHit[srcId] = Game.t; a.lastHitBy = srcId; }
   if (a === Game.me) HUD.hurt(dmg, src ? src.pos : (opts.srcPos ? new V3(opts.srcPos[0], 0, opts.srcPos[1]) : null));
   if (a.isBot) Bots.hurt(a, src);
+  if (a.hp <= 0 && a.P.key === 'rewind' && a.P.paradox && a.pw.charges > 0 && !opts.oneshot) { const to = rewindPoint(a); if (to) { a.hp = 1; doRewind(a, to, true); return; } }
   if (a.hp <= 0) killActor(a, srcId, opts.how || 'weapon');
 }
 function killActor(a, srcId, how) {
@@ -338,6 +341,21 @@ function stepLocal(a, dt) {
   } else if (P.key === 'line') {
     if (pw.charges < P.charges) { pw.rech += dt; if (pw.rech >= P.cd) { pw.rech = 0; pw.charges++; } }
     if (pressed('power') && pw.charges > 0 && !stunned) { pw.charges--; fireLine(a); }
+  } else if (P.key === 'rewind') {
+    // the past, kept ten times a second: where you were, how hurt you were, how loaded; and where your enemies stood
+    pw.histT -= dt;
+    if (pw.histT <= 0) {
+      pw.histT = 0.1;
+      pw.hist.push({ x: a.pos.x, y: a.pos.y, z: a.pos.z, hp: a.hp, ammo: a.ammo, t: Game.t });
+      while (pw.hist.length && Game.t - pw.hist[0].t > P.back + 0.3) pw.hist.shift();
+      if (P.retro) { const snap = { t: Game.t, p: {} }; for (const o of Game.actors) if (o.alive && isEnemy(a, o)) { const q = o.renderPos || o.pos; snap.p[o.id] = [q.x, q.y, q.z]; } pw.ehist.push(snap); while (pw.ehist.length && Game.t - pw.ehist[0].t > P.back + 0.3) pw.ehist.shift(); }
+    }
+    if (pw.anchor && Game.t - pw.anchor.t > P.anchor) { pw.anchor = null; pw.charges = Math.max(0, pw.charges - 1); if (a === Game.me) HUD.note('Anchor faded'); }
+    if (pw.charges < P.charges && !pw.anchor) { pw.rech += dt; if (pw.rech >= P.cd) { pw.rech = 0; pw.charges++; } }
+    if (pressed('power') && pw.charges > 0 && !stunned) {
+      if (P.anchor && !pw.anchor) { pw.anchor = { x: a.pos.x, y: a.pos.y, z: a.pos.z, hp: a.hp, ammo: a.ammo, t: Game.t }; emit(['fx', 'anchor', r2(a.pos.x), r2(a.pos.y + 0.1), r2(a.pos.z), 0, 0]); Sfx.play('tick', a === Game.me ? null : a.pos, 0.8); }
+      else { const to = rewindPoint(a); if (to) doRewind(a, to, false); }
+    }
   }
   // ---------------------------------------------------- utility and ultimate
   if (a.utilT > 0) a.utilT -= dt;
@@ -552,7 +570,7 @@ function rayActor(o, d, a, maxT, pad = 0) {
 }
 
 // ---------------------------------------------------------------- projectiles: bolts, shards, moths, flasks, needles, glaives, lines
-const PROJ = { bolt: { pad: 0.08, life: 4 }, shard: { pad: 0.1, life: 3 }, moth: { pad: 0.3, life: 5 }, flask: { pad: 0.15, life: 5 }, needle: { pad: 0.06, life: 2 }, glaive: { pad: 0.28, life: 6 }, line: { pad: 0.35, life: 1.5 } };
+const PROJ = { bolt: { pad: 0.08, life: 4 }, shard: { pad: 0.1, life: 3 }, moth: { pad: 0.3, life: 5 }, flask: { pad: 0.15, life: 5 }, needle: { pad: 0.06, life: 2 }, hand: { pad: 0.08, life: 2.5 }, glaive: { pad: 0.28, life: 6 }, line: { pad: 0.35, life: 1.5 } };
 function projMesh(kind, owner, o) {
   const glow = owner ? owner.H.look.glow : 0xffffff;
   if (kind === 'glaive') return buildGlaive(glow, 1.3);
@@ -561,6 +579,7 @@ function projMesh(kind, owner, o) {
   if (kind === 'moth') return buildMoth(glow);
   if (kind === 'flask') return buildFlask(glow);
   if (kind === 'needle') return buildNeedle(glow);
+  if (kind === 'hand') return buildHand(glow);
   if (kind === 'line') return buildLineHead(glow, o.web);
   return new THREE.Mesh(sph(0.12, 8, 6), mGlow(glow, 5));
 }
@@ -1017,6 +1036,7 @@ function useUtil(a) {
     const f = flatFwd(a.yaw); a.vel.y = 11.5; a.vel.x += f.x * 5; a.vel.z += f.z * 5; a.grounded = false; a.leapT = 1.2;
     Sfx.play('leap', at); emit(['fx', 'leap', r2(a.pos.x), r2(a.pos.y), r2(a.pos.z), 0, 0]);
   } else if (U.key === 'shell') { a.st.shield = { hp: 100, t: 4 }; Sfx.play('wall', at); emit(['fx', 'shell', ...here, 0, 0]); }
+  else if (U.key === 'haste') { a.st.swift = 3; if (a.H.weapon.mag) { a.ammo = a.H.weapon.mag; a.reloadT = 0; } Sfx.play('dash', at); emit(['fx', 'dash', ...here, 0, 0]); }
   else if (U.key === 'leech') { a.st.leech = { t: 3, acc: 0 }; Sfx.play('leech', at); emit(['fx', 'leech', ...here, 7, 0]); }
   else if (U.key === 'grapple') {
     const e = eyePos(a), d = aimDir(a.yaw, a.pitch), h = World.ray(e.x, e.y, e.z, d.x, d.y, d.z, 28, -9);
@@ -1032,6 +1052,39 @@ function leechTick(a, dt) {
     L.acc = 0;
   }
   if (L.t <= 0) a.st.leech = null;
+}
+// ---------------------------------------------------------------- Rewind
+function rewindPoint(a) {
+  const pw = a.pw, P = a.P;
+  if (P.anchor) return pw.anchor;
+  if (!pw.hist.length) return null;
+  const want = Game.t - P.back; let best = pw.hist[0];
+  for (const h of pw.hist) { if (h.t <= want) best = h; else break; }
+  return best;
+}
+function doRewind(a, to, saved) {
+  const P = a.P, pw = a.pw, from = a.pos.clone(), at = a === Game.me ? null : a.pos;
+  pw.charges--; pw.anchor = null;
+  a.pos.set(to.x, to.y, to.z); a.vel.set(0, 0, 0); a.grapple = null; a.dashT = 0; a.knockT = 0;
+  if (P.heal) a.hp = Math.max(a.hp, Math.min(a.maxHp, to.hp));
+  if (P.bonus) a.hp = Math.min(a.maxHp, a.hp + P.bonus);
+  if (P.anchor) a.ammo = Math.max(a.ammo, to.ammo | 0);
+  if (P.reload && a.H.weapon.mag) { a.ammo = a.H.weapon.mag; a.reloadT = 0; }
+  if (P.cleanse) { const st = a.st; st.root = 0; st.slows = []; st.dots = []; st.blind = 0; st.vulnT = 0; }
+  if (saved) a.spawnProt = Math.max(a.spawnProt, 0.6);
+  if (P.decoy) spawnDecoy(a, from, a.yaw, P.decoy);
+  const fp = [r2(from.x), r2(from.y), r2(from.z)];
+  if (P.depart) later(0.35, () => { emit(['fx', 'boom', fp[0], fp[1] + 1, fp[2], P.departR, 0xa8e8ff]); for (const t of Game.actors) if (t.alive && isEnemy(a, t) && t.pos.distanceTo(from) < P.departR) hitActor(a, t, P.depart, { how: 'rewind', fx: { knock: [0, 5, 0] } }); });
+  if (P.sand) for (const t of Game.actors) if (t.alive && isEnemy(a, t) && t.pos.distanceTo(from) < 5) hitActor(a, t, 0, { fx: { slow: [0.5, P.sand] }, how: 'rewind' });
+  if (P.arrive) { for (const t of Game.actors) if (t.alive && isEnemy(a, t) && t.pos.distanceTo(a.pos) < P.arriveR) hitActor(a, t, P.arrive, { how: 'rewind' }); emit(['fx', 'pulse', r2(a.pos.x), r2(a.pos.y), r2(a.pos.z), P.arriveR, 0]); }
+  if (P.freeze) { for (const t of Game.actors) if (t.alive && isEnemy(a, t) && !isSub(t) && t.pos.distanceTo(a.pos) < P.freezeR && World.clear(a.pos.x, a.pos.y + 1.2, a.pos.z, t.pos.x, t.pos.y + 1.2, t.pos.z)) hitActor(a, t, 0, { fx: { stun: P.freeze }, how: 'stop' }); emit(['fx', 'stop', r2(a.pos.x), r2(a.pos.y + 1), r2(a.pos.z), P.freezeR, 0]); }
+  if (P.retro && a.lastDealt && Game.t - (a.lastDealtT || 0) < P.back + 1) {
+    const t = Game.byId.get(a.lastDealt), snap = pw.ehist.find(e => e.t >= to.t - 0.05);
+    if (t && t.alive && snap && snap.p[t.id]) { const q = snap.p[t.id], tp = t.renderPos || t.pos; emit(['fx', 'rewind', r2(tp.x), r2(tp.y + 1), r2(tp.z), r2(q[0]), r2(q[2])]); hitActor(a, t, 0, { fx: { tp: [q[0], q[1], q[2]], slow: [0.7, 1] }, how: 'rewind' }); }
+  }
+  if (!P.silent || a === Game.me) Sfx.play('rewind', at, 1);
+  if (!P.silent) emit(['fx', 'rewind', fp[0], fp[1] + 1, fp[2], r2(a.pos.x), r2(a.pos.z)]);
+  if (a === Game.me) { View.blink(); View.throwAnim(); if (saved) HUD.note('Paradox — not yet', 'big'); }
 }
 function useUlt(a) {
   const K = a.H.ult.key; a.ult = 0;
@@ -1050,6 +1103,10 @@ function useUlt(a) {
       for (const t of Game.actors) if (t.alive && isEnemy(a, t) && !isSub(t) && chest(t).distanceTo(l.pos) < l.r + 0.5 && World.clear(l.pos.x, l.pos.y + 1.2, l.pos.z, t.pos.x, t.pos.y + 1.2, t.pos.z)) hitActor(a, t, 80, { fx: { blind: 2.5 }, how: 'flare' });
     }
   } else if (K === 'tide') emit(['zn', 'bog', r2(a.pos.x), r2(a.pos.y), r2(a.pos.z), 8, 35, 6, a.id, 0.6]);
+  else if (K === 'stop') {
+    for (const t of Game.actors) if (t.alive && isEnemy(a, t) && !isSub(t) && t.pos.distanceTo(a.pos) < 20 && World.clear(a.pos.x, a.pos.y + 1.4, a.pos.z, t.pos.x, t.pos.y + 1.2, t.pos.z)) hitActor(a, t, 0, { fx: { stun: 2.5, vuln: [1.25, 4] }, how: 'stop' });
+    emit(['fx', 'stop', r2(a.pos.x), r2(a.pos.y + 1), r2(a.pos.z), 20, 0]);
+  }
   else if (K === 'cradle') {
     for (const t of Game.actors) if (t.alive && isEnemy(a, t) && !isSub(t) && t.pos.distanceTo(a.pos) < 22 && World.clear(a.pos.x, a.pos.y + 1.4, a.pos.z, t.pos.x, t.pos.y + 1.2, t.pos.z)) { hitActor(a, t, 40, { fx: { root: 2.2 }, how: 'cradle' }); emit(['fx', 'thread', r2(a.pos.x), r2(a.pos.y + 1.4), r2(a.pos.z), r2(t.pos.x), r2(t.pos.z)]); }
   }
@@ -1130,6 +1187,9 @@ function namedFx(name, p, a, b) {
   else if (name === 'leech') Fx.ring(p.clone().setY(p.y - 1), a || 7, 0x9aff5a, 0.8, 3);
   else if (name === 'flare') { Fx.sphere(p, a || 6, 0xffe0a0, 0.5, 4); Fx.burst(p, 0xffd27a, 50, 8, 0.6, 0.1, { k: 4 }); Sfx.play('boom', p, 0.7); muzzleLight(p, 0xffd27a, 18); }
   else if (name === 'grapple') Fx.tracer(p, new V3(a, World.groundAt(a, b, p.y + 30), b).setY(Math.max(p.y, World.groundAt(a, b, p.y + 30))), 0xff5a7a, 0.02, 0.5, 3);
+  else if (name === 'rewind') { const to = new V3(a, World.groundAt(a, b, p.y + 2) + 1, b); for (let i = 0; i <= 16; i++) { const q = p.clone().lerp(to, i / 16); Fx.spawn('add', q.x + rand(-0.2, 0.2), q.y + rand(-0.5, 0.5), q.z + rand(-0.2, 0.2), 0, 0.3, 0, 1.2, 2.4, 3, 0.09, 0.5 + i * 0.03); } Fx.ring(p.clone().setY(p.y - 0.9), 1.4, 0xa8e8ff, 0.4, 4); Fx.ring(to.clone().setY(to.y - 0.9), 1.4, 0xa8e8ff, 0.4, 4); }
+  else if (name === 'stop') { Fx.sphere(p, a || 8, 0xa8e8ff, 0.6, 1.2); Fx.ring(p.clone().setY(p.y - 0.9), a || 8, 0xa8e8ff, 0.9, 3); Sfx.play('stop', p); muzzleLight(p, 0xa8e8ff, 14); }
+  else if (name === 'anchor') { Fx.ring(p, 1.6, 0xa8e8ff, 0.8, 2); Fx.burst(p.clone().setY(p.y + 0.5), 0xa8e8ff, 16, 2, 0.6, 0.07); }
   else if (name === 'thread') Fx.tracer(p, new V3(a, World.groundAt(a, b, 99) + 1.2, b), 0xff5a7a, 0.02, 0.6, 3);
 }
 function deathFx(a) {

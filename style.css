@@ -359,3 +359,14 @@ td.ads { white-space: nowrap; } td.ads .mini { width: 18px; height: 18px; margin
 #end-drops .drop em { font-style: normal; font-size: 11px; color: var(--mist); }
 @keyframes dropIn { to { opacity: 1; transform: none; } }
 #xhair.lock b { width: 9px; height: 9px; left: -4.5px; top: -4.5px; background: transparent; border: 2px solid #5affd2; box-shadow: 0 0 6px #5affd2; }
+/* loadout: nothing in the panel may shrink (it scrolls instead), and a denser add-on grid for 16 add-ons */
+.lo-panel { width: min(780px, calc(100vw - 230px)); }
+.lo-panel > * { flex: none; min-height: 0; }
+.lo-body { align-items: start; }
+.lo-left, .lo-right { min-width: 0; }
+.lo-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.addon { aspect-ratio: auto; height: 84px; overflow: hidden; }
+.addon svg { width: 34px; height: 34px; flex: none; }
+.addon span { max-width: 100%; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+#lo-gridhead { display: block; line-height: 1.4; margin-bottom: 2px; }
+.lo-tip { min-height: 120px; }

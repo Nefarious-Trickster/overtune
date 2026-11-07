@@ -187,6 +187,8 @@ const BEAM_CORE = new THREE.MeshBasicMaterial({ color: hdrCol(0xe8fff8, 5), tone
 const SHIELD_MAT = new THREE.MeshBasicMaterial({ color: hdrCol(0xffd27a, 0.7), transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
 function drawExtras(a, f, p, dt) {
   const M = a.model, X = a.fx || (a.fx = {});
+  // Sable sees a faint echo of herself where Rewind would take her
+  if (a === Game.me && a.P.key === 'rewind' && a.pw.charges > 0) { const to = rewindPoint(a); if (to && Math.random() < dt * 30) Fx.spawn('add', to.x + rand(-0.3, 0.3), to.y + rand(0.1, 1.8), to.z + rand(-0.3, 0.3), 0, 0.4, 0, 0.6, 1.4, 2, 0.06, 0.5); }
   const muzzle = () => a === Game.me ? View.muzzleWorld(0) : M.muzzle.getWorldPosition(new V3());
   // Tidecaller's beam: a twisting rope of water from the staff into the target's chest
   const bt = a.remote ? a.beamTo : a.beamT, beamOn = !!(f & F_BEAM) && bt && bt.alive;
@@ -220,7 +222,7 @@ function drawExtras(a, f, p, dt) {
   if (f & F_SHIELD) { if (!X.shield) { X.shield = new THREE.Mesh(new THREE.IcosahedronGeometry(1.15, 2), SHIELD_MAT); G.scene.add(X.shield); } X.shield.visible = true; X.shield.position.set(p.x, p.y + 1.0, p.z); X.shield.rotation.y = G.time; }
   else if (X.shield) X.shield.visible = false;
 }
-function clearExtras(a) { if (!a.fx) return; for (const k in a.fx) { const o = a.fx[k]; if (o && o.parent) o.parent.remove(o); } a.fx = null; }
+function clearExtras(a) { if (!a.fx) return; for (const k in a.fx) { const o = a.fx[k]; if (o && o.isObject3D && o.parent) o.parent.remove(o); } a.fx = null; }
 function drawActor(a, dt) {
   const M = a.model; if (!M) return;
   const me = Game.me, local = !a.remote;
@@ -232,7 +234,7 @@ function drawActor(a, dt) {
   M.t += dt;
   // death: the legs go, the body folds and topples, then sinks away
   if (!a.alive) {
-    if (a.fx) for (const k in a.fx) if (a.fx[k]) a.fx[k].visible = false;
+    if (a.fx) for (const k in a.fx) if (a.fx[k] && a.fx[k].isObject3D) a.fx[k].visible = false;
     if (An.death > 0) {
       An.death += dt; const k = Math.min(1, An.death / 0.6), e = k * k;
       poseHero(M, { spd: 0, phase: 0, air: 0, pitch: -0.6 * e, flags: 0, t: M.t, crouch: e * 0.9 });
@@ -382,6 +384,8 @@ const Flow = {
 
 // ---------------------------------------------------------------- main loop
 let lastT = performance.now(), fpsAcc = 0, fpsN = 0, fps = 60;
+const GUARD_SEEN = new Set();
+function guard(tag, fn) { try { fn(); } catch (e) { const k = tag + e.message; if (!GUARD_SEEN.has(k)) { GUARD_SEEN.add(k); console.error('[overtune] ' + tag, e); } } }
 function frame() {
   requestAnimationFrame(frame);
   const tNow = performance.now(); let dt = (tNow - lastT) / 1000; lastT = tNow; dt = Math.min(dt, 0.05);
@@ -392,25 +396,26 @@ function frame() {
     Game.t += dt;
     const me = Game.me, frozen = Mode.frozen(), paused = !Net.online() && !!UI.cur && Game.match.st !== 'end';
     if (me) Input.apply(me, dt, frozen);
-    if (paused) { for (const a of Game.actors) drawActor(a, 0); View.update(dt); Fx.update(0); updateLights(dt); renderFrame(false); return; }
-    for (const a of Game.actors) if (a.isBot && !a.remote) { Bots.think(a, dt); if (frozen) a.input = { fwd: 0, side: 0, jump: false, fire: false, power: false, util: false, ult: false, reload: false }; }
+    if (paused) { for (const a of Game.actors) guard('draw', () => drawActor(a, 0)); guard('view', () => View.update(dt)); Fx.update(0); updateLights(dt); renderFrame(false); return; }
+    for (const a of Game.actors) if (a.isBot && !a.remote) { guard('bot', () => Bots.think(a, dt)); if (frozen) a.input = { fwd: 0, side: 0, jump: false, fire: false, power: false, util: false, ult: false, reload: false }; }
     // fixed sub-steps keep movement steady when the frame rate dips
     const n = Math.ceil(dt / (1 / 60)), sdt = dt / n;
-    for (let i = 0; i < n; i++) for (const a of Game.actors) if (!a.remote) { if (frozen && Game.match.st !== 'end') { a.vel.x = a.vel.z = 0; } stepLocal(a, sdt); }
-    worldTick(dt); Pickups.tick(dt);
+    for (let i = 0; i < n; i++) for (const a of Game.actors) if (!a.remote) { if (frozen && Game.match.st !== 'end') { a.vel.x = a.vel.z = 0; } guard('step', () => stepLocal(a, sdt)); }
+    guard('world', () => worldTick(dt)); guard('pickups', () => Pickups.tick(dt));
     if (Net.isHost()) { Mode.tick(dt); Game.fillT = (Game.fillT || 0) - dt; if (Game.fillT <= 0) { Game.fillT = 1; Flow.fillBots(); } }
-    for (const a of Game.actors) drawActor(a, dt);
-    Zone.update();
-    View.update(dt);
-    HUD.update(dt);
+    // drawing is kept apart from the simulation: a fault in one actor's visuals must never freeze the screen
+    for (const a of Game.actors) guard('draw', () => drawActor(a, dt));
+    guard('zone', () => Zone.update());
+    guard('view', () => View.update(dt));
+    guard('hud', () => HUD.update(dt));
     Net.send(t);
     if (Game.match.st === 'end' && Net.isHost() && Game.match.endT > 14 && Net.online()) { Flow.backToLobby(); }
   } else {
     Showcase.update(dt);
     if (Net.chan) Net.send(t);
   }
-  Fx.update(dt);
-  updateLights(dt);
+  guard('fx', () => Fx.update(dt));
+  guard('lights', () => updateLights(dt));
   Sfx.listener.x = G.camera.position.x; Sfx.listener.y = G.camera.position.y; Sfx.listener.z = G.camera.position.z; Sfx.listener.yaw = G.camera.rotation.y;
   renderFrame(Game.state === 'play' && Game.me && Game.me.alive && !View.deathCam);
   if (Settings.showFps) $('#fps').textContent = Math.round(fps) + ' fps';

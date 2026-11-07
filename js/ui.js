@@ -138,7 +138,7 @@ const View = {
     if (P.key === 'glaive' && (pw.winding || this.throwT > 0)) { offOn = true; const w = pw.winding ? clamp(pw.wind / P.windMax, 0, 1) : 0; if (this.throwT > 0) { this.throwT -= dt; const k = 1 - this.throwT / 0.35; off.position.set(-0.1 + k * 0.1, -0.15 - k * 0.25, -0.6 - k * 0.3); off.rotation.set(-0.3 - k, 0, 0.6); } else { off.position.set(-0.3 - w * 0.1, -0.12 + w * 0.08, -0.32 + w * 0.12); off.rotation.set(0.2 + w * 0.5, 0, 0.4 + w * 0.3); } if (V.extra.prop) V.extra.prop.rotation.y = G.time * (pw.winding ? 14 * w : 0); }
     if (P.key === 'blink' && (pw.charging || this.blinkT > 0)) { offOn = true; const k = pw.charging ? clamp(pw.chargeT / P.chargeTime, 0, 1) : 1; off.position.set(-0.24, -0.24 + k * 0.04, -0.46); off.rotation.set(-0.2, 0, 0); V.extra.orb.scale.setScalar(0.5 + k * 1.2 + Math.sin(G.time * 30) * 0.08); V.extra.ring.rotation.set(G.time * 3, G.time * 5, 0); V.extra.ring.scale.setScalar(0.6 + k); }
     if (P.key === 'lantern' && (pw.placing > 0 || pw.chan > 0 || pw.hold > 0.1)) { offOn = true; const k = pw.placing > 0 ? 1 - pw.placing / P.place : pw.chan > 0 ? 1 - pw.chan / P.walk : 0.3; off.position.set(-0.2, -0.32 + k * 0.1, -0.42 - k * 0.1); off.rotation.set(-0.2 - k * 0.3, 0, 0); if (V.extra.prop) V.extra.prop.userData.flame.scale.setScalar(1 + (pw.chan > 0 ? k * 2 : 0) + Math.sin(G.time * 25) * 0.1); }
-    if ((P.key === 'line' || P.key === 'sub') && this.throwT > 0 && V.extra.orb) { offOn = true; this.throwT -= dt; const k = 1 - this.throwT / 0.35; off.position.set(-0.22 + k * 0.08, -0.22 + k * 0.05, -0.42 - k * 0.25); off.rotation.set(-0.4 * k, 0, 0); V.extra.orb.scale.setScalar(1.4 - k); V.extra.ring.rotation.set(G.time * 6, G.time * 4, 0); V.extra.ring.scale.setScalar(0.5 + k * 1.5); }
+    if ((P.key === 'line' || P.key === 'sub' || P.key === 'rewind') && this.throwT > 0 && V.extra.orb) { offOn = true; this.throwT -= dt; const k = 1 - this.throwT / 0.35; off.position.set(-0.22 + k * 0.08, -0.22 + k * 0.05, -0.42 - k * 0.25); off.rotation.set(-0.4 * k, 0, 0); V.extra.orb.scale.setScalar(1.4 - k); V.extra.ring.rotation.set(G.time * 6, G.time * 4, 0); V.extra.ring.scale.setScalar(0.5 + k * 1.5); }
     else if (this.throwT > 0 && P.key !== 'glaive') this.throwT -= dt;
     if (this.blinkT > 0) this.blinkT -= dt;
     off.visible = offOn;
@@ -319,6 +319,7 @@ const HUD = {
     else if (P.key === 'lantern') { if (P.carried) label = 'CARRIED'; else { pips = pipHTML(pw.charges, P.carry); if (pw.chan > 0) { bar = 1 - pw.chan / P.walk; label = 'WALKING'; state = 'charging'; } else if (pw.placing > 0) label = 'LIGHTING'; else if (pw.walkCd > 0) cd = pw.walkCd; else if (pw.charges < P.carry) bar = pw.rech / P.recharge; } }
     else if (P.key === 'sub') { if (pw.state === 'under') { bar = 1 - pw.t / P.maxTime; label = 'SUBMERGED'; state = 'active'; } else if (pw.state === 'sinking') { label = 'SINKING'; state = 'charging'; } else if (pw.cd > 0) cd = pw.cd; }
     else if (P.key === 'line') { pips = pipHTML(pw.charges, P.charges); if (pw.charges < P.charges) bar = pw.rech / P.cd; }
+    else if (P.key === 'rewind') { pips = pipHTML(pw.charges, P.charges); if (pw.anchor) { bar = 1 - (Game.t - pw.anchor.t) / P.anchor; label = 'ANCHORED'; state = 'active'; } else if (pw.charges < P.charges) bar = pw.rech / P.cd; }
     else if (P.key === 'glaive') { pips = pipHTML(pw.count, P.cap); if (P.orbit && pw.count) label = 'ORBITING'; if (pw.winding) { bar = clamp((pw.wind - P.windMin) / (P.windMax - P.windMin), 0, 1); label = bar >= 1 ? 'FULL' : 'WIND'; state = 'charging'; } else if (pw.count < P.cap) bar = pw.rech / P.regen; }
     const key = pips + '|' + label + '|' + state + '|' + Math.ceil(cd);
     if (key !== this.pwKey) { this.pwKey = key; $('#kit-pips').innerHTML = pips; $('#kit-power-state').textContent = label || (cd > 0 ? Math.ceil(cd) + 's' : ''); el.className = 'kit power ' + state + (cd > 0 ? ' cool' : ''); }
@@ -370,7 +371,7 @@ function fmtTime(t) { t = Math.max(0, Math.ceil(t)); return Math.floor(t / 60) +
 function scoreText(t) { const M = Game.match; if (!M) return 0; if (M.mode === 'koth') return Math.floor(M.sc[t]) + '%'; if (M.mode === 'elim') return M.rd.w[t]; return Math.floor(M.sc[t]); }
 function howName(k, how) {
   if (!k) return how;
-  const map = { snare: k.H.power.name, blink: 'Rift Step', ram: 'Ramjet', glaive: 'Glaive', ambush: 'Ambush', backstab: 'Backstab', knives: 'Whisper Knives', slam: k.H.ult.name, burn: 'Burning', bleed: 'Bleed', poison: 'Venom', acid: 'Acid', flame: 'Boiler', beam: 'Tidecaller', furnace: 'Furnace', lantern: 'Lantern', beacon: 'Beacon', flare: k.H.ult.name, geyser: 'Geyser', drown: 'Drowned', line: 'Marionette Line', leech: k.H.util.name, cradle: k.H.ult.name, heart: k.H.ult.name, bolt: 'Rattlejaw', shard: 'Shardcaster', moth: 'Moth Swarm', flask: "Brewer's Flasks", needle: 'Thread Needles' };
+  const map = { snare: k.H.power.name, blink: 'Rift Step', ram: 'Ramjet', glaive: 'Glaive', ambush: 'Ambush', backstab: 'Backstab', knives: 'Whisper Knives', slam: k.H.ult.name, burn: 'Burning', bleed: 'Bleed', poison: 'Venom', acid: 'Acid', flame: 'Boiler', beam: 'Tidecaller', furnace: 'Furnace', lantern: 'Lantern', beacon: 'Beacon', flare: k.H.ult.name, geyser: 'Geyser', drown: 'Drowned', line: 'Marionette Line', leech: k.H.util.name, cradle: k.H.ult.name, heart: k.H.ult.name, bolt: 'Rattlejaw', shard: 'Shardcaster', moth: 'Moth Swarm', flask: "Brewer's Flasks", needle: 'Thread Needles', hand: 'Second Hand', rewind: 'Rewind', stop: k.H.ult.name };
   return map[how] || how;
 }
 
@@ -387,6 +388,7 @@ function powerStats(heroKey, addons) {
   if (P.key === 'glaive') { row('Glaives carried', 'cap', n); row('Return time', 'regen', s, -1); if (P.orbit) row('Glaives orbit you', 'orbit', yes); else { row('Full wind-up', 'windMax', s, -1); row('Damage', 'dmgMax', v => `${Math.round(P.dmgMin)}–${Math.round(v)}`); row('Throw speed', 'spdMax', v => Math.round(v) + ' m/s'); row('Move while winding', 'slow', pct); } opt('Venom', 'venom', n); opt('Ricochets', 'ricochet', n); opt('Burst damage', 'blast', n); opt('Twin throw', 'twin', yes); opt('Bloodtrail reveal', 'mark', s); opt('Full wind-up kills', 'oneshot', yes); opt('Glaives return', 'returning', yes); opt('Pierce', 'pierce', yes); }
   if (P.key === 'lantern') { if (P.carried) row('Lantern carried with you', 'carried', yes); else { row('Lanterns hung', 'carry', n); row('Recharge', 'recharge', s, -1); row('Lantern walk', 'walk', s, -1); row('Walk cooldown', 'walkCd', s, -1); } row('Light radius', 'radius', m); row('Slow in light', 'slow', v => Math.round((1 - v) * 100) + '%', -1); opt('Light lingers', 'linger', s); opt('Throw range', 'throwDist', m); opt('Echo reveal', 'echo', s); opt('Roots on first touch', 'root', s); opt('Burn', 'burn', ps); opt('Beams between lanterns', 'beacon', n); opt('Hidden from enemies', 'hidden', yes); opt('Turret moths every', 'turret', s, -1); opt('Moth damage', 'mothBoost', pct); }
   if (P.key === 'sub') { row('Sink time', 'sink', s, -1); row('Max time under', 'maxTime', s); row('Speed under', 'speed', pct); row('Cooldown', 'cd', s, -1); row('Geyser damage', 'dmg', n); row('Geyser radius', 'radius', m); row('Launch', 'knock', n); opt('Heal under', 'heal', ps); opt('Acid pool', 'pool', ps); opt('Pulls enemies in', 'pull', yes); opt('Roots', 'root', s); opt('Drown above you', 'drown', ps); opt('Acid trail', 'trail', ps); opt('Flask ring', 'flaskRing', yes); opt('Throw from below', 'artillery', yes); opt('Fen: everything bigger', 'fen', yes); }
+  if (P.key === 'rewind') { if (P.anchor) row('Anchor lasts', 'anchor', s); else row('Reaches back', 'back', s); row('Rewinds', 'charges', n); row('Cooldown', 'cd', s, -1); row('Restores health', 'heal', yes); opt('Bonus heal', 'bonus', n); opt('Reloads', 'reload', yes); opt('Silent', 'silent', yes); opt('Cleanses', 'cleanse', yes); opt('Echo lasts', 'decoy', s); opt('Departure blast', 'depart', n); opt('Arrival blast', 'arrive', n); opt('Sand slow', 'sand', s); opt('Cheats death', 'paradox', yes); opt('Drags a victim back', 'retro', yes); opt('Freezes nearby for', 'freeze', s); }
   if (P.key === 'line') { row('Lines', 'charges', n); row('Recharge', 'cd', s, -1); row('Range', 'range', m); row('Line speed', 'speed', v => Math.round(v) + ' m/s'); row('Damage', 'dmg', n); opt('Stun', 'stun', s); opt('Vulnerable', 'vuln', s); opt('Slow', 'slow', s); opt('Swap places', 'swap', yes); opt('Choke (root)', 'choke', s); if (P.multi > 1) row('Catches up to', 'multi', n); opt('Gallows: hurl up', 'gallows', yes); opt('Puppet for', 'puppet', s); opt('Web', 'web', yes); opt('Meet them halfway', 'meet', yes); }
   return out;
 }
@@ -532,7 +534,7 @@ const UI = {
   applyIfPlaying(key) { if (Game.state === 'play' && Game.me && (Game.me.pendingHero ? Game.me.pendingHero.h : Game.me.heroKey) === key) Game.me.pendingHero = { h: key, a: loadoutFor(key) }; UI.lobbyDirty = true; },
 };
 function heroCards(sel, act) {
-  return HERO_KEYS.map(k => { const H = HEROES[k], c = '#' + new THREE.Color(H.glow).getHexString(); return `<button class="herocard ${k === sel ? 'sel' : ''}" data-act="${act}" data-arg="${k}" style="--hc:${c}"><i>${iconSVG(POWER_ICON[H.power.key])}</i><b>${H.name}</b><span>${H.role}</span></button>`; }).join('');
+  return HERO_KEYS.map(k => { const H = HEROES[k], c = '#' + new THREE.Color(H.look.glow).getHexString(); return `<button class="herocard ${k === sel ? 'sel' : ''}" data-act="${act}" data-arg="${k}" style="--hc:${c}"><i>${iconSVG(POWER_ICON[H.power.key])}</i><b>${H.name}</b><span>${H.role}</span></button>`; }).join('');
 }
 function kitSummary(key, ad) {
   const H = HEROES[key];
@@ -541,7 +543,10 @@ function kitSummary(key, ad) {
 function weaponLine(W) {
   if (W.kind === 'pellets') return `${W.pellets}×${W.dmg} · ${W.mag} shells`;
   if (W.kind === 'burst') return `${W.burst}-round burst · ${W.dmg} each`;
-  if (W.kind === 'proj') return `${W.dmg} + ${W.splash} splash`;
+  if (W.kind === 'flame') return `${W.dps} dmg/s · ${W.range} m · overheats`;
+  if (W.kind === 'beam') return `${W.dpsMin}–${W.dpsMax} dmg/s · ${W.range} m`;
+  if (W.kind === 'melee') return `${W.dmg} per cut · ×${W.backstab} from behind`;
+  if (W.kind === 'proj') return `${W.burst ? W.burst + '×' : W.volley ? W.volley + '×' : ''}${W.dmg} dmg${W.splash ? ' + ' + W.splash + ' splash' : ''} · ${W.mag} shots`;
   return `${W.dmg} dmg · ${W.mag} rounds`;
 }
 
@@ -622,12 +627,13 @@ const Showcase = {
     M.bones.cape.rotation.x += Math.sin(this.t * 2.1) * 0.06; M.bones.tail.rotation.x += Math.sin(this.t * 1.7) * 0.03;
     const fwd = new V3(-Math.sin(S.yaw), 0, -Math.cos(S.yaw)), right = new V3(-fwd.z, 0, fwd.x);
     const off = inLoadout ? -1.25 : 0.85, dist = (inLoadout ? 3.4 : 4.2) - this.pop * 0.3;
-    const look = new V3(S.x, S.y + 1.15, S.z).addScaledVector(right, off * 0.6);
+    const look = new V3(S.x, S.y + 1.15, S.z).addScaledVector(right, off * (inLoadout ? 1.25 : 0.6));
     const want = new V3(S.x, S.y + 1.45, S.z).addScaledVector(fwd, dist).addScaledVector(right, off + Math.sin(this.t * 0.15) * 0.3);
-    cam.position.lerp(want, 1 - Math.exp(-3 * dt)); cam.lookAt(look); cam.updateMatrixWorld();
+    if (cam.position.distanceTo(want) > 10) cam.position.copy(want); else cam.position.lerp(want, 1 - Math.exp(-3 * dt));
+    cam.lookAt(look); cam.updateMatrixWorld();
     const hf = 60 * Math.PI / 180; cam.fov = 2 * Math.atan(Math.tan(hf / 2)) * 180 / Math.PI; cam.updateProjectionMatrix();
     this.key.position.copy(new V3(S.x, S.y + 4, S.z).addScaledVector(fwd, 3).addScaledVector(right, 1.5)); this.key.target.position.set(S.x, S.y + 1, S.z); this.key.intensity = 0.9; this.key.color.set(0xfff0e0);
-    this.rim.position.copy(new V3(S.x, S.y + 2, S.z).addScaledVector(fwd, -1.5).addScaledVector(right, -1)); this.rim.intensity = 1.4; this.rim.color.set(HEROES[this.hero].glow);
+    this.rim.position.copy(new V3(S.x, S.y + 2, S.z).addScaledVector(fwd, -1.5).addScaledVector(right, -1)); this.rim.intensity = 1.4; this.rim.color.set(HEROES[this.hero].look.glow);
     this.key.visible = this.rim.visible = true;
   },
   hide() { if (this.model) { G.scene.remove(this.model.root); this.model = null; } if (this.key) { this.key.visible = false; this.rim.visible = false; } },

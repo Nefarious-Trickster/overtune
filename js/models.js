@@ -116,7 +116,7 @@ const BONES = [
 ];
 const BI = {}; BONES.forEach((b, i) => { BI[b[0]] = i; });
 // per-hero tweaks to the skeleton: shoulder width
-const RIG_OPT = { gauge: { sh: 0.31 }, mire: { sh: 0.2 }, ivra: { sh: 0.19 }, marrow: { sh: 0.19 }, veil: { sh: 0.16 }, spindle: { sh: 0.17 }, wick: { sh: 0.17 }, lark: { sh: 0.17 } };
+const RIG_OPT = { gauge: { sh: 0.31 }, mire: { sh: 0.2 }, ivra: { sh: 0.19 }, marrow: { sh: 0.19 }, veil: { sh: 0.16 }, spindle: { sh: 0.17 }, wick: { sh: 0.17 }, lark: { sh: 0.17 }, sable: { sh: 0.18 } };
 function makeRig(opt = {}) {
   const bones = BONES.map(b => { const B = new THREE.Bone(); B.name = b[0]; B.position.set(b[2], b[3], b[4]); if (opt.sh && b[0].startsWith('clav')) B.position.x = Math.sign(b[2]) * opt.sh; return B; });
   BONES.forEach((b, i) => { if (b[1]) bones[BI[b[1]]].add(bones[i]); });
@@ -232,6 +232,17 @@ function weaponParts(key, w, look, ac) {
     w(sph(0.068, 12, 10), GL_(0x9aff5a, 3), [0, 0.0, -0.06], [0, 0, 0], [1, 0.75, 1]);
     cyl(0.024, 0.02, 0.04, P_(0x7a5a3a, 0.8, 0), [0, 0.18, -0.06]); w(new THREE.TorusGeometry(0.075, 0.004, 4, 16), MT, [0, 0.02, -0.06], [Math.PI / 2, 0, 0]);
     return { gripL: null, muzzle: [0, 0.05, -0.12], hold: [0.22, -0.1, -0.28] };
+  }
+  if (key === 'sable') {
+    // Second Hand: a brass clock-pistol; the dial is the cylinder, the barrel is a long minute hand
+    box(0.04, 0.12, 0.05, 0.015, DK, [0, -0.06, 0.04], [0.25, 0, 0]);
+    cyl(0.075, 0.075, 0.05, BR, [0, 0.03, -0.02], [0, 0, Math.PI / 2], 22); cyl(0.062, 0.062, 0.052, P_(0xe8e0cc, 0.25, 0), [0, 0.03, -0.02], [0, 0, Math.PI / 2], 22);
+    w(new THREE.TorusGeometry(0.062, 0.006, 6, 22), ac, [0.027, 0.03, -0.02], [0, Math.PI / 2, 0]);
+    w(extG([[0, 0], [0.012, 0.03], [0.006, 0.3], [0, 0.34], [-0.006, 0.3], [-0.012, 0.03]], 0.012), BR, [0, 0.03, -0.06], [-Math.PI / 2, 0, 0]);
+    w(extG([[0, 0.04], [0.005, 0.25], [0, 0.3], [-0.005, 0.25]], 0.014, 0.002), G, [0, 0.032, -0.06], [-Math.PI / 2, 0, 0]);
+    for (let i = 0; i < 8; i++) { const g = i / 8 * TAU; box(0.02, 0.016, 0.016, 0.004, BR, [-0.03, 0.03 + Math.cos(g) * 0.045, 0.06 + Math.sin(g) * 0.045], [g, 0, 0]); }
+    cyl(0.035, 0.035, 0.02, BR, [-0.03, 0.03, 0.06], [0, 0, Math.PI / 2], 14);
+    return { gripL: null, muzzle: [0, 0.03, -0.42], hold: [0.18, -0.13, -0.32] };
   }
   // spindle — Thread Needles: a spool-wheel launcher with a fan of needles, threads trailing
   cyl(0.07, 0.07, 0.05, P_(0x7a1e2e, 0.5, 0.2), [0, 0.03, -0.06], [0, 0, Math.PI / 2], 18); cyl(0.04, 0.04, 0.055, P_(0xe0d6c4, 0.8, 0), [0, 0.03, -0.06], [0, 0, Math.PI / 2], 14);
@@ -378,6 +389,30 @@ function costume(K, key) {
     for (let i = 0; i < 4; i++) { const a = 2.4 + i * 0.5; K.on('hips', new THREE.CylinderGeometry(0.03, 0.04, 0.1, 10), P_(0x2a4a2a, 0.1, 0.2), [Math.cos(a) * 0.22, -0.05, Math.sin(a) * 0.22]); K.ball('hips', 0.028, GL_(0x9aff5a, 3), [Math.cos(a) * 0.22, -0.06, Math.sin(a) * 0.22]); }
     return { scale: 1.0, hunch: 0.3 };
   }
+  if (key === 'sable') {
+    // a tall thief in a navy tailcoat with brass fittings, a cracked clock face for a head and a pendulum at the back
+    K.body({ suit: P_(0x1a1c26, 0.7, 0.05), skin: P_(0x2a2a30, 0.5, 0.2), boot: P_(0x16141a, 0.35, 0.4), thin: 0.9, noHead: true, glove: P_(0x2a2a30, 0.5, 0.3) });
+    K.loft('chest', [[-0.02, 0.33, 0.22], [0.14, 0.38, 0.25], [0.26, 0.42, 0.24], [0.33, 0.3, 0.2]], M);
+    K.loft('tail', [[-0.82, 0.3, 0.2], [-0.5, 0.36, 0.26], [-0.15, 0.36, 0.28], [0.05, 0.34, 0.26]], M, [0, 0, -0.08], null, null, 18, [-0.15, 3.3]);
+    K.loft('chest', [[0.24, 0.34, 0.27], [0.34, 0.36, 0.3], [0.42, 0.3, 0.28]], S2, [0, 0, 0.02], null, null, 18, [-0.9, 4.05]);
+    K.box('chest', 0.14, 0.2, 0.02, 0.01, P_(0xd8d0c0, 0.7, 0), [0, 0.2, -0.125]);
+    for (let i = 0; i < 3; i++) K.ball('chest', 0.016, MT, [0.075, 0.06 + i * 0.07, -0.13]);
+    K.tube('chest', [[-0.08, 0.1, -0.13], [0, 0.06, -0.14], [0.08, 0.1, -0.13]], 0.005, MT, 4);
+    // brass gear pauldrons
+    for (const sd of ['R', 'L']) { K.cyl('clav' + sd, 0.12, 0.12, 0.04, MT, [0, 0.05, 0], [0, 0, 0], 20); for (let i = 0; i < 10; i++) { const g = i / 10 * TAU; K.box('clav' + sd, 0.04, 0.035, 0.03, 0.005, MT, [Math.cos(g) * 0.13, 0.05, Math.sin(g) * 0.13], [0, -g, 0]); } K.ball('clav' + sd, 0.03, GW, [0, 0.08, 0]); K.loft('fore' + sd, [[-0.1, 0.1, 0.1], [0.0, 0.11, 0.11]], M); K.tor('fore' + sd, 0.055, 0.01, MT, [0, -0.14, 0], [Math.PI / 2, 0, 0]); }
+    // the clock-face head: a brass rim, a cracked glowing dial, two hands, and a top hat
+    K.cyl('head', 0.19, 0.19, 0.08, MT, [0, 0.17, 0], [Math.PI / 2, 0, 0], 28);
+    K.cyl('head', 0.165, 0.165, 0.082, P_(0xe8e0cc, 0.25, 0), [0, 0.17, 0], [Math.PI / 2, 0, 0], 28);
+    K.tor('head', 0.165, 0.012, GW, [0, 0.17, -0.042], [0, 0, 0], TAU, 28);
+    for (let i = 0; i < 12; i++) { const g = i / 12 * TAU; K.box('head', 0.008, i % 3 ? 0.02 : 0.04, 0.004, 0.002, P_(0x1a1a20, 0.5, 0), [Math.sin(g) * 0.14, 0.17 + Math.cos(g) * 0.14, -0.043], [0, 0, -g]); }
+    K.box('head', 0.012, 0.12, 0.006, 0.003, GL_(L.glow, 5), [0.025, 0.21, -0.048], [0, 0, -0.5]); K.box('head', 0.014, 0.08, 0.006, 0.003, GL_(L.glow, 5), [-0.03, 0.19, -0.05], [0, 0, 1.1]);
+    K.ball('head', 0.015, MT, [0, 0.17, -0.05]);
+    K.tube('head', [[-0.12, 0.27, -0.043], [-0.06, 0.2, -0.044], [-0.09, 0.12, -0.044], [-0.02, 0.06, -0.044]], 0.004, GL_(L.glow, 2.5), 3);
+    K.cyl('head', 0.1, 0.11, 0.2, P_(0x16141a, 0.5, 0.1), [0, 0.42, 0.03], [-0.1, 0, 0], 18); K.cyl('head', 0.18, 0.18, 0.015, P_(0x16141a, 0.5, 0.1), [0, 0.32, 0.02], [-0.1, 0, 0], 22); K.cyl('head', 0.112, 0.112, 0.035, AC, [0, 0.345, 0.025], [-0.1, 0, 0], 18, true);
+    // the pendulum swinging behind
+    K.box('tail', 0.012, 0.5, 0.012, 0.004, MT, [0, -0.3, 0.2]); K.cyl('tail', 0.07, 0.07, 0.02, MT, [0, -0.56, 0.2], [Math.PI / 2, 0, 0], 18); K.cyl('tail', 0.05, 0.05, 0.022, GW, [0, -0.56, 0.2], [Math.PI / 2, 0, 0], 18);
+    return { scale: 1.04 };
+  }
   // spindle: a lanky marionette in a crimson frock coat, wooden joints showing
   const WD = P_(0xb08a5a, 0.5, 0.05), RED = M;
   K.body({ suit: P_(0x2a1418, 0.7, 0.05), skin: WD, boot: P_(0x1a1012, 0.4, 0.3), thin: 0.8, noHead: true, glove: P_(0xe0d6c4, 0.8, 0) });
@@ -493,7 +528,7 @@ function poseIdle(M, t) { poseHero(M, { spd: 0, phase: 0, air: 0, pitch: -0.05, 
 // ---------------------------------------------------------------- the first-person view: forearms, hands and the weapon
 function buildViewmodel(key) {
   const H = HEROES[key], L = H.look, vm = new THREE.Group(), ac = P_(0x2a8aa0, 0.4, 0.6);
-  const VP = { marrow: [0.2, -0.25, -0.52, 0.8], lark: [0.2, -0.2, -0.42, 0.9], gauge: [0.23, -0.29, -0.52, 0.78], veil: [0.2, -0.22, -0.4, 1], ivra: [0.2, -0.23, -0.46, 0.85], wick: [0.25, -0.14, -0.56, 0.75], mire: [0.22, -0.24, -0.5, 0.75], spindle: [0.2, -0.23, -0.46, 0.9] }[key] || [0.2, -0.2, -0.4, 1];
+  const VP = { marrow: [0.2, -0.25, -0.52, 0.8], lark: [0.2, -0.2, -0.42, 0.9], gauge: [0.23, -0.29, -0.52, 0.78], veil: [0.2, -0.22, -0.4, 1], ivra: [0.2, -0.23, -0.46, 0.85], wick: [0.25, -0.14, -0.56, 0.75], mire: [0.22, -0.24, -0.5, 0.75], spindle: [0.2, -0.23, -0.46, 0.9], sable: [0.2, -0.22, -0.44, 0.95] }[key] || [0.2, -0.2, -0.4, 1];
   const sleeve = key === 'gauge' ? P_(L.metal, 0.35, 0.85) : key === 'ivra' ? P_(0xb8873a, 0.3, 0.95) : key === 'spindle' ? P_(L.main, 0.55, 0.2) : P_(L.main, 0.6, 0.15);
   const glove = key === 'gauge' ? P_(0x3a3632, 0.45, 0.7) : key === 'spindle' ? P_(0xe0d6c4, 0.8, 0) : key === 'mire' ? P_(L.skin, 0.65, 0) : key === 'wick' ? P_(0xe8d8b0, 0.4, 0) : P_(0x2a2420, 0.7, 0.05);
   const groups = {};
@@ -516,7 +551,7 @@ function buildViewmodel(key) {
   // the power in the off hand
   if (key === 'marrow') { const s = buildSnare(TEAM_HEX[0]); s.scale.setScalar(0.38); s.position.set(0.02, 0.06, -0.06); s.rotation.x = 0.6; O.g.add(s); extra.prop = s; }
   if (key === 'ivra') { const g = buildGlaive(L.glow, 1.2); g.position.set(0.02, 0.1, -0.02); g.rotation.set(0.2, 0, 1.2); O.g.add(g); extra.prop = g; }
-  if (key === 'lark' || key === 'spindle' || key === 'mire') { const o = new THREE.Mesh(sph(0.05, 14, 10), mGlow(L.glow, 6)); o.position.set(0, 0.07, -0.05); O.g.add(o); extra.orb = o; const r = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.006, 6, 24), mGlow(0xffffff, 4)); r.position.copy(o.position); O.g.add(r); extra.ring = r; }
+  if (key === 'lark' || key === 'spindle' || key === 'mire' || key === 'sable') { const o = new THREE.Mesh(sph(0.05, 14, 10), mGlow(L.glow, 6)); o.position.set(0, 0.07, -0.05); O.g.add(o); extra.orb = o; const r = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.006, 6, 24), mGlow(0xffffff, 4)); r.position.copy(o.position); O.g.add(r); extra.ring = r; }
   if (key === 'wick') { const l = buildLantern(L.glow); l.scale.setScalar(0.35); l.position.set(0.0, -0.05, -0.05); O.g.add(l); extra.prop = l; }
   for (const k in groups) { const geos = groups[k].pb.bake(false); for (const t of ['lit', 'glow']) if (geos[t]) { const m = new THREE.Mesh(geos[t], heroMat(t === 'lit' ? 'lit' : 'glow')); m.frustumCulled = false; m.userData.base = m.material; groups[k].g.add(m); } }
   const muzzle = new THREE.Object3D(); muzzle.position.set(...hold.muzzle); R.g.add(muzzle);
@@ -566,6 +601,7 @@ function buildBolt() { const g = new THREE.Group(); const s = new THREE.Mesh(new
 function buildShard(glow) { const g = new THREE.Group(); const c = new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), mGlow(glow, 5)); c.scale.set(0.05, 0.05, 0.22); g.add(c); return g; }
 function buildMoth(glow) { const g = new THREE.Group(); const b = new THREE.Mesh(new THREE.CapsuleGeometry(0.03, 0.08, 3, 6), mGlow(glow, 2)); b.rotation.x = Math.PI / 2; g.add(b); const wm = new THREE.MeshBasicMaterial({ color: hdrCol(0xffe8b0, 2.5), side: THREE.DoubleSide, transparent: true, opacity: 0.85 }); const wings = []; for (const s of [-1, 1]) { const piv = new THREE.Group(); const w = new THREE.Mesh(new THREE.CircleGeometry(0.11, 8), wm); w.position.x = s * 0.1; w.scale.set(1, 0.7, 1); w.rotation.x = Math.PI / 2; piv.add(w); g.add(piv); wings.push(piv); } g.userData.wings = wings; return g; }
 function buildFlask(glow) { const g = new THREE.Group(); const b = new THREE.Mesh(sph(0.08, 10, 8), new THREE.MeshStandardMaterial({ color: 0x2a4a2a, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.7 })); g.add(b); const in_ = new THREE.Mesh(sph(0.06, 8, 6), mGlow(glow, 3)); g.add(in_); const n = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.08, 8), mStd(0x7a5a3a, 0.8, 0)); n.position.y = 0.09; g.add(n); return g; }
+function buildHand(glow) { const g = new THREE.Group(); const b = new THREE.Mesh(extG([[0, 0], [0.02, 0.05], [0.01, 0.34], [0, 0.4], [-0.01, 0.34], [-0.02, 0.05]], 0.01), mStd(0xc89a4a, 0.3, 0.9)); b.rotation.x = -Math.PI / 2; b.position.z = 0.2; g.add(b); const c = new THREE.Mesh(extG([[0, 0.05], [0.008, 0.3], [0, 0.36], [-0.008, 0.3]], 0.014, 0.002), mGlow(glow, 4)); c.rotation.x = -Math.PI / 2; c.position.z = 0.2; g.add(c); return g; }
 function buildNeedle(glow) { const g = new THREE.Group(); const n = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.002, 0.3, 4), mStd(0xe8e8f0, 0.2, 1)); n.rotation.x = Math.PI / 2; g.add(n); const t = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.002, 0.25, 4), new THREE.MeshBasicMaterial({ color: hdrCol(glow, 3), transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false })); t.rotation.x = Math.PI / 2; t.position.z = 0.25; g.add(t); return g; }
 function buildLineHead(glow, web) {
   const g = new THREE.Group();
