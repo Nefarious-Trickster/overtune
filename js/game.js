@@ -3,10 +3,10 @@
 // Game modes, pickups, the control zone, match flow, drawing heroes, and the main loop
 // ============================================================================
 const MODES = {
-  tdm: { key: 'tdm', name: 'Team Deathmatch', short: 'TDM', desc: 'Two teams. First to the kill target wins.', teams: true, time: 480 },
-  koth: { key: 'koth', name: 'Control', short: 'CTRL', desc: 'Capture the zone and hold it. First team to 100% wins.', teams: true, time: 600 },
+  tdm: { key: 'tdm', name: 'Team Deathmatch', short: 'TDM', desc: 'Two teams. First to the kill target wins.', teams: true, time: 600 },
+  koth: { key: 'koth', name: 'Control', short: 'CTRL', desc: 'Capture the zone and hold it. First team to 100% wins.', teams: true, time: 720 },
   elim: { key: 'elim', name: 'Elimination', short: 'ELIM', desc: 'No respawns. Wipe the other team to win the round. First to 3 rounds.', teams: true, time: 0 },
-  ffa: { key: 'ffa', name: 'Free-for-All', short: 'FFA', desc: 'Everyone for themselves. First to 15 eliminations.', teams: false, time: 480 },
+  ffa: { key: 'ffa', name: 'Free-for-All', short: 'FFA', desc: 'Everyone for themselves. First to 12 eliminations.', teams: false, time: 600 },
 };
 const MODE_KEYS = Object.keys(MODES);
 
@@ -15,7 +15,7 @@ const Mode = {
     const sz = clamp(o.sz | 0, 1, 8);
     return {
       mode: o.mode, map: o.map, sz, df: clamp(o.df | 0, 0, 2), st: 'play', t: 0, tl: MODES[o.mode].time, sc: [0, 0],
-      target: o.mode === 'tdm' ? (sz <= 2 ? 15 : sz <= 3 ? 20 : 30) : o.mode === 'ffa' ? 15 : o.mode === 'koth' ? 100 : 3,
+      target: o.mode === 'tdm' ? (sz <= 2 ? 12 : sz <= 3 ? 20 : 28) : o.mode === 'ffa' ? 12 : o.mode === 'koth' ? 100 : 3,
       zone: { own: -1, cap: 0, capTeam: -1, contest: false }, rd: { n: 1, w: [0, 0], ph: 'pre', t: 4 }, win: null, winName: '', endT: 0, seed: (Math.random() * 1e9) | 0,
     };
   },
@@ -69,9 +69,9 @@ const Mode = {
       const solo = !Z.contest && (inside[0] || inside[1]) ? (inside[0] ? 0 : 1) : -1;
       if (solo >= 0 && solo !== Z.own) {
         if (Z.capTeam !== solo) { Z.cap = Math.max(0, Z.cap - dt * 0.6); if (Z.cap <= 0) Z.capTeam = solo; }
-        else { Z.cap = Math.min(1, Z.cap + dt / 5 * (1 + Math.min(2, inside[solo] - 1) * 0.25)); if (Z.cap >= 1) { Z.own = solo; Z.cap = 0; Z.capTeam = -1; this.zoneTaken(solo); } }
+        else { Z.cap = Math.min(1, Z.cap + dt / 7 * (1 + Math.min(2, inside[solo] - 1) * 0.25)); if (Z.cap >= 1) { Z.own = solo; Z.cap = 0; Z.capTeam = -1; this.zoneTaken(solo); } }
       } else if (solo < 0 && !Z.contest) Z.cap = Math.max(0, Z.cap - dt * 0.15);
-      if (Z.own >= 0 && !Z.contest) M.sc[Z.own] = Math.min(100, M.sc[Z.own] + dt * (100 / 95));
+      if (Z.own >= 0 && !Z.contest) M.sc[Z.own] = Math.min(100, M.sc[Z.own] + dt * (100 / 120));
       if (M.sc[0] >= 100 || M.sc[1] >= 100) return this.finish(M.sc[0] >= 100 ? 0 : 1);
       if (M.tl <= 0) return this.finish(M.sc[0] === M.sc[1] ? -1 : M.sc[0] > M.sc[1] ? 0 : 1);
     } else if (M.mode === 'elim') {
@@ -118,9 +118,9 @@ const Pickups = {
   },
   check(a) {
     if (a.hp >= a.maxHp) return;
-    for (const p of this.list) if (p.t <= 0 && Math.abs(a.pos.x - p.pos.x) < 0.9 && Math.abs(a.pos.z - p.pos.z) < 0.9 && Math.abs(a.pos.y - p.pos.y) < 1.2) { a.hp = Math.min(a.maxHp, a.hp + 75); emit(['pk', p.i, a.id]); if (a === Game.me) { Sfx.play('pickup'); G.fx.heal = 0.6; } }
+    for (const p of this.list) if (p.t <= 0 && Math.abs(a.pos.x - p.pos.x) < 0.9 && Math.abs(a.pos.z - p.pos.z) < 0.9 && Math.abs(a.pos.y - p.pos.y) < 1.2) { a.hp = Math.min(a.maxHp, a.hp + 100); emit(['pk', p.i, a.id]); if (a === Game.me) { Sfx.play('pickup'); G.fx.heal = 0.6; } }
   },
-  take(i, who) { const p = this.list[i]; if (!p) return; p.t = 12; Fx.burst(p.pos.clone().setY(p.pos.y + 0.7), 0x74ffb4, 16, 2, 0.6, 0.08, { up: 1 }); void who; },
+  take(i, who) { const p = this.list[i]; if (!p) return; p.t = 20; Fx.burst(p.pos.clone().setY(p.pos.y + 0.7), 0x74ffb4, 16, 2, 0.6, 0.08, { up: 1 }); void who; },
   tick(dt) { for (const p of this.list) { if (p.t > 0) p.t -= dt; p.cross.visible = p.t <= 0; } },
   nearest(pos) { let best = null; for (const p of this.list) if (p.t <= 0) { const d = p.pos.distanceTo(pos); if (!best || d < best.dist) best = { pos: p.pos, dist: d }; } return best; },
 };
@@ -163,7 +163,7 @@ function setLook(a, look) {
 }
 function setXray(a, kind) {
   if ((a.xrayKind || null) === kind) return; a.xrayKind = kind;
-  if (!a.xray) { a.xray = []; for (const m of a.model.meshes) { const x = new THREE.Mesh(m.geometry, XRAY_MAT.enemy); x.renderOrder = 20; x.frustumCulled = false; x.castShadow = false; m.add(x); a.xray.push(x); } }
+  if (!a.xray) { a.xray = []; for (const m of a.model.meshes) { const x = new THREE.SkinnedMesh(m.geometry, XRAY_MAT.enemy); x.bind(m.skeleton, m.bindMatrix); x.renderOrder = 20; x.frustumCulled = false; x.castShadow = false; m.parent.add(x); a.xray.push(x); } }
   for (const x of a.xray) { x.visible = !!kind; if (kind) x.material = XRAY_MAT[kind]; }
 }
 // remote heroes are drawn 110 ms in the past, between the two snapshots around that moment
@@ -182,50 +182,89 @@ function interp(a, t) {
   }
   a.pos.copy(a.renderPos); a.vel.set(b.vx, b.vy || 0, b.vz);
 }
+const BEAM_MAT = new THREE.MeshBasicMaterial({ color: hdrCol(0x5affd2, 3), transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+const BEAM_CORE = new THREE.MeshBasicMaterial({ color: hdrCol(0xe8fff8, 5), toneMapped: false });
+const SHIELD_MAT = new THREE.MeshBasicMaterial({ color: hdrCol(0xffd27a, 0.7), transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+function drawExtras(a, f, p, dt) {
+  const M = a.model, X = a.fx || (a.fx = {});
+  const muzzle = () => a === Game.me ? View.muzzleWorld(0) : M.muzzle.getWorldPosition(new V3());
+  // Tidecaller's beam: a twisting rope of water from the staff into the target's chest
+  const bt = a.remote ? a.beamTo : a.beamT, beamOn = !!(f & F_BEAM) && bt && bt.alive;
+  if (beamOn) {
+    if (!X.beam) { X.beam = new THREE.Group(); const g = new THREE.CylinderGeometry(1, 1, 1, 8, 1, true); g.translate(0, 0.5, 0); g.rotateX(Math.PI / 2); X.beam.add(new THREE.Mesh(g, BEAM_MAT)); const c = new THREE.Mesh(g, BEAM_CORE); c.scale.set(0.3, 0.3, 1); X.beam.add(c); X.beam.children.forEach(m => { m.frustumCulled = false; }); G.scene.add(X.beam); }
+    const o = muzzle(), tp = chest(bt), len = o.distanceTo(tp), w = 0.05 + Math.sin(G.time * 30) * 0.012 + (a.lockT || 0) * 0.02;
+    X.beam.visible = true; X.beam.position.copy(o); X.beam.lookAt(tp); X.beam.children[0].scale.set(w, w, -len); X.beam.children[1].scale.set(w * 0.3, w * 0.3, -len);
+    if (Math.random() < dt * 30) { const k = Math.random(); Fx.spawn('add', lerp(o.x, tp.x, k), lerp(o.y, tp.y, k), lerp(o.z, tp.z, k), rand(-0.5, 0.5), rand(-0.5, 0.5), rand(-0.5, 0.5), 0.6, 3, 2.4, 0.06, 0.35); }
+    if ((X.bT = (X.bT || 0) - dt) <= 0) { X.bT = 0.3; Sfx.play('beam', a === Game.me ? null : p, 0.5); }
+    if (Math.random() < dt * 14) Fx.spawn('add', tp.x, tp.y, tp.z, (o.x - tp.x) * 0.8, (o.y - tp.y) * 0.8, (o.z - tp.z) * 0.8, 3, 0.6, 0.8, 0.08, 0.6);
+  } else if (X.beam) X.beam.visible = false;
+  // Boiler: a roaring tongue of flame with smoke curling off it
+  if (f & F_FLAME) {
+    const o = muzzle(), d = aimDir(a.yaw, a.pitch), W = a.H.weapon, n = Math.ceil(dt * 90);
+    for (let i = 0; i < n; i++) {
+      const sp = rand(9, 13), s = W.cone * 0.8, dd = d.clone().add(new V3(rand(-s, s), rand(-s, s) * 0.7, rand(-s, s))).normalize();
+      Fx.spawn('add', o.x, o.y, o.z, dd.x * sp + a.vel.x, dd.y * sp + 0.6, dd.z * sp + a.vel.z, 4, rand(1.2, 2.2), 0.35, rand(0.12, 0.22), W.range / sp, 2.6, -2);
+    }
+    if (Math.random() < dt * 14) { const q = o.clone().addScaledVector(d, rand(3, 6)); Fx.spawn('smoke', q.x, q.y + 0.4, q.z, d.x, 1.4, d.z, 0.16, 0.14, 0.13, 0.4, 1.3, 0.8, -0.4, 1.4); }
+    if (a !== Game.me && Math.random() < dt * 10) muzzleLight(o.clone().addScaledVector(d, 2), 0xff7a2e, 6);
+    if (a !== Game.me && (X.sT = (X.sT || 0) - dt) <= 0) { X.sT = 0.22; Sfx.play('flame', p, 0.7); }
+  }
+  // Ivra's orbiting glaives
+  const orb = (f & F_ORBIT) ? (a.remote ? a.orbitN : a.pw.count) | 0 : 0;
+  if (orb > 0) {
+    if (!X.orbit) { X.orbit = new THREE.Group(); for (let i = 0; i < 6; i++) X.orbit.add(buildGlaive(a.H.look.glow, 0.9)); G.scene.add(X.orbit); }
+    X.orbit.visible = true; X.orbit.position.set(p.x, p.y + 1.0, p.z);
+    X.orbit.children.forEach((g, i) => { g.visible = i < orb; const ang = G.time * 4 + i / orb * TAU; g.position.set(Math.cos(ang) * 1.8, Math.sin(G.time * 3 + i) * 0.15, Math.sin(ang) * 1.8); g.rotation.y = G.time * 20; });
+  } else if (X.orbit) X.orbit.visible = false;
+  // Lantern shell
+  if (f & F_SHIELD) { if (!X.shield) { X.shield = new THREE.Mesh(new THREE.IcosahedronGeometry(1.15, 2), SHIELD_MAT); G.scene.add(X.shield); } X.shield.visible = true; X.shield.position.set(p.x, p.y + 1.0, p.z); X.shield.rotation.y = G.time; }
+  else if (X.shield) X.shield.visible = false;
+}
+function clearExtras(a) { if (!a.fx) return; for (const k in a.fx) { const o = a.fx[k]; if (o && o.parent) o.parent.remove(o); } a.fx = null; }
 function drawActor(a, dt) {
   const M = a.model; if (!M) return;
-  const me = Game.me, local = !a.remote, p = local ? a.pos : (a.renderPos || a.pos);
+  const me = Game.me, local = !a.remote;
   if (!local) interp(a, now());
-  M.root.position.copy(local ? a.pos : (a.renderPos || a.pos));
+  const p = local ? a.pos : (a.renderPos || a.pos);
+  M.root.position.copy(p);
   M.root.rotation.y = a.yaw;
   const f = local ? actorFlags(a) : (a.flags || 0), An = a.anim;
-  // death: topple and sink
+  M.t += dt;
+  // death: the legs go, the body folds and topples, then sinks away
   if (!a.alive) {
+    if (a.fx) for (const k in a.fx) if (a.fx[k]) a.fx[k].visible = false;
     if (An.death > 0) {
-      An.death += dt; const k = Math.min(1, An.death / 0.45);
-      M.body.rotation.x = -k * k * 1.45; M.body.position.y = -Math.max(0, An.death - 1.6) * 0.6;
-      M.root.visible = a !== me && An.death < 3.2; setXray(a, null);
+      An.death += dt; const k = Math.min(1, An.death / 0.6), e = k * k;
+      poseHero(M, { spd: 0, phase: 0, air: 0, pitch: -0.6 * e, flags: 0, t: M.t, crouch: e * 0.9 });
+      M.body.rotation.x = -e * 1.45; M.body.position.y = -Math.max(0, An.death - 1.8) * 0.6 + e * 0.15; M.body.position.z = e * 0.4;
+      M.root.visible = a !== me && An.death < 3.4; setXray(a, null);
     } else M.root.visible = false;
     return;
   }
+  M.body.rotation.x = 0; M.body.position.z = 0;
   // walking
   const hs = Math.hypot(a.vel.x, a.vel.z); An.spd = damp(An.spd, hs, 10, dt);
   const fwd = flatFwd(a.yaw), along = (a.vel.x * fwd.x + a.vel.z * fwd.z) >= -0.5 ? 1 : -1;
-  An.phase += dt * An.spd * 1.55 * along;
+  An.phase += dt * An.spd * 1.45 * along;
   const air = !(f & F_GROUND); An.air = damp(An.air, air ? 1 : 0, 8, dt);
-  const sw = Math.sin(An.phase) * Math.min(1, An.spd / 5) * 0.75;
-  for (const L of M.legs) {
-    const s = L.s, ph = s > 0 ? sw : -sw;
-    L.hip.rotation.x = lerp(ph, -0.6, An.air) + (f & F_CHARGE ? -0.5 : 0);
-    L.knee.rotation.x = lerp(Math.max(0, -Math.cos(An.phase + (s > 0 ? 0 : Math.PI))) * Math.min(1, An.spd / 5) * 1.0, 1.0, An.air);
-  }
-  M.hips.position.y = 0.95 + Math.abs(Math.cos(An.phase)) * Math.min(1, An.spd / 6) * 0.05 - An.air * 0.05 - (f & F_PLACE ? 0.25 : 0);
-  M.torso.rotation.x = clamp(a.pitch * 0.25, -0.3, 0.3) + (f & F_CHARGE ? -0.35 : 0) + (f & F_PLACE ? -0.4 : 0);
-  M.aim.rotation.x = clamp(a.pitch * 0.75, -1, 1) - (f & F_CHARGE ? -0.2 : 0);
-  M.head.rotation.x = clamp(a.pitch * 0.4, -0.5, 0.5);
-  M.torso.rotation.z = Math.sin(An.phase) * Math.min(1, An.spd / 6) * 0.04;
-  if (M.extra.scarf) M.extra.scarf.rotation.x = 0.3 + Math.min(1.2, An.spd * 0.15) + Math.sin(G.time * 6) * 0.08;
-  if (M.extra.skirt) M.extra.skirt.rotation.x = Math.min(0.3, An.spd * 0.04);
-  if (M.extra.cloak) M.extra.cloak.rotation.x = Math.min(0.35, An.spd * 0.05);
-  if (M.extra.glaive) { const w = !!(f & F_WIND); M.extra.glaive.visible = true; if (w) { M.extra.glaive.position.set(-0.35, 0.75, 0.15); M.extra.glaive.rotation.set(0.4, 0, 1.0); } else { M.extra.glaive.position.set(0, 0.35, 0.2); M.extra.glaive.rotation.set(Math.PI / 2 - 0.2, 0, 0); M.extra.glaive.rotation.y += 0; } }
+  if (An.swing > 0) { An.swing += dt; if (An.swing > 0.45) An.swing = 0; }
+  An.crouch = damp(An.crouch || 0, f & F_PLACE ? 0.8 : 0, 10, dt);
+  An.sub = damp(An.sub || 0, f & F_SUB ? 1 : 0, 6, dt);
+  poseHero(M, { spd: An.spd, phase: An.phase, air: An.air, pitch: a.pitch, flags: f, swing: An.swing, swingSide: a.swingSide || 1, t: M.t, crouch: An.crouch });
+  // Submerge: Mire sinks into the ground, leaving a ripple
+  M.body.position.y = -An.sub * 2.1;
+  if (An.sub > 0.3 && Math.random() < dt * 10) Fx.spawn('add', p.x + rand(-0.5, 0.5), p.y + 0.05, p.z + rand(-0.5, 0.5), 0, 0.6, 0, 0.6, 1.4, 0.4, 0.1, 0.5);
   if (a.hitFlash > 0) a.hitFlash -= dt;
-  // ram trail, blink glow, fatigue droop
+  // ram trail, boiler smoke, blink glow, heal motes
   if (f & F_CHARGE && Math.random() < dt * 40) Fx.spawn('add', p.x + rand(-0.3, 0.3), p.y + rand(0.3, 1.6), p.z + rand(-0.3, 0.3), -fwd.x * 6, rand(0, 1), -fwd.z * 6, 4, 1.6, 0.4, 0.12, 0.3, 2);
-  if (f & F_REV && Math.random() < dt * 20) { const q = M.torso.localToWorld(new V3(0.14, 0.9, 0.3)); Fx.spawn('smoke', q.x, q.y, q.z, 0, 1.5, 0, 0.25, 0.22, 0.2, 0.3, 0.8, 1, -0.3, 1); }
+  if ((f & F_REV || a.heroKey === 'gauge') && Math.random() < dt * (f & F_REV ? 24 : 3)) { const q = M.bones.chest.localToWorld(new V3(rand(-0.13, 0.13), 0.78, 0.3)); Fx.spawn('smoke', q.x, q.y, q.z, 0, 1.5, 0, 0.25, 0.22, 0.2, 0.25, 1.0, 1, -0.3, 1); }
   if (f & F_BLINKCH && Math.random() < dt * 30) Fx.spawn('add', p.x + rand(-0.5, 0.5), p.y + rand(0.2, 1.8), p.z + rand(-0.5, 0.5), 0, 0.5, 0, 1.4, 1.0, 3, 0.07, 0.4);
   if (f & F_UNBOUND && Math.random() < dt * 20) Fx.spawn('add', p.x + rand(-0.4, 0.4), p.y + rand(0.2, 1.8), p.z + rand(-0.4, 0.4), 0, 1, 0, 2.4, 1.6, 4, 0.08, 0.5);
   if (f & F_HEAL && Math.random() < dt * 12) Fx.spawn('add', p.x + rand(-0.4, 0.4), p.y + rand(0.2, 1.4), p.z + rand(-0.4, 0.4), 0, 1.2, 0, 0.6, 3, 1.4, 0.06, 0.7);
   if (f & F_ROOT && Math.random() < dt * 8) Fx.spawn('add', p.x + rand(-0.3, 0.3), p.y + 0.1, p.z + rand(-0.3, 0.3), 0, 0.4, 0, 3, 1.2, 0.4, 0.06, 0.4);
+  if (f & F_CHANNEL && Math.random() < dt * 16) Fx.spawn('add', p.x + rand(-0.5, 0.5), p.y + rand(0.4, 1.6), p.z + rand(-0.5, 0.5), 0, 0.8, 0, 3, 2.2, 0.8, 0.06, 0.6);
+  drawExtras(a, f, p, dt);
+  M.root.visible = true;
   if (f & F_PROT) M.root.visible = Math.sin(G.time * 30) > -0.3 || a === me;
   // visibility: fading Veils, true invisibility, reveal
   if (a === me) { M.root.visible = false; return; }
@@ -239,7 +278,8 @@ function drawActor(a, dt) {
     else if (cl >= 0.99) look = d < (P.shimmer || 8) || flick ? 'shimmer' : 'hidden';
     else look = Math.random() < cl ? (d < (P.shimmer || 8) ? 'shimmer' : 'hidden') : 'normal';
   }
-  setLook(a, look);
+  a.look = null; setLook(a, look);
+  if (f & F_PROT && Math.sin(G.time * 30) <= -0.3) M.root.visible = false;
   const sense = me && me.st && me.st.senseT > 0 && me.P.sense && me.pos.distanceTo(p) < me.P.sense;
   setXray(a, enemy && (revealed || sense) ? 'enemy' : (!enemy && me && me.alive === false && Game.match && Game.match.mode === 'elim') ? 'ally' : null);
   if (enemy && (revealed || sense) && look === 'hidden') { M.root.visible = true; for (const m of M.meshes) m.material = SHIMMER_MAT; a.look = 'shimmer'; }
@@ -308,7 +348,10 @@ const Flow = {
     const M = Game.match, me = Game.me;
     const won = M.mode === 'ffa' ? M.win === (me && me.id) : me && M.win === me.team;
     Sfx.play(M.win === -1 ? 'zone' : won ? 'win' : 'lose');
-    HUD.end(won);
+    // add-on drops for the hero you finished the match as (only once you've played a real stretch of it)
+    let drops = null;
+    if (me && M.t > 45 && !M.awarded) { M.awarded = true; drops = { hero: me.heroKey, got: Inventory.award(me.heroKey, M.win === -1 ? 0 : won ? 1 : -1) }; }
+    HUD.end(won, drops);
     Input.unlock();
   },
   leave() {

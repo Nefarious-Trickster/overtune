@@ -25,10 +25,12 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 // ---------------------------------------------------------------- settings
 const Settings = {
   name: 'Player' + Math.floor(Math.random() * 900 + 100), sens: 1.0, fov: 95, q: 2, vol: 0.8, music: 0.5, invertY: false,
-  hero: 'marrow', loadouts: {}, tipsShown: 0, mode: 'tdm', map: 'kiln', size: 4, diff: 1, ffaSize: 6, showFps: false, xhair: 1,
+  hero: 'marrow', loadouts: {}, tipsShown: 0, mode: 'tdm', map: 'kiln', size: 4, diff: 1, ffaSize: 6, showFps: false, xhair: 1, inv: {}, invV: 0, played: {},
   load() {
     try { const s = JSON.parse(localStorage.getItem('overtune.settings') || '{}'); for (const k in s) if (k in this && typeof this[k] !== 'function') this[k] = s[k]; } catch (e) { /* private window */ }
     if (typeof this.loadouts !== 'object' || !this.loadouts) this.loadouts = {};
+    if (typeof this.inv !== 'object' || !this.inv) this.inv = {};
+    if (typeof this.played !== 'object' || !this.played) this.played = {};
   },
   save() {
     const o = {}; for (const k in this) if (typeof this[k] !== 'function') o[k] = this[k];
@@ -141,6 +143,26 @@ const Sfx = {
     reveal(t, o) { this.osc(t, 0.5, 1800, 1800, 'sine', 0.15, o); this.osc(t + 0.15, 0.5, 2400, 2400, 'sine', 0.12, o); },
     zone(t, o) { this.osc(t, 0.3, 520, 520, 'triangle', 0.25, o); this.osc(t + 0.15, 0.4, 780, 780, 'triangle', 0.25, o); },
     round(t, o) { this.osc(t, 0.4, 440, 440, 'square', 0.12, o); this.osc(t + 0.4, 0.4, 440, 440, 'square', 0.12, o); this.osc(t + 0.8, 0.8, 880, 880, 'square', 0.14, o); },
+    // v2 weapons and powers
+    crossbow(t, o) { this.nz(t, 0.04, 3800, 2, 'bandpass', 1.1, o); this.osc(t, 0.18, 220, 90, 'triangle', 0.6, o); this.nz(t, 0.3, 500, 1, 'lowpass', 0.8, o); this.nz(t + 0.18, 0.06, 2400, 6, 'bandpass', 0.4, o); this.nz(t + 0.36, 0.06, 2000, 6, 'bandpass', 0.35, o); },
+    shard(t, o) { this.osc(t, 0.16, 2600, 1800, 'sine', 0.3, o); this.osc(t, 0.12, 3900, 3500, 'sine', 0.15, o); this.nz(t, 0.06, 5000, 3, 'bandpass', 0.6, o); },
+    ricochet(t, o) { this.osc(t, 0.22, 3200, 1400, 'sine', 0.25, o); this.nz(t, 0.04, 6000, 4, 'bandpass', 0.4, o); },
+    flame(t, o) { this.nz(t, 0.25, 600, 0.6, 'lowpass', 1.0, o, 0.03); this.nz(t, 0.2, 2000, 1, 'bandpass', 0.3, o, 0.03); },
+    overheat(t, o) { this.nz(t, 1.2, 3000, 1, 'highpass', 0.6, o, 0.02, 'lin'); this.osc(t, 0.5, 900, 300, 'square', 0.12, o); this.osc(t + 0.15, 0.5, 900, 300, 'square', 0.1, o); },
+    beam(t, o) { this.osc(t, 0.3, 300, 500, 'sine', 0.3, o, 0.05); this.nz(t, 0.3, 900, 3, 'bandpass', 0.4, o, 0.05); },
+    slash(t, o) { this.nz(t, 0.14, 3000, 1.2, 'bandpass', 0.8, o, 0.03); this.osc(t, 0.1, 2400, 900, 'sine', 0.1, o); },
+    swish(t, o) { this.nz(t, 0.18, 1800, 1.4, 'bandpass', 0.7, o, 0.05); this.nz(t, 0.1, 5000, 2, 'highpass', 0.25, o, 0.04); },
+    moth(t, o) { for (let i = 0; i < 3; i++) this.nz(t + i * 0.05, 0.25, 500 + i * 180, 4, 'bandpass', 0.35, o, 0.05); this.osc(t, 0.3, 900, 1300, 'sine', 0.06, o, 0.1); },
+    flask(t, o) { this.nz(t, 0.25, 900, 1, 'bandpass', 0.5, o, 0.05); this.osc(t, 0.2, 500, 300, 'sine', 0.1, o); },
+    glass(t, o) { this.nz(t, 0.08, 6000, 1, 'highpass', 1.0, o); for (let i = 0; i < 4; i++) this.osc(t + i * 0.03, 0.2, 2500 + Math.random() * 2500, 2000, 'sine', 0.12, o); this.nz(t + 0.05, 0.5, 600, 2, 'bandpass', 0.5, o, 0.05); },
+    needle(t, o) { this.nz(t, 0.04, 6000, 3, 'bandpass', 0.6, o); this.osc(t, 0.06, 3000, 2000, 'triangle', 0.1, o); },
+    sink(t, o) { this.nz(t, 0.7, 300, 1, 'lowpass', 1.0, o, 0.05); this.osc(t, 0.6, 200, 60, 'sine', 0.4, o); for (let i = 0; i < 5; i++) this.osc(t + 0.1 + i * 0.09, 0.08, 400 + Math.random() * 400, 900, 'sine', 0.12, o); },
+    geyser(t, o) { this.nz(t, 1.1, 500, 0.6, 'lowpass', 2.0, o); this.nz(t, 0.8, 2400, 1, 'bandpass', 0.6, o, 0.05); this.osc(t, 0.6, 90, 40, 'sine', 1.0, o); },
+    bog(t, o) { for (let i = 0; i < 4; i++) this.osc(t + i * 0.12, 0.12, 180 + Math.random() * 200, 500, 'sine', 0.2, o); },
+    lantern(t, o) { this.nz(t, 0.3, 1500, 2, 'bandpass', 0.4, o, 0.02); this.osc(t + 0.05, 0.6, 700, 720, 'sine', 0.15, o, 0.05); this.nz(t + 0.05, 0.6, 400, 1, 'lowpass', 0.4, o, 0.15); },
+    leech(t, o) { this.osc(t, 0.9, 220, 140, 'sawtooth', 0.12, o, 0.1); this.nz(t, 0.9, 500, 5, 'bandpass', 0.4, o, 0.2); },
+    line(t, o) { this.nz(t, 0.25, 2500, 4, 'bandpass', 0.5, o, 0.01); this.osc(t, 0.25, 1200, 400, 'triangle', 0.15, o); },
+    catch(t, o) { this.nz(t, 0.06, 2000, 2, 'bandpass', 1.0, o); this.osc(t, 0.4, 600, 200, 'sawtooth', 0.2, o); this.osc(t + 0.05, 0.5, 1800, 1700, 'sine', 0.12, o); },
     win(t, o) { [523, 659, 784, 1046].forEach((f, i) => this.osc(t + i * 0.13, 0.6, f, f, 'triangle', 0.3, o)); },
     lose(t, o) { [392, 330, 262].forEach((f, i) => this.osc(t + i * 0.2, 0.7, f, f * 0.98, 'triangle', 0.3, o)); },
   },
@@ -154,6 +176,11 @@ const Sfx = {
       const o2 = c.createOscillator(); o2.type = 'square'; o2.frequency.value = 35; const g2 = c.createGain(); g2.gain.value = 0.4;
       o.connect(f); o2.connect(g2); g2.connect(f); f.connect(g); o.start(); o2.start(); nodes.push(o, o2);
       return { g, set: (gain, p) => { g.gain.setTargetAtTime(gain, c.currentTime, 0.04); o.frequency.setTargetAtTime(60 + p * 110, c.currentTime, 0.05); o2.frequency.setTargetAtTime(30 + p * 55, c.currentTime, 0.05); }, stop: () => { g.gain.setTargetAtTime(0, c.currentTime, 0.05); setTimeout(() => nodes.forEach(n => { try { n.stop(); } catch (e) { /* stopped */ } }), 400); } };
+    }
+    if (kind === 'flame') {
+      const s = c.createBufferSource(); s.buffer = this.noise; s.loop = true; const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 900; const f2 = c.createBiquadFilter(); f2.type = 'bandpass'; f2.frequency.value = 2200; f2.Q.value = 1; const g2 = c.createGain(); g2.gain.value = 0.25;
+      s.connect(f); f.connect(g); s.connect(f2); f2.connect(g2); g2.connect(g); s.start(); nodes.push(s);
+      return { g, set: (gain, p) => { g.gain.setTargetAtTime(gain, c.currentTime, 0.05); f.frequency.setTargetAtTime(600 + p * 900, c.currentTime, 0.05); }, stop: () => { g.gain.setTargetAtTime(0, c.currentTime, 0.1); setTimeout(() => { try { s.stop(); } catch (e) { /* stopped */ } }, 600); } };
     }
     const s = c.createBufferSource(); s.buffer = this.noise; s.loop = true; const f = c.createBiquadFilter(); f.type = kind === 'wind' ? 'lowpass' : kind === 'rain' ? 'highpass' : 'bandpass'; f.frequency.value = kind === 'wind' ? 380 : kind === 'rain' ? 2200 : 1400; f.Q.value = kind === 'charge' ? 6 : 0.5;
     s.connect(f); f.connect(g); s.start(); nodes.push(s);

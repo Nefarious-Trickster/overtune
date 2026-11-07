@@ -52,7 +52,7 @@ const Input = {
 
 // ---------------------------------------------------------------- the first-person view
 const View = {
-  vm: null, hero: null, kickP: 0, kickZ: 0, kickV: 0, swayX: 0, swayY: 0, bob: 0, shakeK: 0, landK: 0, reloadT: 0, reloadD: 1, throwT: 0, flashT: 0, blinkT: 0, eyeY: 0, deathCam: false, deathT: 0, specI: 0, fov: 95,
+  vm: null, hero: null, kickP: 0, kickZ: 0, kickV: 0, swayX: 0, swayY: 0, bob: 0, shakeK: 0, landK: 0, reloadT: 0, reloadD: 1, throwT: 0, flashT: 0, blinkT: 0, slashT: 0, slashSide: 1, eyeY: 0, deathCam: false, deathT: 0, specI: 0, fov: 95,
   init() {
     const cv = document.createElement('canvas'); cv.width = cv.height = 64; const c = cv.getContext('2d'), g = c.createRadialGradient(32, 32, 0, 32, 32, 32);
     g.addColorStop(0, 'rgba(255,240,200,1)'); g.addColorStop(0.3, 'rgba(255,180,90,0.6)'); g.addColorStop(1, 'rgba(255,120,40,0)'); c.fillStyle = g; c.fillRect(0, 0, 64, 64);
@@ -61,8 +61,10 @@ const View = {
   setHero(key) {
     if (this.vm) G.vmScene.remove(this.vm.vm);
     this.hero = key; this.vm = buildViewmodel(key); G.vmScene.add(this.vm.vm);
-    this.flashes = [this.vm.gun, this.vm.gun2].filter(Boolean).map(g => { const s = new THREE.Sprite(this.flashMat); s.scale.setScalar(0.22); s.visible = false; g.userData.muzzle.add(s); return s; });
-    this.vmMats = []; this.vm.vm.traverse(o => { if (o.isMesh) this.vmMats.push(o); });
+    const V = this.vm, s = new THREE.Sprite(this.flashMat.clone()); s.material.color = hdrCol(HEROES[key].look.glow, 2.5); s.scale.setScalar(0.2); s.visible = false; V.muzzle.add(s); this.flashes = V.kind === 'proj' || V.kind === undefined ? [s] : [];
+    this.vmMats = []; V.vm.traverse(o => { if (o.isMesh) this.vmMats.push(o); });
+    this.fadeLook = null;
+    V.rightRest = V.right.position.clone(); V.leftRest = V.left.position.clone();
   },
   reset() { this.kickP = 0; this.kickZ = 0; this.reloadT = 0; this.deathCam = false; const me = Game.me; if (me && me.heroKey !== this.hero) this.setHero(me.heroKey); if (me) this.eyeY = me.pos.y + PHYS.eye; },
   sway(dx, dy) { this.swayX = clamp(this.swayX + dx * 0.0004, -0.06, 0.06); this.swayY = clamp(this.swayY + dy * 0.0004, -0.06, 0.06); },
@@ -73,18 +75,18 @@ const View = {
   flash() { this.flashT = 0.05; this.shot = (this.shot || 0) + 1; },
   blink() { this.blinkT = 0.35; },
   throwAnim() { this.throwT = 0.35; },
+  slash(side) { this.slashT = 0.4; this.slashSide = side || 1; },
   // where the viewmodel's muzzle is, in the world (scaled from the narrow viewmodel lens to the main one)
-  muzzleWorld(i) {
-    const g = this.vm ? (this.vm.gun2 && (this.shot || 0) % 2 ? this.vm.gun2 : this.vm.gun) : null;
-    if (!g) return eyePos(Game.me);
+  muzzleWorld() {
+    if (!this.vm) return eyePos(Game.me);
     this.vm.vm.updateMatrixWorld(true);
-    const p = g.userData.muzzle.getWorldPosition(new V3());
+    const p = this.vm.muzzle.getWorldPosition(new V3());
     const k = Math.tan(G.camera.fov * Math.PI / 360) / Math.tan(G.vmCam.fov * Math.PI / 360);
     p.x *= k; p.y *= k;
     return p.applyMatrix4(G.camera.matrixWorld);
   },
   update(dt) {
-    const me = Game.me, cam = G.camera, M = Game.match; if (!me) return;
+    const me = Game.me, cam = G.camera; if (!me) return;
     // horizontal field of view setting → the camera's vertical one
     const hf = Settings.fov * Math.PI / 180, aspect = G.cw / Math.max(1, G.ch);
     let vfov = 2 * Math.atan(Math.tan(hf / 2) / aspect) * 180 / Math.PI;
@@ -93,14 +95,15 @@ const View = {
     this.fov = damp(this.fov, vfov, 10, dt); if (Math.abs(cam.fov - this.fov) > 0.01) { cam.fov = this.fov; cam.updateProjectionMatrix(); }
     if (!me.alive) { this.deathView(dt); this.vm && (this.vm.vm.visible = false); return; }
     this.deathCam = false; this.deathT = 0;
-    // camera
-    const eye = me.pos.y + PHYS.eye - (f & F_PLACE ? 0.35 : 0);
+    // camera: Mire under the ground looks out from just above the surface
+    this.subK = damp(this.subK || 0, f & F_SUB ? 1 : 0, 6, dt);
+    const eye = me.pos.y + PHYS.eye - (f & F_PLACE ? 0.35 : 0) - this.subK * 1.3;
     this.eyeY = me.grounded ? damp(this.eyeY, eye, 18, dt) : eye; if (Math.abs(this.eyeY - eye) > 1.5) this.eyeY = eye;
     const hs = Math.hypot(me.vel.x, me.vel.z), moving = me.grounded && hs > 1;
-    this.bob += dt * hs * 1.7 * (moving ? 1 : 0);
-    const bobY = moving ? Math.abs(Math.sin(this.bob)) * 0.04 * Math.min(1, hs / 6) : 0;
+    this.bob += dt * hs * 1.5 * (moving ? 1 : 0);
+    const bobY = moving ? Math.abs(Math.sin(this.bob)) * 0.035 * Math.min(1, hs / 6) : 0;
     this.landK = damp(this.landK, 0, 8, dt); this.shakeK = Math.max(0, this.shakeK - dt * 2.2);
-    if (f & F_CHARGE) this.shakeK = Math.max(this.shakeK, 0.25); if (f & F_REV) this.shakeK = Math.max(this.shakeK, 0.12);
+    if (f & F_CHARGE) this.shakeK = Math.max(this.shakeK, 0.25); if (f & F_REV) this.shakeK = Math.max(this.shakeK, 0.12); if (f & F_FLAME) this.shakeK = Math.max(this.shakeK, 0.06);
     const sh = this.shakeK * this.shakeK * 0.08;
     cam.position.set(me.pos.x + rand(-sh, sh), this.eyeY + bobY - this.landK + rand(-sh, sh), me.pos.z + rand(-sh, sh));
     this.kickP = damp(this.kickP, 0, 9, dt);
@@ -109,30 +112,44 @@ const View = {
     cam.rotation.set(me.pitch + this.kickP, me.yaw, this.roll);
     cam.updateMatrixWorld();
     // viewmodel
-    const V = this.vm; if (!V) return; V.vm.visible = true;
+    const V = this.vm; if (!V) return; V.vm.visible = this.subK < 0.5;
     this.swayX = damp(this.swayX, 0, 7, dt); this.swayY = damp(this.swayY, 0, 7, dt); this.kickZ = damp(this.kickZ, 0, 14, dt);
-    const bx = Math.sin(this.bob * 0.5) * 0.012 * Math.min(1, hs / 6), by = -Math.abs(Math.cos(this.bob * 0.5)) * 0.01 * Math.min(1, hs / 6);
-    V.vm.position.set(-this.swayX + bx, this.swayY + by - this.landK * 0.3 - (me.grounded ? 0 : 0.015), this.kickZ);
+    const bx = Math.sin(this.bob * 0.5) * 0.012 * Math.min(1, hs / 6), by = -Math.abs(Math.cos(this.bob * 0.5)) * 0.01 * Math.min(1, hs / 6), idle = Math.sin(G.time * 1.4) * 0.004;
+    V.vm.position.set(-this.swayX + bx, this.swayY + by + idle - this.landK * 0.3 - (me.grounded ? 0 : 0.015), this.kickZ);
     V.vm.rotation.set(this.kickZ * 1.2 - this.swayY * 0.5, -this.swayX * 0.8, -this.swayX * 0.6);
-    // reload: dip and turn the weapon
-    if (this.reloadT > 0) { this.reloadT -= dt; const k = Math.sin(clamp(1 - this.reloadT / this.reloadD, 0, 1) * Math.PI); V.right.rotation.set(-0.5 * k, 0.3 * k, 0.6 * k); V.right.position.y = -0.2 - 0.12 * k; if (V.gun2) { V.left.rotation.set(-0.5 * k, -0.3 * k, -0.6 * k); V.left.position.y = -0.2 - 0.12 * k; } }
-    else { V.right.rotation.set(0, 0, 0); V.right.position.y = -0.2; if (V.gun2) { V.left.rotation.set(0, 0, 0); V.left.position.y = -0.2; } }
+    const R = V.right, L = V.left; R.position.copy(V.rightRest); R.rotation.set(0, 0, 0); L.position.copy(V.leftRest); L.rotation.set(0, 0, 0);
+    // reload: dip and turn the weapon (the off hand follows a two-handed grip)
+    if (this.reloadT > 0) { this.reloadT -= dt; const k = Math.sin(clamp(1 - this.reloadT / this.reloadD, 0, 1) * Math.PI); R.rotation.set(-0.5 * k, 0.3 * k, 0.6 * k); R.position.y -= 0.12 * k; if (V.hold.gripL) { L.position.y -= 0.2 * k; L.position.x -= 0.05 * k; } }
+    // knives: a wide cut from one side to the other, alternating hands
+    if (this.slashT > 0) {
+      this.slashT -= dt; const k = 1 - this.slashT / 0.4, e = Math.sin(clamp(k, 0, 1) * Math.PI), sd = this.slashSide, H = sd > 0 ? R : L, sx = sd > 0 ? 1 : -1;
+      H.position.x += sx * (0.12 - k * 0.32); H.position.y += e * 0.08; H.position.z -= e * 0.2;
+      H.rotation.set(-0.3 * e, sx * (0.8 - k * 1.6), sx * (-0.9 + k * 0.6));
+    }
+    // flame: the nozzle bucks and glows; beam: the staff lifts and the orb pulses
+    if (f & F_FLAME) { R.position.x += rand(-0.004, 0.004); R.position.y += rand(-0.004, 0.004); R.rotation.x += 0.04; }
+    if (me.heat > 0 || me.overheat > 0) { const h = me.overheat > 0 ? 1 : me.heat; R.rotation.z += h * 0.06 * Math.sin(G.time * 40); }
+    if (V.kind === 'beam') { const on = !!(f & F_BEAM); this.beamK = damp(this.beamK || 0, on ? 1 : 0, 10, dt); R.position.y += this.beamK * 0.05; R.rotation.x += this.beamK * 0.12 + Math.sin(G.time * 22) * 0.01 * this.beamK; }
+    if (V.key === 'wick') { R.rotation.z = Math.sin(G.time * 2.2) * 0.08 + this.swayX * 2; R.rotation.x = Math.sin(G.time * 1.7) * 0.05; }
+    if (this.throwT > 0 && V.kind === 'proj' && (V.key === 'mire' || V.key === 'spindle')) { /* handled below as the off hand */ }
     // the power in the off hand
     const P = me.P, pw = me.pw, off = V.off; let offOn = false;
     if (P.key === 'snare' && pw.placing > 0) { offOn = true; const k = 1 - pw.placing / P.place; off.position.set(-0.22, -0.3 - k * 0.15, -0.5 + k * 0.05); off.rotation.set(-0.6 - k * 0.6, 0, 0); }
-    if (P.key === 'glaive' && (pw.winding || this.throwT > 0)) { offOn = true; const w = pw.winding ? clamp(pw.wind / P.windMax, 0, 1) : 0; if (this.throwT > 0) { this.throwT -= dt; const k = 1 - this.throwT / 0.35; off.position.set(-0.1 + k * 0.1, -0.15 - k * 0.25, -0.6 - k * 0.3); off.rotation.set(-0.3 - k, 0, 0.6); } else { off.position.set(-0.3 - w * 0.1, -0.12 + w * 0.08, -0.32 + w * 0.12); off.rotation.set(0.2 + w * 0.5, 0, 0.4 + w * 0.3); } if (V.extra.glaive) V.extra.glaive.rotation.z = 1.2 + G.time * (pw.winding ? 6 * w : 0); }
+    if (P.key === 'glaive' && (pw.winding || this.throwT > 0)) { offOn = true; const w = pw.winding ? clamp(pw.wind / P.windMax, 0, 1) : 0; if (this.throwT > 0) { this.throwT -= dt; const k = 1 - this.throwT / 0.35; off.position.set(-0.1 + k * 0.1, -0.15 - k * 0.25, -0.6 - k * 0.3); off.rotation.set(-0.3 - k, 0, 0.6); } else { off.position.set(-0.3 - w * 0.1, -0.12 + w * 0.08, -0.32 + w * 0.12); off.rotation.set(0.2 + w * 0.5, 0, 0.4 + w * 0.3); } if (V.extra.prop) V.extra.prop.rotation.y = G.time * (pw.winding ? 14 * w : 0); }
     if (P.key === 'blink' && (pw.charging || this.blinkT > 0)) { offOn = true; const k = pw.charging ? clamp(pw.chargeT / P.chargeTime, 0, 1) : 1; off.position.set(-0.24, -0.24 + k * 0.04, -0.46); off.rotation.set(-0.2, 0, 0); V.extra.orb.scale.setScalar(0.5 + k * 1.2 + Math.sin(G.time * 30) * 0.08); V.extra.ring.rotation.set(G.time * 3, G.time * 5, 0); V.extra.ring.scale.setScalar(0.6 + k); }
+    if (P.key === 'lantern' && (pw.placing > 0 || pw.chan > 0 || pw.hold > 0.1)) { offOn = true; const k = pw.placing > 0 ? 1 - pw.placing / P.place : pw.chan > 0 ? 1 - pw.chan / P.walk : 0.3; off.position.set(-0.2, -0.32 + k * 0.1, -0.42 - k * 0.1); off.rotation.set(-0.2 - k * 0.3, 0, 0); if (V.extra.prop) V.extra.prop.userData.flame.scale.setScalar(1 + (pw.chan > 0 ? k * 2 : 0) + Math.sin(G.time * 25) * 0.1); }
+    if ((P.key === 'line' || P.key === 'sub') && this.throwT > 0 && V.extra.orb) { offOn = true; this.throwT -= dt; const k = 1 - this.throwT / 0.35; off.position.set(-0.22 + k * 0.08, -0.22 + k * 0.05, -0.42 - k * 0.25); off.rotation.set(-0.4 * k, 0, 0); V.extra.orb.scale.setScalar(1.4 - k); V.extra.ring.rotation.set(G.time * 6, G.time * 4, 0); V.extra.ring.scale.setScalar(0.5 + k * 1.5); }
+    else if (this.throwT > 0 && P.key !== 'glaive') this.throwT -= dt;
     if (this.blinkT > 0) this.blinkT -= dt;
     off.visible = offOn;
-    if (V.foregrip) V.foregrip.visible = !offOn;
-    if (P.key === 'ram') { const r = pw.state === 'rev' || pw.state === 'charge'; V.right.position.x = 0.21 + (r ? 0.06 : 0); V.right.rotation.z += r ? -0.25 : 0; V.right.position.y += r ? -0.06 : 0; }
+    if (P.key === 'ram') { const r = pw.state === 'rev' || pw.state === 'charge'; R.position.x += r ? 0.06 : 0; R.rotation.z += r ? -0.25 : 0; R.position.y += r ? -0.06 : 0; }
     // a faded Veil sees her own hands faded too
     const cl = cloakLevel(me), fadeLook = cl > 0.5 || me.st.night > 0;
-    if (fadeLook !== this.fadeLook) { this.fadeLook = fadeLook; for (const m of this.vmMats) m.material = fadeLook ? SHIMMER_MAT : m.userData.base; }
+    if (fadeLook !== this.fadeLook) { this.fadeLook = fadeLook; for (const m of this.vmMats) m.material = fadeLook ? SHIMMER_MAT : (m.userData.base || m.material); }
     if (me.st.fatigue > 0) { V.vm.position.y -= 0.08; V.vm.rotation.x -= 0.25; }
     // muzzle flash
-    this.flashT -= dt; if (this.flashes) this.flashes.forEach((s, i) => { s.visible = this.flashT > 0 && (this.flashes.length < 2 || (this.shot % 2) === i); s.material.rotation = Math.random() * TAU; });
-    G.vmFill.intensity = this.flashT > 0 ? 3 : 0;
+    this.flashT -= dt; if (this.flashes) this.flashes.forEach(s => { s.visible = this.flashT > 0; s.material.rotation = Math.random() * TAU; });
+    G.vmFill.intensity = this.flashT > 0 ? 3 : (f & F_FLAME ? 2 + Math.random() : 0);
   },
   deathView(dt) {
     const me = Game.me, cam = G.camera; this.deathCam = true; this.deathT += dt;
@@ -221,8 +238,14 @@ const HUD = {
     el.innerHTML = side(mine) + side(1 - mine);
     void final;
   },
-  end(won) {
+  end(won, drops) {
     const M = Game.match, el = $('#endscreen'); el.hidden = false; $('#deathpanel').hidden = true;
+    const D = $('#end-drops');
+    if (drops && drops.got.length) {
+      const H = HEROES[drops.hero];
+      D.innerHTML = `<small>${drops.got.length === 3 ? 'VICTORY CACHE' : drops.got.length === 2 ? 'DRAW CACHE' : 'CONSOLATION'} · ${esc(H.name)}</small><div class="drops">${drops.got.map((i, n) => { const a = H.addons[i]; return `<div class="drop r${a.r}" style="--d:${0.5 + n * 0.55}s"><i>${iconSVG(a.icon)}</i><b>${esc(a.name)}</b><span>${RARITY[a.r].name}</span><em>×${Inventory.count(drops.hero, i)} owned</em></div>`; }).join('')}</div>`;
+      drops.got.forEach((i, n) => setTimeout(() => Sfx.play(H.addons[i].r >= 3 ? 'ultReady' : 'pickup', null, 0.6 + H.addons[i].r * 0.1), 500 + n * 550));
+    } else D.innerHTML = M.t <= 45 ? '<small class="dim">No add-ons — the match was too short</small>' : '';
     const title = M.win === -1 ? 'DRAW' : won ? 'VICTORY' : 'DEFEAT';
     $('#end-title').textContent = title; $('#end-title').className = M.win === -1 ? '' : won ? 'win' : 'lose';
     $('#end-sub').textContent = M.mode === 'ffa' ? (M.winName ? `${M.winName} wins` : '') : `${MODES[M.mode].name} · ${MAPS[M.map].name} · ${scoreText(0)} – ${scoreText(1)}`;
@@ -243,8 +266,10 @@ const HUD = {
     $('#hp-num').textContent = Math.max(0, Math.ceil(me.hp)); $('#hp-max').textContent = '/' + me.maxHp;
     $('#hp-fill').style.transform = `scaleX(${hpf})`; $('#hp').classList.toggle('low', hpf < 0.3);
     const W = me.H.weapon;
-    $('#ammo-num').textContent = me.reloadT > 0 ? '—' : me.ammo; $('#ammo-max').textContent = '/' + W.mag;
-    $('#ammo').classList.toggle('reload', me.reloadT > 0); $('#reload-fill').style.transform = `scaleX(${me.reloadT > 0 ? 1 - me.reloadT / W.reload : 0})`;
+    if (W.kind === 'flame') { const oh = me.overheat > 0; $('#ammo-num').textContent = oh ? 'VENT' : Math.round(me.heat * 100) + '%'; $('#ammo-max').textContent = ' heat'; $('#ammo').classList.toggle('reload', oh); $('#reload-fill').style.transform = `scaleX(${oh ? 1 - me.overheat / W.lockout : me.heat})`; }
+    else if (W.kind === 'beam') { $('#ammo-num').textContent = Math.round(me.tide); $('#ammo-max').textContent = ' tide'; $('#ammo').classList.toggle('reload', me.tide < 10); $('#reload-fill').style.transform = `scaleX(${me.tide / 100})`; }
+    else if (W.kind === 'melee') { $('#ammo-num').textContent = '∞'; $('#ammo-max').textContent = ''; $('#ammo').classList.remove('reload'); $('#reload-fill').style.transform = 'scaleX(0)'; }
+    else { $('#ammo-num').textContent = me.reloadT > 0 ? '—' : me.ammo; $('#ammo-max').textContent = '/' + W.mag; $('#ammo').classList.toggle('reload', me.reloadT > 0); $('#reload-fill').style.transform = `scaleX(${me.reloadT > 0 ? 1 - me.reloadT / W.reload : 0})`; }
     this.powerWidget(me);
     const uf = me.utilT > 0 ? me.utilT / me.H.util.cd : 0;
     $('#kit-util').classList.toggle('cool', uf > 0); $('#kit-util-cd').textContent = uf > 0 ? Math.ceil(me.utilT) : ''; $('#kit-util').style.setProperty('--cd', uf);
@@ -253,7 +278,8 @@ const HUD = {
     // statuses
     const st = me.st, chips = [];
     if (st.root > 0) chips.push(['ROOTED', 'bad']); if (st.stun > 0) chips.push(['STUNNED', 'bad']); if (st.slows && st.slows.length) chips.push(['SLOWED', 'bad']);
-    if (st.fatigue > 0) chips.push(['FATIGUED', 'bad']); if (st.reveal > 0) chips.push(['REVEALED', 'bad']); if (st.dots && st.dots.length) chips.push([st.dots[0].kind === 'poison' ? 'POISONED' : 'BLEEDING', 'bad']);
+    if (st.charm) chips.push(['PUPPETED', 'bad']); if (st.vulnT > 0) chips.push(['VULNERABLE', 'bad']); if (st.blind > 0) chips.push(['BLINDED', 'bad']); if (st.shield) chips.push(['SHELL', 'good']); if (st.swift > 0) chips.push(['SWIFT', 'good']);
+    if (st.fatigue > 0) chips.push(['FATIGUED', 'bad']); if (st.reveal > 0) chips.push(['REVEALED', 'bad']); if (st.dots && st.dots.length) chips.push([{ poison: 'POISONED', burn: 'BURNING', acid: 'MELTING' }[st.dots[0].kind] || 'BLEEDING', 'bad']);
     if (st.strike > 0 && me.P.key === 'blink') chips.push(['RIFT STRIKE', 'good']); if (st.ambush > 0) chips.push(['AMBUSH READY', 'good']); if (st.unbound > 0) chips.push(['UNBOUND ' + Math.ceil(st.unbound), 'good']); if (st.night > 0) chips.push(['NIGHTFALL ' + Math.ceil(st.night), 'good']);
     if (me.spawnProt > 0) chips.push(['PROTECTED', 'good']);
     const ch = chips.map(c => `<span class="${c[1]}">${c[0]}</span>`).join(''); if (ch !== this.chipsWas) { $('#status').innerHTML = ch; this.chipsWas = ch; }
@@ -276,7 +302,7 @@ const HUD = {
     }
     this.nameTags(me, cam, w, h);
     $('#clickhint').hidden = Input.locked || !!UI.cur || M.st === 'end';
-    $('#xhair').className = 'x' + (Settings.xhair | 0) + (me.alive && cloakLevel(me) < 0.5 && !(me.st.fatigue > 0) && me.reloadT <= 0 ? '' : ' off');
+    $('#xhair').className = 'x' + (Settings.xhair | 0) + (me.alive && (cloakLevel(me) < 0.5 || me.P.shootCloaked || me.P.perma) && !(me.st.fatigue > 0) && me.reloadT <= 0 && !isSub(me) ? '' : ' off') + (me.H.weapon.kind === 'beam' && me.beamT ? ' lock' : '');
     // death panel countdown
     if (!me.alive) {
       const t = M.mode === 'elim' ? null : Math.max(0, Math.ceil(me.respawnT));
@@ -290,7 +316,10 @@ const HUD = {
     else if (P.key === 'blink') { const unb = me.st.unbound > 0; pips = unb ? '<i class="inf">∞</i>' : pipHTML(pw.charges, P.charges); if (pw.charging) { bar = pw.chargeT / P.chargeTime; label = Math.round(lerp(P.minDist, P.maxDist, bar)) + ' m'; state = 'charging'; } else if (me.st.fatigue > 0) { label = 'FATIGUE'; state = 'bad'; } else if (pw.charges < P.charges) bar = pw.rech / P.recharge; }
     else if (P.key === 'ram') { if (pw.state === 'rev') { bar = pw.t / P.rev; label = 'REVVING'; state = 'charging'; } else if (pw.state === 'charge') { bar = 1 - pw.t / P.dur; label = 'CHARGE'; state = 'active'; } else if (pw.state === 'crash') { label = 'CRASHED'; state = 'bad'; } else if (pw.cd > 0) cd = pw.cd; }
     else if (P.key === 'fade') { if (pw.state === 'cloaked') { bar = 1 - pw.cloakT / P.maxTime; label = 'FADED'; state = 'active'; } else if (pw.state === 'going') { label = 'FADING'; state = 'charging'; } else if (pw.state === 'coming') { label = 'UNVEILING'; state = 'charging'; } else if (pw.cd > 0) cd = pw.cd; }
-    else if (P.key === 'glaive') { pips = pipHTML(pw.count, P.cap); if (pw.winding) { bar = clamp((pw.wind - P.windMin) / (P.windMax - P.windMin), 0, 1); label = bar >= 1 ? 'FULL' : 'WIND'; state = 'charging'; } else if (pw.count < P.cap) bar = pw.rech / P.regen; }
+    else if (P.key === 'lantern') { if (P.carried) label = 'CARRIED'; else { pips = pipHTML(pw.charges, P.carry); if (pw.chan > 0) { bar = 1 - pw.chan / P.walk; label = 'WALKING'; state = 'charging'; } else if (pw.placing > 0) label = 'LIGHTING'; else if (pw.walkCd > 0) cd = pw.walkCd; else if (pw.charges < P.carry) bar = pw.rech / P.recharge; } }
+    else if (P.key === 'sub') { if (pw.state === 'under') { bar = 1 - pw.t / P.maxTime; label = 'SUBMERGED'; state = 'active'; } else if (pw.state === 'sinking') { label = 'SINKING'; state = 'charging'; } else if (pw.cd > 0) cd = pw.cd; }
+    else if (P.key === 'line') { pips = pipHTML(pw.charges, P.charges); if (pw.charges < P.charges) bar = pw.rech / P.cd; }
+    else if (P.key === 'glaive') { pips = pipHTML(pw.count, P.cap); if (P.orbit && pw.count) label = 'ORBITING'; if (pw.winding) { bar = clamp((pw.wind - P.windMin) / (P.windMax - P.windMin), 0, 1); label = bar >= 1 ? 'FULL' : 'WIND'; state = 'charging'; } else if (pw.count < P.cap) bar = pw.rech / P.regen; }
     const key = pips + '|' + label + '|' + state + '|' + Math.ceil(cd);
     if (key !== this.pwKey) { this.pwKey = key; $('#kit-pips').innerHTML = pips; $('#kit-power-state').textContent = label || (cd > 0 ? Math.ceil(cd) + 's' : ''); el.className = 'kit power ' + state + (cd > 0 ? ' cool' : ''); }
     $('#kit-power-bar').style.transform = `scaleX(${clamp(bar, 0, 1)})`;
@@ -341,7 +370,7 @@ function fmtTime(t) { t = Math.max(0, Math.ceil(t)); return Math.floor(t / 60) +
 function scoreText(t) { const M = Game.match; if (!M) return 0; if (M.mode === 'koth') return Math.floor(M.sc[t]) + '%'; if (M.mode === 'elim') return M.rd.w[t]; return Math.floor(M.sc[t]); }
 function howName(k, how) {
   if (!k) return how;
-  const map = { snare: k.H.power.name, blink: 'Rift Step', ram: 'Ramjet', glaive: 'Glaive', ambush: 'Ambush', slam: 'Earthshaker', burn: 'Ember trail', bleed: 'Bleed', poison: 'Venom', orb: k.H.weapon.name };
+  const map = { snare: k.H.power.name, blink: 'Rift Step', ram: 'Ramjet', glaive: 'Glaive', ambush: 'Ambush', backstab: 'Backstab', knives: 'Whisper Knives', slam: k.H.ult.name, burn: 'Burning', bleed: 'Bleed', poison: 'Venom', acid: 'Acid', flame: 'Boiler', beam: 'Tidecaller', furnace: 'Furnace', lantern: 'Lantern', beacon: 'Beacon', flare: k.H.ult.name, geyser: 'Geyser', drown: 'Drowned', line: 'Marionette Line', leech: k.H.util.name, cradle: k.H.ult.name, heart: k.H.ult.name, bolt: 'Rattlejaw', shard: 'Shardcaster', moth: 'Moth Swarm', flask: "Brewer's Flasks", needle: 'Thread Needles' };
   return map[how] || how;
 }
 
@@ -349,12 +378,16 @@ function howName(k, how) {
 function powerStats(heroKey, addons) {
   const B = powerFor(heroKey, []), P = powerFor(heroKey, addons), out = [];
   const row = (label, k, fmt = v => v, better = 1) => { const a = B[k], b = P[k]; const ch = a !== b; out.push({ label, val: fmt(b), ch, good: ch ? (typeof b === 'boolean' ? b : (b - a) * better > 0) : null }); };
-  const s = v => (Math.round(v * 100) / 100) + ' s', m = v => (Math.round(v * 10) / 10) + ' m', n = v => Math.round(v), pct = v => Math.round(v * 100) + '%', yes = v => v ? 'Yes' : '—';
-  if (P.key === 'snare') { row('Snares carried', 'carry', n); row('Recharge', 'recharge', s, -1); row('Arming time', 'arm', s, -1); row('Damage', 'dmg', n); row('Root', 'root', s); row('Trigger radius', 'radius', m); row('Enemies see it within', 'visDist', m, -1); row('Throw range', 'throwDist', v => v ? m(v) : 'At your feet'); if (P.bleed) row('Bleed', 'bleed', n); if (P.explode) row('Explosion', 'explode', n); if (P.chain) row('Tripwire pulses', 'chain', yes); if (P.bell) row('Bell reveal radius', 'bell', m); row('Reveal', 'reveal', s); }
-  if (P.key === 'blink') { row('Blinks per chain', 'charges', n); row('Recharge each', 'recharge', s, -1); row('Charge time', 'chargeTime', s, -1); row('Max distance', 'maxDist', m); row('Fatigue per blink', 'fatiguePer', s, -1); row('Rift Strike bonus', 'strike', pct); if (P.arriveDmg) row('Arrival blast', 'arriveDmg', n); if (P.lineDmg) row('Pass-through damage', 'lineDmg', n); if (P.heal) row('Heal per blink', 'heal', n); if (P.decoy) row('Decoy', 'decoy', yes); if (P.noFatigue) row('No fatigue', 'noFatigue', yes); }
-  if (P.key === 'ram') { row('Rev time', 'rev', s, -1); row('Charge speed', 'speed', v => Math.round(v * 10) / 10 + ' m/s'); row('Charge length', 'dur', s); row('Turning', 'turn', v => Math.round(v * 57) + '°/s'); row('Ram damage', 'dmg', n); row('Knockback', 'knock', n); row('Cooldown', 'cd', s, -1); row('Crash stun', 'crashStun', s, -1); if (P.trail) row('Burning trail', 'trail', v => v + '/s'); if (P.multi) row('Plough through', 'multi', yes); if (P.shock) row('Crash shockwave', 'shock', n); if (P.execute) row('Execute below', 'execute', pct); }
-  if (P.key === 'fade') { row('Fade time', 'fadeIn', s, -1); row('Unveil time', 'fadeOut', s, -1); row('Faded speed', 'speed', pct); row('Max time faded', 'maxTime', s); row('Ambush bonus', 'ambush', n); row('Shimmer seen within', 'shimmer', m, -1); row('Cooldown', 'cd', s, -1); if (P.regen) row('Regen while faded', 'regen', v => v + '/s'); if (P.pierce) row('Ambush pierces', 'pierce', yes); if (P.blind) row('Blind on unveil', 'blind', s); if (P.sense) row('Sense enemies within', 'sense', m); if (P.shootCloaked) row('Fire while faded', 'shootCloaked', yes); }
-  if (P.key === 'glaive') { row('Glaives carried', 'cap', n); row('Return time', 'regen', s, -1); row('Full wind-up', 'windMax', s, -1); row('Damage', 'dmgMax', v => `${Math.round(P.dmgMin)}–${Math.round(v)}`); row('Throw speed', 'spdMax', v => Math.round(v) + ' m/s'); row('Move while winding', 'slow', pct); if (P.venom) row('Venom', 'venom', n); if (P.ricochet) row('Ricochets', 'ricochet', n); if (P.blast) row('Burst damage', 'blast', n); if (P.twin) row('Twin throw', 'twin', yes); if (P.mark) row('Bloodtrail reveal', 'mark', s); if (P.oneshot) row('Full wind-up kills', 'oneshot', yes); }
+  const opt = (label, k, fmt, better) => { if (P[k]) row(label, k, fmt, better); };
+  const s = v => (Math.round(v * 100) / 100) + ' s', m = v => (Math.round(v * 10) / 10) + ' m', n = v => Math.round(v), pct = v => Math.round(v * 100) + '%', yes = v => v ? 'Yes' : '—', ps = v => Math.round(v) + '/s';
+  if (P.key === 'snare') { if (P.auto) row('Snares grow every', 'auto', s, -1); else { row('Snares carried', 'carry', n); row('Recharge', 'recharge', s, -1); } row('Arming time', 'arm', s, -1); row('Damage', 'dmg', n); if (!P.noRoot) row('Root', 'root', s); else row('Never roots', 'noRoot', yes, -1); row('Trigger radius', 'radius', m); row('Enemies see it within', 'visDist', m, -1); row('Throw range', 'throwDist', v => v ? m(v) : 'At your feet'); opt('Bleed', 'bleed', n); opt('Explosion', 'explode', n); opt('Tripwire pulses', 'chain', yes); opt('Bell reveal radius', 'bell', m); opt('Vulnerable for', 'vuln', s); row('Reveal', 'reveal', s); }
+  if (P.key === 'blink') { row('Blinks per chain', 'charges', n); row('Recharge each', 'recharge', s, -1); row('Charge time', 'chargeTime', s, -1); row('Max distance', 'maxDist', m); if (!P.noFatigue) row('Fatigue per blink', 'fatiguePer', s, -1); row('Rift Strike bonus', 'strike', pct); opt('Arrival blast', 'arriveDmg', n); opt('Pass-through damage', 'lineDmg', n); opt('Heal per blink', 'heal', n); opt('Decoy', 'decoy', yes); opt('No fatigue', 'noFatigue', yes); opt('Blinks go any direction', 'vertical', yes); opt('Rift detonates after', 'rift', s); opt('Health per blink', 'hpCost', n, -1); }
+  if (P.key === 'ram') { row('Rev time', 'rev', s, -1); row('Charge speed', 'speed', v => Math.round(v * 10) / 10 + ' m/s'); row('Charge length', 'dur', s); row('Turning', 'turn', v => Math.round(v * 57) + '°/s'); row('Ram damage', 'dmg', n); row('Knockback', 'knock', n); row('Cooldown', 'cd', s, -1); row('Crash stun', 'crashStun', s, -1); opt('Burning trail', 'trail', ps); opt('Plough through', 'multi', yes); opt('Crash shockwave', 'shock', n); opt('Execute below', 'execute', pct); opt('Vent on contact', 'vent', yes); opt('Bounce off walls', 'bounce', yes); opt('Unstoppable', 'jugg', yes); opt('Burns your own health', 'furnace', yes, -1); }
+  if (P.key === 'fade') { if (P.perma) row('Always faded', 'perma', yes); else { row('Fade time', 'fadeIn', s, -1); row('Unveil time', 'fadeOut', s, -1); row('Max time faded', 'maxTime', s); row('Cooldown', 'cd', s, -1); } row('Faded speed', 'speed', pct); row('Ambush bonus', 'ambush', n); row('Shimmer seen within', 'shimmer', m, -1); opt('Regen while faded', 'regen', ps); opt('Ambush cleaves', 'cleave', yes); opt('Blind on unveil', 'blind', s); opt('Sense enemies within', 'sense', m); opt('Strike while faded', 'shootCloaked', yes); opt('Silent footsteps', 'silent', yes); opt('Swift on unveil', 'swift', s); opt('Unveil behind target', 'shadowStep', yes); }
+  if (P.key === 'glaive') { row('Glaives carried', 'cap', n); row('Return time', 'regen', s, -1); if (P.orbit) row('Glaives orbit you', 'orbit', yes); else { row('Full wind-up', 'windMax', s, -1); row('Damage', 'dmgMax', v => `${Math.round(P.dmgMin)}–${Math.round(v)}`); row('Throw speed', 'spdMax', v => Math.round(v) + ' m/s'); row('Move while winding', 'slow', pct); } opt('Venom', 'venom', n); opt('Ricochets', 'ricochet', n); opt('Burst damage', 'blast', n); opt('Twin throw', 'twin', yes); opt('Bloodtrail reveal', 'mark', s); opt('Full wind-up kills', 'oneshot', yes); opt('Glaives return', 'returning', yes); opt('Pierce', 'pierce', yes); }
+  if (P.key === 'lantern') { if (P.carried) row('Lantern carried with you', 'carried', yes); else { row('Lanterns hung', 'carry', n); row('Recharge', 'recharge', s, -1); row('Lantern walk', 'walk', s, -1); row('Walk cooldown', 'walkCd', s, -1); } row('Light radius', 'radius', m); row('Slow in light', 'slow', v => Math.round((1 - v) * 100) + '%', -1); opt('Light lingers', 'linger', s); opt('Throw range', 'throwDist', m); opt('Echo reveal', 'echo', s); opt('Roots on first touch', 'root', s); opt('Burn', 'burn', ps); opt('Beams between lanterns', 'beacon', n); opt('Hidden from enemies', 'hidden', yes); opt('Turret moths every', 'turret', s, -1); opt('Moth damage', 'mothBoost', pct); }
+  if (P.key === 'sub') { row('Sink time', 'sink', s, -1); row('Max time under', 'maxTime', s); row('Speed under', 'speed', pct); row('Cooldown', 'cd', s, -1); row('Geyser damage', 'dmg', n); row('Geyser radius', 'radius', m); row('Launch', 'knock', n); opt('Heal under', 'heal', ps); opt('Acid pool', 'pool', ps); opt('Pulls enemies in', 'pull', yes); opt('Roots', 'root', s); opt('Drown above you', 'drown', ps); opt('Acid trail', 'trail', ps); opt('Flask ring', 'flaskRing', yes); opt('Throw from below', 'artillery', yes); opt('Fen: everything bigger', 'fen', yes); }
+  if (P.key === 'line') { row('Lines', 'charges', n); row('Recharge', 'cd', s, -1); row('Range', 'range', m); row('Line speed', 'speed', v => Math.round(v) + ' m/s'); row('Damage', 'dmg', n); opt('Stun', 'stun', s); opt('Vulnerable', 'vuln', s); opt('Slow', 'slow', s); opt('Swap places', 'swap', yes); opt('Choke (root)', 'choke', s); if (P.multi > 1) row('Catches up to', 'multi', n); opt('Gallows: hurl up', 'gallows', yes); opt('Puppet for', 'puppet', s); opt('Web', 'web', yes); opt('Meet them halfway', 'meet', yes); }
   return out;
 }
 
@@ -467,7 +500,8 @@ const UI = {
     $('#lo-slots').innerHTML = [0, 1].map(i => { const a = cur[i] != null ? H.addons[cur[i]] : null; return a ? `<button class="slot r${a.r}" data-act="unslot" data-arg="${i}" title="Remove">${iconSVG(a.icon)}<span>${esc(a.name)}</span><em>×</em></button>` : `<div class="slot empty"><span>Empty slot</span></div>`; }).join('');
     $('#lo-kit').innerHTML = `<div><small>UTILITY · SHIFT</small><b>${H.util.name}</b><p>${H.util.desc}</p></div><div><small>ULTIMATE · Q</small><b>${H.ult.name}</b><p>${H.ult.desc}</p></div>`;
     const sorted = [...H.addons].sort((a, b) => a.r - b.r || a.idx - b.idx);
-    $('#lo-grid').innerHTML = sorted.map(a => `<button class="addon r${a.r} ${cur.includes(a.idx) ? 'on' : ''}" data-act="equip" data-arg="${a.idx}" data-tip="${a.idx}">${iconSVG(a.icon)}<span>${esc(a.name)}</span></button>`).join('');
+    $('#lo-gridhead').innerHTML = `ADD-ONS · <b>${Inventory.total(key)}</b> owned — slotting one uses it up when the match starts. Win a match to earn 3, lose to earn 1.`;
+    $('#lo-grid').innerHTML = sorted.map(a => { const n = Inventory.count(key, a.idx); return `<button class="addon r${a.r} ${cur.includes(a.idx) ? 'on' : ''} ${n ? '' : 'locked'}" data-act="equip" data-arg="${a.idx}" data-tip="${a.idx}">${iconSVG(a.icon)}<span>${esc(a.name)}</span>${n ? `<em>×${n}</em>` : '<em class="no">0</em>'}</button>`; }).join('');
     $$('#lo-grid .addon').forEach(b => { b.addEventListener('mouseenter', () => this.tip(key, +b.dataset.tip)); b.addEventListener('focus', () => this.tip(key, +b.dataset.tip)); });
     this.tip(key, cur.length ? cur[cur.length - 1] : sorted[0].idx);
     $('#lo-numbers').innerHTML = powerStats(key, cur).map(r => `<div class="${r.ch ? (r.good ? 'up' : 'down') : ''}"><span>${r.label}</span><b>${r.val}</b></div>`).join('');
@@ -479,11 +513,13 @@ const UI = {
   pendingLoadout(key) { return loadoutFor(key); },
   tip(key, idx) {
     const a = HEROES[key].addons[idx]; if (!a) return;
-    $('#lo-tip').innerHTML = `<div class="tip-head r${a.r}">${iconSVG(a.icon)}<div><b>${esc(a.name)}</b><small>${RARITY[a.r].name} add-on</small></div></div>${a.d.map(l => `<p class="${l[0] === '-' ? 'minus' : 'plus'}">${esc(l.slice(2))}</p>`).join('')}`;
+    const n = Inventory.count(key, idx), odds = Math.round(RARITY[a.r].drop * 100 / HEROES[key].addons.filter(x => x.r === a.r).length * 10) / 10;
+    $('#lo-tip').innerHTML = `<div class="tip-head r${a.r}">${iconSVG(a.icon)}<div><b>${esc(a.name)}</b><small>${RARITY[a.r].name} add-on · ${n ? 'you own ' + n : 'not owned yet'}</small></div></div>${a.d.map(l => `<p class="${l[0] === '-' ? 'minus' : 'plus'}">${esc(l.slice(2))}</p>`).join('')}<p class="odds">About ${odds}% per draw</p>`;
   },
   equip(idx) {
     const key = this.loadoutHero || Settings.hero, cur = loadoutFor(key).slice();
     const i = cur.indexOf(idx);
+    if (i < 0 && Inventory.count(key, idx) <= 0 && !Inventory.paid(key, idx)) { this.tip(key, idx); this.toast(`You don't own ${HEROES[key].addons[idx].name} yet — win matches as ${HEROES[key].name} to earn add-ons.`); return; }
     if (i >= 0) cur.splice(i, 1); else { if (cur.length >= 2) cur.shift(); cur.push(idx); Sfx.play('equip'); }
     Settings.loadouts[key] = cur; Settings.save(); this.renderLoadout(); this.applyIfPlaying(key);
   },
@@ -500,7 +536,7 @@ function heroCards(sel, act) {
 }
 function kitSummary(key, ad) {
   const H = HEROES[key];
-  return `<div class="ks-head"><b>${H.name}</b><span>${H.title}</span></div><div class="ks-power">${iconSVG(POWER_ICON[H.power.key])}<span>${H.power.name}</span></div><div class="ks-ads">${[0, 1].map(i => { const a = ad[i] != null ? H.addons[ad[i]] : null; return a ? `<span class="chip r${a.r}">${iconSVG(a.icon)}${esc(a.name)}</span>` : '<span class="chip empty">Empty slot</span>'; }).join('')}</div><button class="btn small" data-act="editLoadout" data-arg="${key}">Tune add-ons</button>`;
+  return `<div class="ks-head"><b>${H.name}</b><span>${H.title}</span></div><div class="ks-power">${iconSVG(POWER_ICON[H.power.key])}<span>${H.power.name}</span></div><div class="ks-ads">${[0, 1].map(i => { const a = ad[i] != null ? H.addons[ad[i]] : null; return a ? `<span class="chip r${a.r}">${iconSVG(a.icon)}${esc(a.name)}</span>` : '<span class="chip empty">Empty slot</span>'; }).join('')}</div><div class="ks-own">${Inventory.total(key)} add-ons owned</div><button class="btn small" data-act="editLoadout" data-arg="${key}">Tune add-ons</button>`;
 }
 function weaponLine(W) {
   if (W.kind === 'pellets') return `${W.pellets}×${W.dmg} · ${W.mag} shells`;
@@ -559,7 +595,7 @@ const Lobby = {
 // ---------------------------------------------------------------- the menu backdrop: a hero on display in the current map
 const Showcase = {
   hero: null, model: null, t: 0, map: null,
-  SPOTS: { kiln: { x: 3.2, y: 2.4, z: -2.6, yaw: 0.9 }, verdance: { x: 0, y: 0.9, z: 2.6, yaw: 0.0 }, quay: { x: 1.2, y: 0, z: 1.0, yaw: 0.4 } },
+  get SPOTS() { const o = {}; for (const k of MAP_KEYS) o[k] = MAPS[k].show; return o; },
   enter() {
     const key = MAPS[Settings.map] ? Settings.map : 'kiln';
     if (this.map !== key || !G.level) { World.load(MAPS[key]); buildLevel(MAPS[key]); this.map = key; this.model = null; }
@@ -579,9 +615,11 @@ const Showcase = {
     this.t += dt; this.pop = Math.min(1, (this.pop || 0) + dt * 2.5);
     const S = this.SPOTS[this.map], M = this.model, cam = G.camera, inLoadout = UI.cur === 'loadout';
     M.root.rotation.y = S.yaw + Math.sin(this.t * 0.3) * 0.25;
-    M.hips.position.y = 0.95 + Math.sin(this.t * 1.6) * 0.01; M.aim.rotation.x = -0.35 + Math.sin(this.t * 0.8) * 0.03; M.torso.rotation.x = 0.05;
-    for (const L of M.legs) { L.hip.rotation.x = L.s * 0.08; L.knee.rotation.x = 0.1; }
-    if (M.extra.scarf) M.extra.scarf.rotation.x = 0.4 + Math.sin(this.t * 3) * 0.1;
+    // a hero at ease: weapon lowered, weight shifting, cloth stirring
+    poseHero(M, { spd: 0, phase: 0, air: 0, pitch: -0.42 + Math.sin(this.t * 0.8) * 0.03, flags: 0, t: this.t });
+    M.bones.thighR.rotation.x += 0.08; M.bones.thighL.rotation.x -= 0.06; M.bones.thighL.rotation.z -= 0.05; M.bones.shinL.rotation.x -= 0.12;
+    M.bones.hips.rotation.z = Math.sin(this.t * 0.7) * 0.02; M.bones.head.rotation.y = Math.sin(this.t * 0.37) * 0.25;
+    M.bones.cape.rotation.x += Math.sin(this.t * 2.1) * 0.06; M.bones.tail.rotation.x += Math.sin(this.t * 1.7) * 0.03;
     const fwd = new V3(-Math.sin(S.yaw), 0, -Math.cos(S.yaw)), right = new V3(-fwd.z, 0, fwd.x);
     const off = inLoadout ? -1.25 : 0.85, dist = (inLoadout ? 3.4 : 4.2) - this.pop * 0.3;
     const look = new V3(S.x, S.y + 1.15, S.z).addScaledVector(right, off * 0.6);

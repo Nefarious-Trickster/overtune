@@ -7,7 +7,7 @@ const BOT_DIFF = [
   { name: 'Veteran', react: 0.34, err: 0.055, track: 8, tol: 0.05, see: 1.0, power: 0.85 },
   { name: 'Elite', react: 0.18, err: 0.025, track: 13, tol: 0.03, see: 1.15, power: 1.0 },
 ];
-const PREF_RANGE = { marrow: 22, lark: 9, gauge: 6, veil: 13, ivra: 16 };
+const PREF_RANGE = { marrow: 22, lark: 14, gauge: 4.5, veil: 1.8, ivra: 12, wick: 15, mire: 13, spindle: 17 };
 
 const Bots = {
   B: new Map(),
@@ -70,9 +70,10 @@ const Bots = {
       b.strafeT -= dt; if (b.strafeT <= 0) { b.strafeT = rand(0.5, 1.6); b.strafe = Math.random() < 0.5 ? -1 : 1; if (Math.random() < 0.15) I.jump = true; }
       const to = tp.clone().sub(a.pos).setY(0); const dn = to.length(); to.normalize();
       const side = new V3(-to.z, 0, to.x).multiplyScalar(b.strafe);
-      const want = dn > pref + 3 ? 1 : dn < pref - 3 ? -0.8 : 0;
+      const band = me === 'veil' || me === 'gauge' ? 0.7 : 3, want = dn > pref + band ? 1 : dn < pref - band ? -0.8 : 0;
       moveDir = to.clone().multiplyScalar(want).add(side.multiplyScalar(0.85));
-      if (a.hp < a.maxHp * 0.3 && me !== 'gauge') moveDir = to.clone().multiplyScalar(-1).add(side);
+      if (me === 'mire' && isSub(a)) moveDir = to.clone();
+      else if (a.hp < a.maxHp * 0.3 && me !== 'gauge' && me !== 'veil') moveDir = to.clone().multiplyScalar(-1).add(side);
       // don't strafe into walls or off into a corner: probe ahead
       const probe = a.pos.clone().addScaledVector(moveDir.clone().normalize(), 1.2);
       if (!World.clear(a.pos.x, a.pos.y + 0.8, a.pos.z, probe.x, probe.y + 0.8, probe.z)) { b.strafe *= -1; moveDir = to.clone().multiplyScalar(want); }
@@ -122,9 +123,13 @@ const Bots = {
     const aimErr = Math.abs(angDiff(a.yaw, aimYaw - b.err.x)) + Math.abs(a.pitch - (aimPitch - b.err.y));
     // --- shoot
     const W = a.H.weapon;
-    const inRange = W.kind === 'pellets' ? dist < 16 : W.kind === 'hitscan' && W.falloff ? dist < 32 : dist < 70;
-    if (T && b.vis && b.react <= 0 && inRange && aimErr < D.tol + (W.kind === 'pellets' ? 0.08 : 0) + 0.6 / Math.max(2, dist)) I.fire = true;
-    if (!T && a.ammo < W.mag * 0.5 && a.reloadT <= 0) I.reload = true;
+    const inRange = W.kind === 'flame' ? dist < W.range - 0.5 : W.kind === 'beam' ? dist < W.range - 1 : W.kind === 'melee' ? dist < W.range + 0.4 : W.proj === 'flask' ? dist < 30 : W.proj === 'moth' ? dist < 40 : dist < 70;
+    const loose = W.kind === 'flame' ? 0.25 : W.kind === 'beam' ? W.cone * 0.8 : W.kind === 'melee' ? 0.6 : W.proj === 'moth' ? 0.2 : 0;
+    if (T && b.vis && b.react <= 0 && inRange && aimErr < D.tol + loose + 0.6 / Math.max(2, dist)) I.fire = true;
+    // don't cook the boiler: let go before it locks out (better bots feather it)
+    if (W.kind === 'flame' && I.fire) { if (a.heat > (D.react < 0.3 ? 0.82 : 0.95)) b.vent = true; if (b.vent) { I.fire = false; if (a.heat < 0.35) b.vent = false; } }
+    if (W.kind === 'beam' && a.tide < 8) I.fire = false;
+    if (!T && W.mag && a.ammo < W.mag * 0.5 && a.reloadT <= 0) I.reload = true;
     // --- the power, the utility, the ultimate
     this.powers(a, b, T, dist, D, dt);
   },
@@ -171,7 +176,9 @@ const Bots = {
       return eye.clone().add(new V3(q.x - eye.x, Math.tan(pitch) * d, q.z - eye.z));
     };
     if (a.pw.winding) { const P = a.P, f = clamp((b.holdT || 0) / Math.max(0.1, P.windMax), 0, 1); return lob(lerp(P.spdMin, P.spdMax, f), P.grav); }
-    if (W.kind === 'proj') return lob(W.projSpeed, W.projGrav);
+    if (W.proj === 'flask') { p.y -= 0.9; return lob(W.speed, W.grav); }
+    if (W.proj === 'moth') { p.y += 0.2; return p; }
+    if (W.kind === 'proj') return lob(W.speed, W.grav || 0.01);
     return p;
   },
   powers(a, b, T, dist, D, dt) {
@@ -187,11 +194,14 @@ const Bots = {
       if (U === 'wall' && vis && a.hp < a.maxHp * 0.6 && dist > 6) I.util = true;
       if (U === 'scry' && !vis && cool('scry', rand(6, 12))) I.util = true;
       if (U === 'leap' && ((vis && a.hp < a.maxHp * 0.4) || (!vis && cool('leap', rand(10, 20)) && Math.random() < 0.3))) I.util = true;
+      if (U === 'shell' && vis && a.hp < a.maxHp * 0.6 && Game.t - b.threatT < 1.5) I.util = true;
+      if (U === 'leech' && Game.actors.some(o => o.alive && isEnemy(a, o) && o.pos.distanceTo(a.pos) < 6)) I.util = true;
+      if (U === 'grapple' && !vis && cool('grapple', rand(8, 16)) && Math.random() < 0.4) I.util = true;
     }
     // ultimates
     if (a.ult >= 100) {
       const K = a.H.ult.key, near = Game.actors.filter(o => o.alive && isEnemy(a, o) && o.pos.distanceTo(a.pos) < 7).length;
-      if ((K === 'field' && (!vis || Game.t - b.seenT > 3)) || (K === 'unbound' && vis && a.hp > a.maxHp * 0.4) || (K === 'slam' && near >= 1 && dist < 6) || (K === 'night' && vis && dist < 25) || (K === 'storm' && vis && dist < 24)) I.ult = true;
+      if ((K === 'field' && (!vis || Game.t - b.seenT > 3)) || (K === 'unbound' && vis && a.hp > a.maxHp * 0.4) || (K === 'slam' && near >= 1 && dist < 6) || (K === 'night' && vis && dist < 25) || (K === 'storm' && vis && dist < 24) || (K === 'flare' && [...Game.lanterns.values()].some(L => L.owner === a.id && Game.actors.some(o => o.alive && isEnemy(a, o) && o.pos.distanceTo(L.pos) < L.r))) || (K === 'tide' && near >= 1) || (K === 'cradle' && vis && dist < 20)) I.ult = true;
     }
     if (key === 'marrow') {
       b.snareT -= dt;
@@ -215,7 +225,7 @@ const Bots = {
       else hold(false);
     } else if (key === 'veil') {
       if (pw.state === 'vis') { const go = pw.cd <= 0 && ((!vis && Game.t - b.seenT > 2 && cool('fade', rand(1, 4))) || (vis && a.hp < a.maxHp * 0.3)); I.power = go && !a.prev.power; }
-      else if (pw.state === 'cloaked') { const pop = vis && dist < 13 && a.hp > a.maxHp * 0.3; I.power = pop && !a.prev.power; if (pop && P.shootCloaked) I.fire = true; }
+      else if (pw.state === 'cloaked') { const pop = vis && dist < 3.5 && a.hp > a.maxHp * 0.3; I.power = pop && !a.prev.power; if (pop && P.shootCloaked) I.fire = true; }
       else I.power = false;
       if (pw.state === 'cloaked' && !(P.shootCloaked)) I.fire = false;
     } else if (key === 'ivra') {
@@ -223,8 +233,24 @@ const Bots = {
         b.holdT += dt;
         const need = P.windMin + (P.windMax - P.windMin) * (P.oneshot ? 1 : clamp(dist / 28, 0.2, 1));
         hold(b.holdT < need);
-      } else if (pw.count > 0 && vis && dist > 5 && dist < 40 && cool('glaive', rand(0.5, 1.5))) { b.holdT = 0; hold(true); }
+      } else if (P.orbit) { I.power = vis && dist < 22 && pw.count >= 2 && !a.prev.power && cool('glaive', rand(1, 3)); }
+      else if (pw.count > 0 && vis && dist > 5 && dist < 40 && cool('glaive', rand(0.5, 1.5))) { b.holdT = 0; hold(true); }
       else hold(false);
+    } else if (key === 'wick') {
+      // hang a lantern where the fight is (or on the point), never two in the same spot
+      const mine = [...Game.lanterns.values()].filter(L => L.owner === a.id && !L.follow), Z = World.zone;
+      const spot = vis ? (T.renderPos || T.pos) : (Game.match.mode === 'koth' && Z ? new V3(Z.x, Z.y, Z.z) : a.pos);
+      const fresh = mine.every(L => L.pos.distanceTo(spot) > 9);
+      if (act.tap) { act.tap = 0; hold(false); }
+      else if (!P.carried && pw.charges > 0 && pw.placing <= 0 && pw.chan <= 0 && fresh && ((vis && dist < 16) || (!vis && Z && a.pos.distanceTo(spot) < Z.r + 2)) && cool('lantern', rand(2, 5))) { act.tap = 1; hold(true); }
+      else hold(false);
+    } else if (key === 'mire') {
+      const st = pw.state;
+      if (st === 'up') I.power = !a.prev.power && pw.cd <= 0 && a.grounded && ((vis && dist < 13 && dist > 2.5) || (vis && a.hp < a.maxHp * 0.3)) && cool('sub', 0.8);
+      else if (st === 'under') I.power = !a.prev.power && ((T && dist < P.radius * 0.6) || pw.t > P.maxTime - 0.3);
+      else I.power = false;
+    } else if (key === 'spindle') {
+      I.power = !a.prev.power && pw.charges > 0 && vis && dist > 4 && dist < P.range * 0.85 && b.react <= 0 && cool('line', rand(0.6, 1.6));
     }
   },
 };

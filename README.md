@@ -1,22 +1,40 @@
 # Overtune
 
-A 3D hero shooter you play in the browser. Five heroes, each built around one signature **power** — and every power is tuned with **add-ons**: slot two of the hero's twelve before you deploy, from Common clean upgrades up to Iridescent ones that transform the power (and always cost you something).
+A 3D hero shooter you play in the browser. Eight heroes, each with a weapon that plays nothing like the others and one signature **power** — and every power is tuned with **add-ons**, earned by playing and used up when you deploy, Dead by Daylight style.
 
 **Play:** https://nefarious-trickster.github.io/overtune/
 
 ## Heroes
 
-| Hero | Role | Power | Utility | Ultimate |
+| Hero | Weapon | Power | Utility | Ultimate |
 |---|---|---|---|---|
-| **Marrow**, the Snarewright | Trapper | **Snares** — set traps that root, wound and reveal | Field Dressing | Killing Field |
-| **Lark**, the Rift Runner | Flanker | **Rift Step** — charge and chain blinks, then pay in fatigue | Slipstream | Unbound |
-| **Gauge**, the Ramjet | Bruiser | **Ramjet** — rev up and charge; ram enemies, crash into walls | Bulwark | Earthshaker |
-| **Veil**, the Phantom | Assassin | **Fade** — go invisible, close in, open with an Ambush shot | Scry | Nightfall |
-| **Ivra**, the Glaivewright | Skirmisher | **Glaives** — wind up and throw arcing glaives | Updraft | Glaive Storm |
+| **Marrow**, the Snarewright | Rattlejaw — a crank crossbow of heavy, dropping bolts | **Snares** — traps that root, wound and reveal | Field Dressing | Killing Field |
+| **Lark**, the Rift Runner | Shardcaster — crystal shards that ricochet and hit harder each bounce | **Rift Step** — charge and chain blinks, then pay in fatigue | Slipstream | Unbound |
+| **Gauge**, the Ramjet | Boiler — a flamethrower that overheats | **Ramjet** — rev up and charge; ram enemies, crash into walls | Bulwark | Earthshaker |
+| **Veil**, the Phantom | Whisper Knives — lunging cuts, Backstabs from behind | **Fade** — go invisible, close in, open with an Ambush | Scry | Nightfall |
+| **Ivra**, the Glaivewright | Tidecaller — a staff that latches a draining beam | **Glaives** — wind up and throw arcing glaives | Updraft | Glaive Storm |
+| **Wick**, the Lamplighter | Moth Swarm — slow homing moths | **Lanterns** — light that reveals and slows; walk between them | Wax Shell | Flare |
+| **Mire**, the Bog Witch | Brewer's Flasks — lobbed acid pools | **Submerge** — sink, move unseen, erupt in a geyser | Leech | Bog Tide |
+| **Spindle**, the Puppeteer | Thread Needles — bursts that Stitch enemies in place | **Marionette Line** — hook and reel enemies in | Grapple | Cat's Cradle |
+
+## Add-ons
+
+Every hero has 16 add-ons in five rarities. Commons are clean upgrades; the higher you go the more they change the power — Very Rare and Iridescent add-ons rewrite how it works entirely, usually at a price.
+
+- **You earn them by playing.** Finish a match (longer than 45 s) and you draw add-ons for the hero you ended on: **3 for a win, 2 for a draw, 1 for a loss**. The more matches you've played as a hero, the better that hero's odds of Very Rare and Iridescent draws.
+- **They stack.** You can own several of the same add-on.
+- **Slotting one uses it up** when the match starts (respawns and later rounds of the same match are free).
+- Everyone starts with a few Commons and an Uncommon for each hero. Your collection is saved in your browser.
 
 ## Modes and maps
 
-Team Deathmatch · Control · Elimination (no respawns, first to 3 rounds) · Free-for-All — on **Kiln Yard** (a foundry at dusk), **Verdance** (a jungle temple) and **Neon Quay** (a container port in the rain).
+Team Deathmatch · Control · Elimination (no respawns, first to 3 rounds) · Free-for-All — on five maps:
+
+- **Kiln Yard** — a foundry district at dusk: a casting hall with a mezzanine, a rail siding, a raised crucible.
+- **Verdance** — a jungle temple: terraces, a ruined hall, a sun ziggurat, a sunken garden.
+- **Neon Quay** — a container port in the rain: two-high stacks with bridges, a harbour office, a fish market.
+- **Hollowmere** — a stilt village in a drowned forest: boardwalks, huts, a sunken barge, the Hollow Tree.
+- **Frostwatch** — a mountain observatory in the snow: the dome on its plateau, a ridge and bridge, an antenna perch, a frozen tarn.
 
 ## Playing with friends
 

@@ -316,6 +316,35 @@ function makeSurfaces() {
     const n = fbm(s, 16, 4, 91), b = vnoise(s, 48, 92);
     return texFrom(s, (x, y, i) => mulc([0.16, 0.36, 0.12], 0.5 + n[i] * 0.6 + b[i] * 0.4), b, { bump: 4 });
   }, { roughness: 0.95 });
+  // wood: boards with grain and gaps
+  const boards = (key, hex, opts = {}) => surface(key, L, opts.scale || 2.4, s => {
+    const n = fbm(s, 6, 4, key.length * 41), gr = fbm(s, 2, 5, key.length * 43), h = new Float32Array(s * s), rows = opts.rows || 6, rng = mulberry(key.length * 47), tint = [];
+    for (let k = 0; k < 64; k++) tint.push(rng());
+    for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) { const ry = y / s * rows, row = Math.floor(ry), fy = ry - row, fx = (x / s * 2 + tint[row % 64] * 3) % 1; h[y * s + x] = fy < 0.06 || fx < 0.01 ? 0.1 : 0.6 + Math.sin((x / s * 40 + gr[y * s + x] * 18)) * 0.06 + n[y * s + x] * 0.1; }
+    const base = hexRGB(hex);
+    return texFrom(s, (x, y, i) => { const row = Math.floor(y / s * rows), t = tint[row % 64]; if (h[i] < 0.2) return mulc(base, 0.25); return mulc(base, 0.7 + t * 0.3 + (h[i] - 0.6) * 2 + n[i] * 0.25); }, h, { bump: 2.2 });
+  }, Object.assign({ roughness: 0.82 }, opts.mat || {}));
+  boards('plank', 0x8a6a44); boards('darkwood', 0x4a3a2c, { rows: 3, scale: 3 });
+  surface('thatch', L, 2.2, s => {
+    const n = fbm(s, 6, 4, 301), st = vnoise(s, 96, 302), h = new Float32Array(s * s);
+    for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) { const i = y * s + x, row = (y / s * 5) % 1; h[i] = (0.4 + st[(y % s) * s + (x * 3) % s] * 0.5) * (row < 0.08 ? 0.5 : 1); }
+    return texFrom(s, (x, y, i) => mulc([0.46, 0.4, 0.24], 0.6 + h[i] * 0.6 + n[i] * 0.2), h, { bump: 3.5 });
+  }, { roughness: 0.95 });
+  surface('mud', L, 5, s => {
+    const n = fbm(s, 4, 5, 311), w = fbm(s, 3, 4, 312);
+    return texFrom(s, (x, y, i) => { const wet = Math.max(0, w[i] - 0.55) * 3; return mixc(mulc([0.27, 0.24, 0.16], 0.7 + n[i] * 0.5), [0.08, 0.1, 0.07], Math.min(1, wet)); }, n, { bump: 1.4 });
+  }, { roughness: 0.7 });
+  surface('snow', L, 6, s => {
+    const n = fbm(s, 4, 5, 321), sp = vnoise(s, 128, 322);
+    return texFrom(s, (x, y, i) => { const v = 0.84 + n[i] * 0.16 + (sp[i] > 0.93 ? 0.1 : 0); return [v * 0.93, v * 0.96, v]; }, n, { bump: 1.2 });
+  }, { roughness: 0.75 });
+  surface('ice', L, 4, s => {
+    const n = fbm(s, 3, 5, 331), c = fbm(s, 10, 3, 332);
+    return texFrom(s, (x, y, i) => { const crack = Math.abs(c[i] - 0.5) < 0.012 ? 0.4 : 0; return [0.55 + n[i] * 0.2 + crack, 0.72 + n[i] * 0.15 + crack, 0.85 + crack]; }, n, { bump: 0.8 });
+  }, { roughness: 0.12, metalness: 0.1 });
+  stone('granite', 0x6c6f78, 0.0, { rows: 4, cols: 2, scale: 3 }); stone('frostwall', 0x8a8e98, 0.0, { rows: 6, cols: 3 });
+  stone('mossstone', 0x5e604e, 1.6, { rows: 5, cols: 3 });
+  panels('copper', 0x4f9a86, 0.15, 0.55, 3, { scale: 3, mat: { roughness: 0.6 } });
   surface('none', 4, 1, s => texFrom(s, () => [0, 0, 0]));
 }
 function boxGeo(s) {
@@ -370,6 +399,8 @@ const SKY_FRAG = `
 const SKIES = {
   dusk: { top: 0x1c1f4a, hor: 0xf08a54, bot: 0x2a1a24, sunCol: 0xffa260, stars: 0.04, cloud: 0.75, cloudCol: 0x6b4462, grade: [1.08, 1.0, 0.9] },
   day: { top: 0x2f78d0, hor: 0xc8e2f0, bot: 0x7e8a6a, sunCol: 0xfff2d8, stars: 0, cloud: 0.55, cloudCol: 0xf4f6fa, grade: [1.04, 1.02, 0.95] },
+  murk: { top: 0x16222a, hor: 0x8a9a68, bot: 0x161c14, sunCol: 0xe4e0a0, stars: 0.08, cloud: 0.85, cloudCol: 0x48564a, grade: [1.0, 1.05, 0.95] },
+  frost: { top: 0x34558e, hor: 0xd8e4f2, bot: 0xaab6c4, sunCol: 0xfff0dc, stars: 0, cloud: 0.7, cloudCol: 0xe6ecf4, grade: [0.98, 1.0, 1.06] },
   night: { top: 0x03050d, hor: 0x24204a, bot: 0x05070c, sunCol: 0x6a8cff, stars: 0.6, cloud: 0.95, cloudCol: 0x1c2436, grade: [0.98, 1.0, 1.08] },
 };
 function makeSky(kind, sunDir) {
@@ -422,13 +453,13 @@ function buildLevel(def) {
     if (!s.vis || s.mat === 'none') continue;
     const m = SURF[s.mat] || SURF.concrete;
     let g;
-    if (s.mat === 'stack' || s.mat === 'pillar') {
-      const rad = (s.x1 - s.x0) / 2 * (s.mat === 'stack' ? 1.08 : 0.95), seg = s.mat === 'stack' ? 12 : 16;
-      g = toNI(new THREE.CylinderGeometry(rad * (s.mat === 'stack' ? 0.9 : 1), rad, s.y1 - s.y0, seg, 1, false)); g.translate((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2, (s.z0 + s.z1) / 2);
+    if (s.mat === 'stack' || s.mat === 'pillar' || s.round) {
+      const rad = (s.x1 - s.x0) / 2 * (s.round ? 1 : s.mat === 'stack' ? 1.08 : 0.95), seg = s.round ? 9 : s.mat === 'stack' ? 12 : 16;
+      g = toNI(new THREE.CylinderGeometry(rad * (s.mat === 'stack' && !s.round ? 0.9 : 1), rad, s.y1 - s.y0, seg, 1, false)); g.translate((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2, (s.z0 + s.z1) / 2);
       const p = g.attributes.position, uv = new Float32Array(p.count * 2), cx = (s.x0 + s.x1) / 2, cz = (s.z0 + s.z1) / 2;
       for (let i = 0; i < p.count; i++) { uv[i * 2] = (Math.atan2(p.getZ(i) - cz, p.getX(i) - cx) / TAU + 0.5) * rad * TAU / m.userData.scale; uv[i * 2 + 1] = p.getY(i) / m.userData.scale; }
       g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-      if (s.mat === 'pillar') { const cap = toNI(new THREE.BoxGeometry(rad * 2.5, 0.4, rad * 2.5)); cap.translate(cx, s.y1 - 0.2, cz); worldUV(cap, 2); (groups.temple = groups.temple || { m: SURF.temple, list: [] }).list.push(cap); const base = toNI(new THREE.BoxGeometry(rad * 2.5, 0.5, rad * 2.5)); base.translate(cx, s.y0 + 0.25, cz); worldUV(base, 2); groups.temple.list.push(base); }
+      if (s.mat === 'pillar' && !s.round) { const cap = toNI(new THREE.BoxGeometry(rad * 2.5, 0.4, rad * 2.5)); cap.translate(cx, s.y1 - 0.2, cz); worldUV(cap, 2); (groups.temple = groups.temple || { m: SURF.temple, list: [] }).list.push(cap); const base = toNI(new THREE.BoxGeometry(rad * 2.5, 0.5, rad * 2.5)); base.translate(cx, s.y0 + 0.25, cz); worldUV(base, 2); groups.temple.list.push(base); }
     } else g = worldUV(boxGeo(s), m.userData.scale);
     (groups[s.mat] = groups[s.mat] || { m, list: [] }).list.push(g);
     if (s.trim) {
@@ -437,7 +468,7 @@ function buildLevel(def) {
       add((s.x0 + s.x1) / 2, s.z0 + e / 2, s.x1 - s.x0, e); add((s.x0 + s.x1) / 2, s.z1 - e / 2, s.x1 - s.x0, e);
       add(s.x0 + e / 2, (s.z0 + s.z1) / 2, e, s.z1 - s.z0); add(s.x1 - e / 2, (s.z0 + s.z1) / 2, e, s.z1 - s.z0);
     }
-    if (s.y0 < 0.05 && s.y1 - s.y0 > 0.6 && s.mat !== 'pillar' && s.mat !== 'stack') dirt.push(s);
+    if (s.y0 < 0.05 && s.y1 - s.y0 > 0.6 && s.mat !== 'pillar' && s.mat !== 'stack' && !s.round) dirt.push(s);
   }
   for (const R of World.ramps) if (R.vis) buildStairs(R, groups);
   for (const k in groups) {
@@ -618,6 +649,18 @@ const Props = {
   skyline(p, L, def) {
     // a ring of far silhouettes: chimneys and cranes for the foundry, mountains and canopy for the temple, towers for the port
     const rng = mulberry(def.key.length * 977), key = def.key;
+    if (key === 'frostwatch' || key === 'hollowmere') {
+      // mountains for the observatory; drowned forest for the marsh
+      const fm = new THREE.MeshStandardMaterial({ color: key === 'frostwatch' ? 0x8090a8 : 0x1c2418, roughness: 1, flatShading: true }), cap = new THREE.MeshStandardMaterial({ color: 0xeef2f8, roughness: 0.9, flatShading: true });
+      const B = def.bounds;
+      for (let i = 0; i < (key === 'frostwatch' ? 34 : 90); i++) {
+        const a = rng() * TAU, r = 110 + rng() * 120, x = Math.cos(a) * r * 1.2, z = Math.sin(a) * r;
+        if (Math.abs(x) < B.x1 + 14 && Math.abs(z) < B.z1 + 14) continue;
+        if (key === 'frostwatch') { const h = 30 + rng() * 70, w = 25 + rng() * 40; const m = new THREE.Mesh(new THREE.ConeGeometry(w, h, 6 + (rng() * 3 | 0)), fm); m.position.set(x, h / 2 - 2, z); m.rotation.y = rng() * 3; L.add(m); const c = new THREE.Mesh(new THREE.ConeGeometry(w * 0.32, h * 0.32, 6), cap); c.position.set(x, h - 2 - h * 0.16 + 0.5, z); c.rotation.y = m.rotation.y; L.add(c); }
+        else { const h = 10 + rng() * 22; const t = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.9, h, 5), fm); t.position.set(x, h / 2 - 1, z); t.rotation.z = (rng() - 0.5) * 0.3; L.add(t); for (let k = 0; k < 3; k++) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.25, h * 0.4, 4), fm); b.position.set(x + (rng() - 0.5) * 2, h * (0.5 + rng() * 0.4), z); b.rotation.z = (rng() - 0.5) * 2.4; L.add(b); } }
+      }
+      return;
+    }
     const mat = new THREE.MeshStandardMaterial({ color: key === 'quay' ? 0x0b1020 : 0x2a2030, roughness: 1, metalness: 0, fog: true });
     const win = new THREE.MeshBasicMaterial({ color: hdrCol(key === 'quay' ? 0xffd08a : 0xff9a50, 2.5), toneMapped: false });
     const B = def.bounds;
@@ -694,6 +737,56 @@ const Props = {
     for (const s of [1, -1]) { const m = new THREE.Mesh(new THREE.PlaneGeometry(400, 160), mat); m.rotation.x = -Math.PI / 2; m.position.set(0, -1.6, s * (B.z1 + 80.5)); L.add(m); const edge = new THREE.Mesh(new THREE.BoxGeometry(B.x1 - B.x0 + 4, 1.6, 1), SURF.concrete); edge.position.set(0, -0.8, s * (B.z1 + 0.5)); L.add(edge); }
   },
   rain() { Fx.rain = true; },
+  snow() { Fx.rain = 'snow'; },
+  // marsh water: a dark, still sheet over the low ground with mist curling off it
+  bog(p, L, def) {
+    const B = def.bounds, cv = document.createElement('canvas'); cv.width = cv.height = 256; const c = cv.getContext('2d');
+    c.fillStyle = '#0b130d'; c.fillRect(0, 0, 256, 256); for (let i = 0; i < 260; i++) { c.fillStyle = `rgba(${60 + rand(0, 40)},${90 + rand(0, 50)},${30 + rand(0, 20)},${rand(0.15, 0.5)})`; c.beginPath(); c.arc(rand(0, 256), rand(0, 256), rand(1, 7), 0, TAU); c.fill(); }
+    const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set((B.x1 - B.x0) / 9, (B.z1 - B.z0) / 9); t.encoding = THREE.sRGBEncoding;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(B.x1 - B.x0 + 40, B.z1 - B.z0 + 40), new THREE.MeshStandardMaterial({ map: t, roughness: 0.08, metalness: 0.3, transparent: true, opacity: 0.88, depthWrite: false }));
+    m.rotation.x = -Math.PI / 2; m.position.y = 0.04; m.receiveShadow = true; m.renderOrder = -1; L.add(m);
+    for (let i = 0; i < 10; i++) Fx.emitters.push({ x: rand(B.x0, B.x1), y: 0.1, z: rand(B.z0, B.z1), w: 14, d: 14, kind: 'mist', rate: 1.2, acc: 0 });
+  },
+  reeds(p, L) {
+    const mat = LEAF.reed || (LEAF.reed = new THREE.MeshStandardMaterial({ color: 0x6a7a3a, roughness: 1, side: THREE.DoubleSide }));
+    const n = p.n || 14;
+    for (let i = 0; i < n; i++) { const h = rand(0.8, 1.9), r = new THREE.Mesh(new THREE.PlaneGeometry(0.06, h), mat); r.position.set(p.x + rand(-1.4, 1.4), h / 2, p.z + rand(-1.4, 1.4)); r.rotation.set(rand(-0.15, 0.15), rand(0, 3), rand(-0.15, 0.15)); L.add(r); if (Math.random() < 0.3) { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.22, 5), LEAF.bark || (LEAF.bark = new THREE.MeshStandardMaterial({ color: 0x5a4632, roughness: 1 }))); t.position.set(r.position.x, h - 0.05, r.position.z); L.add(t); } }
+  },
+  deadtree(p, L) {
+    const g = new THREE.Group(); g.position.set(p.x, p.y || 0, p.z); g.scale.setScalar(p.s || 1); g.rotation.y = rand(0, TAU); L.add(g);
+    const bark = LEAF.dbark || (LEAF.dbark = new THREE.MeshStandardMaterial({ color: 0x3a3226, roughness: 1 }));
+    const t = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.6, 7, 7), bark); t.position.y = 3.5; t.castShadow = true; g.add(t);
+    for (let k = 0; k < 5; k++) { const len = rand(1.5, 3.5), b = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.16, len, 5), bark); const y = rand(3.5, 6.5), a = rand(0, TAU); b.position.set(Math.cos(a) * len * 0.4, y, Math.sin(a) * len * 0.4); b.rotation.set(Math.sin(a) * 1.1, 0, -Math.cos(a) * 1.1); b.castShadow = true; g.add(b); }
+    const moss = LEAF.moss || (LEAF.moss = new THREE.MeshStandardMaterial({ color: 0x4a5a2a, roughness: 1, side: THREE.DoubleSide }));
+    for (let k = 0; k < 6; k++) { const len = rand(1, 2.4), v = new THREE.Mesh(new THREE.PlaneGeometry(0.3, len), moss); v.position.set(rand(-1.2, 1.2), rand(4.5, 6.5) - len / 2, rand(-1.2, 1.2)); v.rotation.y = rand(0, 3); g.add(v); }
+  },
+  pine(p, L) {
+    const g = new THREE.Group(); g.position.set(p.x, p.y || 0, p.z); g.scale.setScalar(p.s || 1); L.add(g);
+    const bark = LEAF.bark || (LEAF.bark = new THREE.MeshStandardMaterial({ color: 0x5a4632, roughness: 1 }));
+    const needles = LEAF.pine || (LEAF.pine = new THREE.MeshStandardMaterial({ color: 0x1e3a2c, roughness: 0.95, flatShading: true }));
+    const snowm = LEAF.snowcap || (LEAF.snowcap = new THREE.MeshStandardMaterial({ color: 0xf0f4fa, roughness: 0.85, flatShading: true }));
+    const t = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.3, 2, 6), bark); t.position.y = 1; g.add(t);
+    for (let k = 0; k < 4; k++) { const r = 2.2 - k * 0.45, h = 2.4 - k * 0.3, y = 1.6 + k * 1.4; const c = new THREE.Mesh(new THREE.ConeGeometry(r, h, 8), needles); c.position.y = y + h / 2; c.castShadow = true; g.add(c); const sc = new THREE.Mesh(new THREE.ConeGeometry(r * 0.75, h * 0.45, 8), snowm); sc.position.y = y + h * 0.78; g.add(sc); }
+  },
+  // the great telescope dome's working parts: the slit, the telescope, rings that turn
+  telescope(p, L) {
+    const g = new THREE.Group(); g.position.set(p.x, p.y, p.z); L.add(g);
+    const br = new THREE.MeshStandardMaterial({ color: 0xb8873a, metalness: 1, roughness: 0.3 }), dk = SURF.iron;
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.2, 1.6, 16), dk); base.position.y = 0.8; base.castShadow = true; g.add(base);
+    const yoke = dyn(new THREE.Group()); yoke.position.y = 1.8; g.add(yoke);
+    const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.75, 7, 18), br); tube.rotation.x = -0.9; tube.position.set(0, 1.4, -1.6); tube.castShadow = true; yoke.add(tube);
+    const lens = new THREE.Mesh(new THREE.CircleGeometry(0.5, 18), glowMat(p.color || 0x8ad8ff, 3)); lens.position.set(0, 1.4 + Math.cos(0.9) * 3.5, -1.6 - Math.sin(0.9) * 3.5); lens.rotation.x = -0.9 - Math.PI / 2; yoke.add(lens);
+    for (const r of [1.9, 2.3]) { const ring = new THREE.Mesh(new THREE.TorusGeometry(r, 0.06, 6, 40), br); ring.rotation.x = Math.PI / 2; ring.position.y = 0.2; g.add(ring); }
+    G.anim.push(t => { yoke.rotation.y = Math.sin(t * 0.05) * 1.2; });
+    addLightSource(p.x, p.y + 4, p.z, p.color || 0x8ad8ff, 1.2, 12, null);
+  },
+  hanglantern(p, L) {
+    const g = new THREE.Group(); g.position.set(p.x, p.y, p.z); L.add(g);
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.8, 4), SURF.iron); c.position.y = 0.4; g.add(c);
+    const cage = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 0.36, 6), SURF.iron); g.add(cage);
+    const f = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), glowMat(p.color || 0xffc070, 5)); g.add(f);
+    addLightSource(p.x, p.y, p.z, p.color || 0xffc070, p.i || 1.3, p.d || 10, null);
+  },
   stringLights(p, L) {
     const n = 16, cols = [0xff5ab4, 0x5af0ff, 0xffd24a, 0x7aff8a];
     for (let i = 0; i <= n; i++) { const f = i / n, x = lerp(p.x, p.x2, f), z = lerp(p.z, p.z2, f), y = p.y - Math.sin(f * Math.PI) * 0.6; const b = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 4), glowMat(cols[i % 4], 7)); b.position.set(x, y, z); L.add(b); }
@@ -773,6 +866,22 @@ const Fx = {
     return { obj, N, pos, col, size, g, n: 0, p: [] };
   },
   clear() { this.emitters = []; this.rain = false; this.roofs = null; if (this.parts) { this.parts.p = []; this.smoke.p = []; } },
+  snowTick(dt, cam) {
+    const N = 1400;
+    if (!this.snowObj) {
+      const g = new THREE.BufferGeometry(); this.snowPos = new Float32Array(N * 3); this.snowD = [];
+      for (let i = 0; i < N; i++) this.snowD.push({ x: rand(-26, 26), y: rand(-4, 16), z: rand(-26, 26), s: rand(1.2, 2.4), ph: rand(0, TAU) });
+      g.setAttribute('position', new THREE.BufferAttribute(this.snowPos, 3).setUsage(THREE.DynamicDrawUsage));
+      this.snowObj = new THREE.Points(g, new THREE.PointsMaterial({ color: new THREE.Color(1.3, 1.35, 1.45), size: 0.09, transparent: true, opacity: 0.85, depthWrite: false }));
+      this.snowObj.frustumCulled = false; G.scene.add(this.snowObj);
+    }
+    this.snowObj.visible = true; const P = this.snowPos, t = G.time;
+    for (let i = 0; i < N; i++) {
+      const d = this.snowD[i]; d.y -= d.s * dt; if (d.y < -4) { d.y += 20; d.x = rand(-26, 26); d.z = rand(-26, 26); }
+      P[i * 3] = cam.x + d.x + Math.sin(t * 0.7 + d.ph) * 0.6; P[i * 3 + 1] = cam.y + d.y; P[i * 3 + 2] = cam.z + d.z + Math.cos(t * 0.5 + d.ph) * 0.6;
+    }
+    this.snowObj.geometry.attributes.position.needsUpdate = true;
+  },
   rainTick(dt, cam) {
     const N = 1600;
     if (!this.rainObj) {
@@ -849,8 +958,9 @@ const Fx = {
         else if (e.kind === 'mist') this.spawn('smoke', x, e.y, z, rand(-0.4, 0.4), rand(0.3, 0.9), rand(0, 0.6) * Math.sign(e.z), 0.75, 0.85, 0.88, rand(0.5, 1.0), rand(1.2, 2.2), 0.5, -0.1, 0.8);
       }
     }
-    if (this.rain) this.rainTick(dt, cam);
-    else if (this.rainObj) this.rainObj.visible = false;
+    if (this.rain === 'snow') { this.snowTick(dt, cam); if (this.rainObj) this.rainObj.visible = false; }
+    else if (this.rain) { this.rainTick(dt, cam); if (this.snowObj) this.snowObj.visible = false; }
+    else { if (this.rainObj) this.rainObj.visible = false; if (this.snowObj) this.snowObj.visible = false; }
     for (const S of [this.parts, this.smoke]) {
       const P = S.p; let w = 0;
       for (let i = 0; i < P.length; i++) {

@@ -4,7 +4,7 @@
 // add-ons, its hero's state, and a rolling log of events. The host (earliest to join) also publishes the bots
 // and the match itself (mode, map, scores, clock, zone, rounds).
 // ============================================================================
-const NET_V = 3;
+const NET_V = 4;
 const Net = {
   room: null, chan: null, code: null, uid: 'p' + Math.random().toString(36).slice(2, 8), jt: null, joinT: 0, status: 'idle', open: [],
   seq: 0, ring: [], lastSend: 0, peers: new Map(), hostUid: null, lastAdv: null, team: 0, ready: false, _seen: new Set(), _conn: null,
@@ -139,9 +139,9 @@ const Net = {
   },
 };
 function cleanName(n) { n = (typeof n === 'string' ? n : '').replace(/[^\p{L}\p{N} _\-.]/gu, '').trim().slice(0, 14); return n || 'Player'; }
-function cleanAddons(a) { if (!Array.isArray(a)) return []; const o = []; for (const x of a) if (Number.isInteger(x) && x >= 0 && x < 12 && !o.includes(x)) o.push(x); return o.slice(0, 2); }
+function cleanAddons(a) { if (!Array.isArray(a)) return []; const o = []; for (const x of a) if (Number.isInteger(x) && x >= 0 && x < 16 && !o.includes(x)) o.push(x); return o.slice(0, 2); }
 function packState(a) {
-  return [r2(a.pos.x), r2(a.pos.y), r2(a.pos.z), r3(a.yaw), r3(a.pitch), Math.round(a.hp), actorFlags(a), a.k, a.d, r2(a.vel.x), r2(a.vel.z), HERO_KEYS.indexOf(a.heroKey), Math.round(cloakLevel(a) * 100), Math.floor(a.ult), a.addons[0] != null ? a.addons[0] : -1, a.addons[1] != null ? a.addons[1] : -1, a.a, r2(a.vel.y), a.team];
+  return [r2(a.pos.x), r2(a.pos.y), r2(a.pos.z), r3(a.yaw), r3(a.pitch), Math.round(a.hp), actorFlags(a), a.k, a.d, r2(a.vel.x), r2(a.vel.z), HERO_KEYS.indexOf(a.heroKey), Math.round(cloakLevel(a) * 100), Math.floor(a.ult), a.addons[0] != null ? a.addons[0] : -1, a.addons[1] != null ? a.addons[1] : -1, a.a, r2(a.vel.y), a.team, (a.P && a.P.key === 'glaive' && a.pw && a.pw.count) | 0];
 }
 function unpackState(a, r, o, t) {
   for (let i = 0; i < 11; i++) if (!Number.isFinite(r[o + i])) return;
@@ -150,7 +150,7 @@ function unpackState(a, r, o, t) {
   if (a.snaps.length > 16) a.snaps.shift();
   const f = r[o + 6] | 0, wasAlive = a.alive;
   a.flags = f; a.hp = clamp(r[o + 5], 0, a.maxHp); a.alive = !!(f & F_ALIVE); a.grounded = !!(f & F_GROUND);
-  a.k = clamp(r[o + 7] | 0, 0, 999); a.d = clamp(r[o + 8] | 0, 0, 999); a.cl = clamp((r[o + 12] | 0) / 100, 0, 1); a.ult = clamp(r[o + 13] | 0, 0, 100); a.a = clamp(r[o + 16] | 0, 0, 999);
+  a.k = clamp(r[o + 7] | 0, 0, 999); a.d = clamp(r[o + 8] | 0, 0, 999); a.cl = clamp((r[o + 12] | 0) / 100, 0, 1); a.ult = clamp(r[o + 13] | 0, 0, 100); a.a = clamp(r[o + 16] | 0, 0, 999); a.orbitN = clamp(r[o + 19] | 0, 0, 6);
   // statuses as the owner reports them, so bots and visuals can read them
   a.st.reveal = f & F_REVEAL ? 1 : 0; a.st.night = f & F_NIGHT ? 1 : 0; a.st.root = f & F_ROOT ? 1 : 0; a.st.stun = f & F_STUN ? 1 : 0;
   if (!wasAlive && a.alive) { a.snaps.length = 0; a.snaps.push({ t, x: r[o], y: r[o + 1], z: r[o + 2], yaw: r[o + 3], pitch: r[o + 4], vx: 0, vz: 0, vy: 0 }); a.anim.death = 0; if (a.model) { a.model.body.rotation.set(0, 0, 0); a.model.body.position.set(0, 0, 0); } }

@@ -45,13 +45,13 @@
   <div id="board" hidden></div>
   <div id="clickhint" hidden>Click to play</div>
   <div id="tips" hidden><b>Quick controls</b><span><kbd>RMB</kbd>/<kbd>E</kbd> Power</span><span><kbd>Shift</kbd> Utility</span><span><kbd>Q</kbd> Ultimate</span><span><kbd>Tab</kbd> Scores</span><span><kbd>Esc</kbd> Hero &amp; add-ons</span></div>
-  <div id="endscreen" hidden><div class="end-in"><h1 id="end-title"></h1><div id="end-sub"></div><div id="end-mvp"></div><div id="end-board"></div><div id="end-actions"></div></div></div>
+  <div id="endscreen" hidden><div class="end-in"><h1 id="end-title"></h1><div id="end-sub"></div><div id="end-mvp"></div><div id="end-drops"></div><div id="end-board"></div><div id="end-actions"></div></div></div>
 </div>
 
 <!-- ============================================================ menus -->
 <div id="menus">
   <section class="screen main" data-screen="main">
-    <div class="brand"><div class="logo">OVER<span>TUNE</span></div><p>Five heroes. Sixty add-ons. Every power, tuned your way.</p></div>
+    <div class="brand"><div class="logo">OVER<span>TUNE</span></div><p>Eight heroes. A hundred and twenty-eight add-ons. Earn them, spend them, break the rules.</p></div>
     <nav class="mainnav">
       <button class="big" data-act="go" data-arg="play"><b>Play vs Bots</b><span>Four modes · three maps · any team size</span></button>
       <button class="big" data-act="go" data-arg="online"><b>Play Online</b><span>Host or join friends — no sign-in</span></button>
@@ -103,7 +103,7 @@
       <div id="lo-power" class="lo-power"></div>
       <div class="lo-slots-wrap"><small>ADD-ON SLOTS</small><div id="lo-slots" class="lo-slots"></div></div>
       <div class="lo-body">
-        <div class="lo-left"><small>ADD-ONS — click to slot, click again to remove</small><div id="lo-grid" class="lo-grid"></div><div id="lo-tip" class="lo-tip"></div></div>
+        <div class="lo-left"><small id="lo-gridhead">ADD-ONS — click to slot, click again to remove</small><div id="lo-grid" class="lo-grid"></div><div id="lo-tip" class="lo-tip"></div></div>
         <div class="lo-right"><small>YOUR POWER, TUNED</small><div id="lo-numbers" class="lo-numbers"></div><div id="lo-kit" class="lo-kit"></div></div>
       </div>
       <button id="lo-use" class="btn primary" data-act="useHero">Play as</button>
@@ -131,11 +131,12 @@
         </div>
         <div>
           <h5>Powers and add-ons</h5>
-          <p>Every hero has a signature <b>power</b> on right click. Before a match, slot <b>two add-ons</b> into it. Each add-on bends the power: more snares, longer blinks, a ram that ploughs through a whole team, a fade that lets you shoot while invisible.</p>
-          <p>Add-ons come in five rarities. <span class="rt r0">Common</span> and <span class="rt r1">Uncommon</span> ones are clean upgrades. <span class="rt r2">Rare</span> and <span class="rt r3">Very Rare</span> ones add new rules. <span class="rt r4">Iridescent</span> ones transform the power — and always cost you something for it.</p>
+          <p>Every hero has a signature <b>power</b> on right click. Before a match, slot up to <b>two add-ons</b> into it. Each add-on bends the power: more snares, longer blinks, a ram that ploughs through a whole team, glaives that orbit you, a line that turns an enemy into your puppet.</p>
+          <p>Add-ons come in five rarities. <span class="rt r0">Common</span> and <span class="rt r1">Uncommon</span> ones are clean upgrades. <span class="rt r2">Rare</span> ones add new rules. <span class="rt r3">Very Rare</span> and <span class="rt r4">Iridescent</span> ones rewrite the power — and usually cost you something for it.</p>
+          <p><b>You earn add-ons by playing</b>: 3 random draws for a win, 2 for a draw, 1 for a loss, for the hero you finished as. They stack, and <b>slotting one uses it up</b> when the match starts. The more you play a hero, the better that hero's draws.</p>
           <h5>Modes</h5>
-          <p><b>Team Deathmatch</b> — first team to the kill target. <b>Control</b> — capture the zone and hold it to 100%. <b>Elimination</b> — no respawns, first to three rounds. <b>Free-for-All</b> — first to 15.</p>
-          <p>Jump pads (blue rings) throw you onto high ground. Green crosses restore 75 health.</p>
+          <p><b>Team Deathmatch</b> — first team to the kill target. <b>Control</b> — capture the zone and hold it to 100%. <b>Elimination</b> — no respawns, first to three rounds. <b>Free-for-All</b> — first to 12.</p>
+          <p>Jump pads (blue rings) throw you onto high ground. Green crosses restore 100 health.</p>
         </div>
       </div>
     </div>

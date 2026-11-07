@@ -9,6 +9,7 @@
   try {
     if (!window.THREE) throw new Error('The 3D engine could not be loaded. Check your connection and reload.');
     bar(0.1); await tick();
+    Inventory.starter();
     const cv = $('#cv');
     initGfx(cv); bar(0.55); msg('Laying out the arena…'); await tick();
     View.init(); HUD.init(); Input.init(cv); UI.init();
@@ -18,7 +19,7 @@
     bar(1);
     setTimeout(() => { $('#boot').classList.add('done'); setTimeout(() => $('#boot').remove(), 700); }, 150);
     document.addEventListener('pointerdown', () => Sfx.init(), { once: true });
-    window.__overtune = { Game, World, G, Flow, Settings, HEROES, MAPS };
+    window.__overtune = { Game, World, G, Flow, Settings, HEROES, MAPS, Inventory };
   } catch (e) {
     console.error(e); msg(e.message || 'Something went wrong while starting.');
   }
