@@ -18,11 +18,11 @@ const HEROES = {
     key: 'marrow', name: 'Marrow', title: 'The Snarewright', role: 'Trapper', hp: 320, speed: 5.1,
     blurb: 'A bone-dry frontier hunter in a long coat and wide hat. Fires barbed harpoons from a crank crossbow and seeds the ground with iron snares.',
     look: { skin: 0xb98a68, main: 0x6a4428, second: 0x3a2a1e, cloth: 0x4c5040, metal: 0x8a8f96, glow: 0xffb35c },
-    weapon: { name: 'Rattlejaw', kind: 'proj', proj: 'bolt', desc: 'A crank crossbow. Heavy barbed bolts that drop over distance and slow whoever they hit.', dmg: 78, head: 1.6, speed: 72, grav: 5, rof: 1.05, mag: 4, reload: 2.6, spread: 0.002, spreadMove: 0.01, slow: [0.7, 1.2], recoil: 0.05, sound: 'crossbow' },
-    power: { name: 'Snares', key: 'snare', desc: 'Set an iron snare at your feet. Enemies who step in are rooted, wounded and revealed to your team.',
+    weapon: { name: 'Rattlejaw', kind: 'proj', proj: 'bolt', desc: "Crossbow. Fires one heavy bolt per shot. Bolts drop over long distances and slow the enemy they hit.", dmg: 78, head: 1.6, speed: 72, grav: 5, rof: 1.05, mag: 4, reload: 2.6, spread: 0.002, spreadMove: 0.01, slow: [0.7, 1.2], recoil: 0.05, sound: 'crossbow' },
+    power: { name: 'Snares', key: 'snare', desc: "Press to place a trap at your feet. An enemy who steps on it is stuck in place, takes damage, and is shown to your team.",
       carry: 2, recharge: 14, arm: 1.2, radius: 1.1, root: 2.0, dmg: 40, reveal: 6, visDist: 10, place: 0.7, throwDist: 0, bleed: 0, chain: 0, bell: 0, explode: 0, explodeR: 0, noRoot: false, vuln: 0, auto: 0 },
-    util: { name: 'Field Dressing', key: 'heal', cd: 18, desc: 'Stitch yourself up: restore 110 health over 3 s.' },
-    ult: { name: 'Killing Field', key: 'field', desc: 'Every enemy is revealed for 8 s, your snares refill, and every snare on the map grows its jaws.' },
+    util: { name: 'Field Dressing', key: 'heal', cd: 18, desc: "Heal 110 health over 3 seconds." },
+    ult: { name: 'Killing Field', key: 'field', desc: "Show every enemy to your team for 8 seconds, refill your traps, and make all your traps bigger." },
     addons: [
       { id: 'hinges', name: 'Oiled Hinges', r: 0, icon: 'gear', d: ['+ Snares arm 0.6 s sooner'], m: P => { P.arm = Math.max(0.2, P.arm - 0.6); } },
       { id: 'spring', name: 'Coiled Spring', r: 0, icon: 'spring', d: ['+ Snare damage +15'], m: P => { P.dmg += 15; } },
@@ -47,11 +47,11 @@ const HEROES = {
     key: 'lark', name: 'Lark', title: 'The Rift Runner', role: 'Flanker', hp: 280, speed: 5.6,
     blurb: 'A courier who learned to fold space between steps. Throws crystal shards that ricochet off every wall, and tears through the map in charged blinks — then pays for it.',
     look: { skin: 0xe8c8b0, main: 0xd9dde6, second: 0x2a2f3c, cloth: 0x7a3fd8, metal: 0x5a606c, glow: 0xb48aff },
-    weapon: { name: 'Shardcaster', kind: 'proj', proj: 'shard', desc: 'A gauntlet that grows and flings crystal shards. Each one ricochets twice, hitting harder after every bounce.', dmg: 26, head: 1.5, speed: 58, grav: 0, rof: 0.3, mag: 12, reload: 1.9, spread: 0.008, spreadMove: 0.01, bounce: 2, recoil: 0.012, sound: 'shard' },
-    power: { name: 'Rift Step', key: 'blink', desc: 'Hold to charge, release to blink along your aim. Chain blinks together, but every chain ends in fatigue. Your first hits after a blink are Rift Strikes.',
+    weapon: { name: 'Shardcaster', kind: 'proj', proj: 'shard', desc: "Fires crystal shards that bounce off walls twice. Each bounce makes the shard hit harder.", dmg: 26, head: 1.5, speed: 58, grav: 0, rof: 0.3, mag: 12, reload: 1.9, spread: 0.008, spreadMove: 0.01, bounce: 2, recoil: 0.012, sound: 'shard' },
+    power: { name: 'Rift Step', key: 'blink', desc: "Hold to aim, release to teleport forward. You can teleport several times in a row, but then you're tired (slowed) for a moment. Your first hits after teleporting deal bonus damage (Rift Strikes).",
       charges: 2, recharge: 7, chargeTime: 1.1, minDist: 4, maxDist: 18, fatiguePer: 1.0, window: 2, strike: 0.35, strikeWin: 2, decoy: 0, arriveDmg: 0, arriveR: 0, noFatigue: false, heal: 0, lineDmg: 0, vertical: false, rift: 0, hpCost: 0 },
-    util: { name: 'Slipstream', key: 'dash', cd: 9, desc: 'Dash 9 m in the direction you are moving.' },
-    ult: { name: 'Unbound', key: 'unbound', desc: 'For 8 s, blinks are free, there is no fatigue, and every hit carries Rift Strike.' },
+    util: { name: 'Slipstream', key: 'dash', cd: 9, desc: "Dash a short distance in the direction you're moving." },
+    ult: { name: 'Unbound', key: 'unbound', desc: "For 8 seconds: unlimited teleports, no tiredness, and every hit deals bonus damage." },
     addons: [
       { id: 'frayed', name: 'Frayed Tether', r: 0, icon: 'thread', d: ['+ Blink distance +20%'], m: P => { P.maxDist *= 1.2; } },
       { id: 'calm', name: 'Calm Pulse', r: 0, icon: 'wave', d: ['+ Fatigue 25% shorter'], m: P => { P.fatiguePer *= 0.75; } },
@@ -76,11 +76,11 @@ const HEROES = {
     key: 'gauge', name: 'Gauge', title: 'The Ramjet', role: 'Bruiser', hp: 450, speed: 4.8,
     blurb: 'A demolition foreman sealed inside a walking boiler. Hoses the room with fire, then revs his pistons and charges through whatever is left.',
     look: { skin: 0x2a2624, main: 0xd29a22, second: 0x2c2a28, cloth: 0x5a4a3a, metal: 0x6a6e74, glow: 0xff7a2e },
-    weapon: { name: 'Boiler', kind: 'flame', desc: 'A flamethrower fed from his own furnace. Short range, sets enemies ablaze, overheats if you never let go.', range: 7.5, cone: 0.32, dps: 75, burn: [24, 3], heatRate: 0.2, coolRate: 0.35, lockout: 2.4, recoil: 0, sound: 'flame' },
-    power: { name: 'Ramjet', key: 'ram', desc: 'Hold to rev the pistons, then charge. Ram an enemy for heavy damage and knockback. Hit a wall and you crash.',
+    weapon: { name: 'Boiler', kind: 'flame', desc: "Flamethrower. Short range, sets enemies on fire. Overheats and stops for a moment if you hold it too long.", range: 7.5, cone: 0.32, dps: 75, burn: [24, 3], heatRate: 0.2, coolRate: 0.35, lockout: 2.4, recoil: 0, sound: 'flame' },
+    power: { name: 'Ramjet', key: 'ram', desc: "Hold to rev up, then charge forward. Hit an enemy for big damage and knock them back. Hit a wall and you're stunned.",
       rev: 0.7, speed: 14, dur: 2.4, turn: 1.3, dmg: 120, knock: 10, cd: 12, crashStun: 1.4, trail: 0, multi: false, shock: 0, shockR: 0, execute: 0, vent: false, bounce: false, jugg: false, furnace: false },
-    util: { name: 'Bulwark', key: 'wall', cd: 18, desc: 'Drop a 5 m barrier that blocks enemy fire for 7 s (600 health).' },
-    ult: { name: 'Earthshaker', key: 'slam', desc: 'Slam the ground: 150 damage to every enemy within 9 m in sight, who are thrown and stunned for 1.5 s.' },
+    util: { name: 'Bulwark', key: 'wall', cd: 18, desc: "Place a wall in front of you that blocks enemy shots for 7 seconds." },
+    ult: { name: 'Earthshaker', key: 'slam', desc: "Smash the ground: 150 damage to enemies within 9 m, knocking them into the air and stunning them for 1.5 seconds." },
     addons: [
       { id: 'plug', name: 'Spark Plug', r: 0, icon: 'plug', d: ['+ Revs 0.25 s faster'], m: P => { P.rev = Math.max(0.2, P.rev - 0.25); } },
       { id: 'tine', name: 'Bent Tine', r: 0, icon: 'hook', d: ['+ Turn 35% sharper while charging'], m: P => { P.turn *= 1.35; } },
@@ -105,11 +105,11 @@ const HEROES = {
     key: 'veil', name: 'Veil', title: 'The Phantom', role: 'Assassin', hp: 260, speed: 5.3,
     blurb: 'Nobody has seen her face, or much of the rest of her. Carries no gun at all — just two curved knives, and a way of not being there until it matters.',
     look: { skin: 0xe6e0d6, main: 0x2b2733, second: 0x141218, cloth: 0x3a2f4a, metal: 0x4a4656, glow: 0xc06aff },
-    weapon: { name: 'Whisper Knives', kind: 'melee', desc: 'Two curved knives. Each slash lunges you forward. From behind, a slash is a Backstab for 2.5× damage.', dmg: 55, range: 2.9, cone: 0.95, rof: 0.62, windup: 0.12, lunge: 6, backstab: 2.5, sound: 'slash' },
-    power: { name: 'Fade', key: 'fade', desc: 'Fade out of sight and move faster. Enemies only see a shimmer up close. Unveil to make your next strike an Ambush.',
+    weapon: { name: 'Whisper Knives', kind: 'melee', desc: "Two knives. Each swing lunges you forward a little. Hitting someone from behind deals 2.5x damage (a Backstab).", dmg: 55, range: 2.9, cone: 0.95, rof: 0.62, windup: 0.12, lunge: 6, backstab: 2.5, sound: 'slash' },
+    power: { name: 'Fade', key: 'fade', desc: "Press to turn invisible and move faster. Enemies only see a faint shimmer up close. Press again to appear; your first hit right after deals bonus damage (an Ambush).",
       fadeIn: 0.8, fadeOut: 1.0, speed: 1.35, maxTime: 14, ambush: 70, ambushWin: 2.5, cd: 6, shimmer: 8, regen: 0, cleave: false, blind: 0, sense: 0, shootCloaked: false, silent: false, swift: 0, shadowStep: false, perma: false },
-    util: { name: 'Scry', key: 'scry', cd: 14, desc: 'Reveal every enemy in a 45° cone up to 40 m for 4 s.' },
-    ult: { name: 'Nightfall', key: 'night', desc: 'For 9 s you are truly invisible — no shimmer — and can strike freely, with 30% more damage.' },
+    util: { name: 'Scry', key: 'scry', cd: 14, desc: "Show every enemy in front of you (up to 40 m) to your team for 4 seconds." },
+    ult: { name: 'Nightfall', key: 'night', desc: "For 9 seconds: fully invisible, you can attack without appearing, and you deal 30% more damage." },
     addons: [
       { id: 'soot', name: 'Soot Mask', r: 0, icon: 'mask', d: ['+ Fade out 0.3 s faster'], m: P => { P.fadeIn = Math.max(0.15, P.fadeIn - 0.3); } },
       { id: 'step', name: 'Light Step', r: 0, icon: 'feather', d: ['+ Faded speed +10%'], m: P => { P.speed += 0.1; } },
@@ -134,11 +134,11 @@ const HEROES = {
     key: 'ivra', name: 'Ivra', title: 'The Glaivewright', role: 'Skirmisher', hp: 320, speed: 5.2,
     blurb: 'A temple warden with a tide-staff that latches a beam onto her prey and drinks them, and a quiver of throwing glaives for anything that runs.',
     look: { skin: 0x9a6a50, main: 0x2f6a66, second: 0x1a2a2a, cloth: 0x8a2a2a, metal: 0xb8873a, glow: 0x5affd2 },
-    weapon: { name: 'Tidecaller', kind: 'beam', desc: 'A staff that latches a tide-beam onto the nearest enemy in your sights. The longer you hold the lock, the harder it bites.', range: 18, cone: 0.17, dpsMin: 24, dpsMax: 68, ramp: 2.5, drain: 20, regen: 32, recoil: 0, sound: 'beam' },
-    power: { name: 'Glaives', key: 'glaive', desc: 'Hold to wind up, release to throw a glaive in an arc. A longer wind-up throws further and hits harder. Glaives come back to you over time.',
+    weapon: { name: 'Tidecaller', kind: 'beam', desc: "Hold to fire a beam that locks onto the enemy you aim at. The longer you hold it, the more damage it does. Uses tide, which refills when you let go.", range: 18, cone: 0.17, dpsMin: 24, dpsMax: 68, ramp: 2.5, drain: 20, regen: 32, recoil: 0, sound: 'beam' },
+    power: { name: 'Glaives', key: 'glaive', desc: "Hold to wind up, release to throw a spinning blade. The longer the wind-up, the further and harder it goes. Thrown blades come back to you over time.",
       cap: 3, regen: 8, windMin: 0.25, windMax: 1.2, spdMin: 26, spdMax: 48, dmgMin: 60, dmgMax: 130, grav: 9, slow: 0.6, venom: 0, ricochet: 0, blast: 0, blastR: 0, twin: false, mark: 0, oneshot: false, returning: false, pierce: false, orbit: false, quick: 0 },
-    util: { name: 'Updraft', key: 'leap', cd: 11, desc: 'Leap high into the air and forward.' },
-    ult: { name: 'Glaive Storm', key: 'storm', desc: 'Throw nine fully wound glaives in a wide fan.' },
+    util: { name: 'Updraft', key: 'leap', cd: 11, desc: "Jump high into the air and forward." },
+    ult: { name: 'Glaive Storm', key: 'storm', desc: "Throw nine fully charged blades in a wide fan." },
     addons: [
       { id: 'grip', name: 'Leather Grip', r: 0, icon: 'rag', d: ['+ Wind up 15% faster'], m: P => { P.windMax *= 0.85; } },
       { id: 'fletch', name: 'Fletched Edge', r: 0, icon: 'feather', d: ['+ Glaives fly 15% faster'], m: P => { P.spdMin *= 1.15; P.spdMax *= 1.15; } },
@@ -163,11 +163,11 @@ const HEROES = {
     key: 'wick', name: 'Wick', title: 'The Lamplighter', role: 'Controller', hp: 300, speed: 5.2,
     blurb: 'A candle-headed keeper of lighthouses that no longer exist. Sends homing moths after anything that moves, hangs lanterns that expose the dark, and walks between them.',
     look: { skin: 0xe8d8b0, main: 0x3a3428, second: 0x1e1a16, cloth: 0x6a5a3a, metal: 0xa88a4a, glow: 0xffd27a },
-    weapon: { name: 'Moth Swarm', kind: 'proj', proj: 'moth', desc: 'Lets loose three slow moths per throw. They drift toward the nearest enemy in front of you.', dmg: 22, head: 1.0, speed: 17, grav: 0, rof: 0.95, mag: 8, reload: 2.2, spread: 0.0, spreadMove: 0, volley: 3, volleySpread: 0.12, homing: 3.2, recoil: 0.01, sound: 'moth' },
-    power: { name: 'Lanterns', key: 'lantern', desc: 'Tap to hang a lantern. Enemies in its light are revealed and slowed. Hold while looking at one of your lanterns to walk through the dark to it.',
+    weapon: { name: 'Moth Swarm', kind: 'proj', proj: 'moth', desc: "Throws three slow moths at a time. They fly toward the nearest enemy in front of you.", dmg: 22, head: 1.0, speed: 17, grav: 0, rof: 0.95, mag: 8, reload: 2.2, spread: 0.0, spreadMove: 0, volley: 3, volleySpread: 0.12, homing: 3.2, recoil: 0.01, sound: 'moth' },
+    power: { name: 'Lanterns', key: 'lantern', desc: "Tap to place a lantern. Enemies in its light are slowed and shown to your team. Hold while looking at one of your lanterns to teleport to it.",
       carry: 3, recharge: 10, place: 0.5, radius: 6, slow: 0.8, linger: 0, walk: 0.9, walkCd: 6, throwDist: 0, echo: 0, root: 0, burn: 0, beacon: 0, hidden: false, carried: false, turret: 0, mothBoost: 0 },
-    util: { name: 'Wax Shell', key: 'shell', cd: 16, desc: 'Coat yourself in hot wax: a 100-point shield for 4 s.' },
-    ult: { name: 'Flare', key: 'flare', desc: 'Every lantern bursts: 80 damage and 2.5 s of blindness to enemies in its light.' },
+    util: { name: 'Wax Shell', key: 'shell', cd: 16, desc: "Gain a 100-point shield for 4 seconds." },
+    ult: { name: 'Flare', key: 'flare', desc: "All your lanterns explode: 80 damage and 2.5 seconds of blindness to enemies in their light." },
     addons: [
       { id: 'long', name: 'Long Wick', r: 0, icon: 'candle', d: ['+ Lantern light reaches 25% further'], m: P => { P.radius *= 1.25; } },
       { id: 'oil', name: 'Bright Oil', r: 0, icon: 'drop', d: ['+ Enemies stay revealed 3 s after leaving the light'], m: P => { P.linger = 3; } },
@@ -192,11 +192,11 @@ const HEROES = {
     key: 'mire', name: 'Mire', title: 'The Bogwitch', role: 'Ambusher', hp: 340, speed: 5.0,
     blurb: 'Something that lived at the bottom of a peat bog for a very long time. Lobs flasks of bubbling acid, then sinks into the ground and comes up under your feet.',
     look: { skin: 0x5a7a4a, main: 0x3a4a2a, second: 0x1e2416, cloth: 0x4a3a2a, metal: 0x7a6a4a, glow: 0x9aff5a },
-    weapon: { name: "Brewer's Flasks", kind: 'proj', proj: 'flask', desc: 'Lobbed glass flasks. They shatter into a pool of acid that eats anyone standing in it.', dmg: 30, head: 1.0, speed: 23, grav: 14, rof: 1.0, mag: 5, reload: 2.4, spread: 0.0, spreadMove: 0, splash: 30, splashR: 2.2, zone: [25, 2.5, 4], recoil: 0.03, sound: 'flask' },
-    power: { name: 'Submerge', key: 'sub', desc: 'Sink into the ground: untouchable, fast, and blind to the fight above. Press again to burst up in a geyser that hurls enemies into the air.',
+    weapon: { name: "Brewer's Flasks", kind: 'proj', proj: 'flask', desc: "Throws flasks in an arc. They break into a pool of acid that damages anyone standing in it.", dmg: 30, head: 1.0, speed: 23, grav: 14, rof: 1.0, mag: 5, reload: 2.4, spread: 0.0, spreadMove: 0, splash: 30, splashR: 2.2, zone: [25, 2.5, 4], recoil: 0.03, sound: 'flask' },
+    power: { name: 'Submerge', key: 'sub', desc: "Press to sink into the ground: you can't be hurt and you move fast, but you can't attack. Press again to burst out, launching nearby enemies into the air.",
       sink: 0.5, maxTime: 4, speed: 1.6, cd: 10, dmg: 60, radius: 3.5, knock: 9, rippleVis: 99, heal: 0, pool: 0, pull: false, root: 0, drown: 0, trail: 0, flaskRing: false, artillery: false, fen: false },
-    util: { name: 'Leech', key: 'leech', cd: 15, desc: 'For 3 s, drain 15 health per second from every enemy within 7 m.' },
-    ult: { name: 'Bog Tide', key: 'tide', desc: 'Flood the ground around you: an 8 m acid bog for 6 s that burns (35/s) and slows enemies by 40%.' },
+    util: { name: 'Leech', key: 'leech', cd: 15, desc: "For 3 seconds, steal 15 health per second from every enemy within 7 m." },
+    ult: { name: 'Bog Tide', key: 'tide', desc: "Flood the ground around you with acid for 6 seconds. It burns and slows enemies standing in it." },
     addons: [
       { id: 'murk', name: 'Murky Water', r: 0, icon: 'wave', d: ['+ Stay under 1.5 s longer'], m: P => { P.maxTime += 1.5; } },
       { id: 'current', name: 'Swift Current', r: 0, icon: 'feather', d: ['+ Move 15% faster underground'], m: P => { P.speed += 0.24; } },
@@ -221,11 +221,11 @@ const HEROES = {
     key: 'spindle', name: 'Spindle', title: 'The Puppeteer', role: 'Disruptor', hp: 290, speed: 5.4,
     blurb: 'A lanky marionette that cut its own strings and kept them. Stitches enemies in place with flung needles, and reels them in on a line they never see coming.',
     look: { skin: 0xd8c0a0, main: 0x7a1e2e, second: 0x221418, cloth: 0xe0d6c4, metal: 0xc0b8a8, glow: 0xff5a7a },
-    weapon: { name: 'Thread Needles', kind: 'proj', proj: 'needle', desc: 'Flings needles in bursts of three. Land three on the same enemy within 1.5 s to Stitch them in place for a moment.', dmg: 17, head: 1.6, speed: 85, grav: 0, rof: 0.72, mag: 18, reload: 1.9, spread: 0.006, spreadMove: 0.01, burst: 3, burstGap: 0.08, stitch: 0.8, recoil: 0.012, sound: 'needle' },
-    power: { name: 'Marionette Line', key: 'line', desc: 'Fire a line. If it catches an enemy, you reel them toward you, mark them and wound them.',
+    weapon: { name: 'Thread Needles', kind: 'proj', proj: 'needle', desc: "Fires three needles at a time. Hit the same enemy with all three to freeze them in place for a moment (a Stitch).", dmg: 17, head: 1.6, speed: 85, grav: 0, rof: 0.72, mag: 18, reload: 1.9, spread: 0.006, spreadMove: 0.01, burst: 3, burstGap: 0.08, stitch: 0.8, recoil: 0.012, sound: 'needle' },
+    power: { name: 'Marionette Line', key: 'line', desc: "Fire a string. If it hits an enemy, it pulls them to you and damages them.",
       speed: 60, range: 32, cd: 9, dmg: 25, pad: 0.35, charges: 1, stun: 0, vuln: 0, slow: 0, swap: false, choke: 0, multi: 1, gallows: false, puppet: 0, web: false, meet: false },
-    util: { name: 'Grapple', key: 'grapple', cd: 10, desc: 'Hook any surface within 28 m and reel yourself to it.' },
-    ult: { name: "Cat's Cradle", key: 'cradle', desc: 'Strings lash every enemy in sight within 22 m: rooted for 2.2 s, 40 damage.' },
+    util: { name: 'Grapple', key: 'grapple', cd: 10, desc: "Shoot a hook at any surface up to 28 m away and pull yourself to it." },
+    ult: { name: "Cat's Cradle", key: 'cradle', desc: "Every enemy you can see within 22 m is tied down: stuck in place for 2.2 seconds and takes 40 damage." },
     addons: [
       { id: 'taut', name: 'Taut Silk', r: 0, icon: 'thread', d: ['+ The line flies 30% faster'], m: P => { P.speed *= 1.3; } },
       { id: 'wax', name: 'Waxed Thread', r: 0, icon: 'drop', d: ['+ Cooldown 2 s shorter'], m: P => { P.cd -= 2; } },
@@ -249,11 +249,11 @@ const HEROES = {
     key: 'sable', name: 'Sable', title: 'The Clockbreaker', role: 'Skirmisher', hp: 300, speed: 5.3,
     blurb: 'A thief of seconds with a cracked clock where a face should be. Dives into a fight, takes what it wants, and is three seconds ago before you can turn around.',
     look: { skin: 0xd8c8b0, main: 0x1e2a4a, second: 0x2a2a30, cloth: 0x3a2a1e, metal: 0xc89a4a, glow: 0xa8e8ff },
-    weapon: { name: 'Second Hand', kind: 'proj', proj: 'hand', desc: 'Fires clock hands in pairs. Every hit drags at the target\'s time: slowed 20% for a second.', dmg: 26, head: 1.7, speed: 75, grav: 0, rof: 0.6, mag: 12, reload: 1.9, spread: 0.004, spreadMove: 0.012, burst: 2, burstGap: 0.09, slow: [0.8, 1.0], recoil: 0.015, sound: 'hand' },
-    power: { name: 'Rewind', key: 'rewind', desc: 'Snap back to where you were 3 s ago, with the health you had then if it was more.',
+    weapon: { name: 'Second Hand', kind: 'proj', proj: 'hand', desc: "Fires two clock hands per shot. Each hit slows the enemy a little for a second.", dmg: 26, head: 1.7, speed: 75, grav: 0, rof: 0.6, mag: 12, reload: 1.9, spread: 0.004, spreadMove: 0.012, burst: 2, burstGap: 0.09, slow: [0.8, 1.0], recoil: 0.015, sound: 'hand' },
+    power: { name: 'Rewind', key: 'rewind', desc: "Press to jump back to where you were 3 seconds ago. If you had more health then, you get it back.",
       back: 3, cd: 11, charges: 1, heal: true, bonus: 0, reload: false, silent: false, cleanse: false, decoy: 0, depart: 0, departR: 4, arrive: 0, arriveR: 3.5, sand: 0, paradox: false, retro: false, freeze: 0, freezeR: 6, anchor: 0 },
-    util: { name: 'Overwind', key: 'haste', cd: 12, desc: 'Wind yourself up: 3 s of 40% more speed, and an instant reload.' },
-    ult: { name: 'Stopped Time', key: 'stop', desc: 'Time stops for every enemy in sight within 20 m: frozen for 2.5 s, and they take 25% more damage for 4 s.' },
+    util: { name: 'Overwind', key: 'haste', cd: 12, desc: "Move 40% faster for 3 seconds and instantly reload." },
+    ult: { name: 'Stopped Time', key: 'stop', desc: "Freeze every enemy you can see within 20 m for 2.5 seconds. They also take 25% more damage for 4 seconds." },
     addons: [
       { id: 'oil', name: 'Oiled Gears', r: 0, icon: 'gear', d: ['+ Cooldown 1.5 s shorter'], m: P => { P.cd -= 1.5; } },
       { id: 'mainspring', name: 'Spare Mainspring', r: 0, icon: 'spring', d: ['+ Rewind reaches 1 s further back'], m: P => { P.back += 1; } },
@@ -273,6 +273,35 @@ const HEROES = {
       { id: 'iriStop', name: 'The Stopped Clock', r: 4, icon: 'clock', d: ['+ Arriving stops time around you: enemies within 8 m are frozen for 2 s', '- Rewind reaches only 2 s back'], m: P => { P.freeze = 2; P.freezeR = 8; P.back = 2; } },
     ],
   },
+  orrin: {
+    key: 'orrin', name: 'Orrin', title: 'The Starbinder', role: 'Controller', hp: 290, speed: 5.1,
+    blurb: 'An astronomer who stared at the sky until it stared back. Fires charged lances of starlight and drops wells of gravity that drag whole teams together.',
+    look: { skin: 0x8a6a5a, main: 0x2a1e4a, second: 0x14122a, cloth: 0xd8c890, metal: 0xd8b860, glow: 0xffa8f0 },
+    weapon: { name: 'Star Lance', kind: 'lance', desc: 'Hold to charge, release to fire a beam of starlight that goes through every enemy in a line. A full charge (1.2 seconds) deals far more damage. You move slower while charging.', dmgMin: 30, dmgMax: 125, charge: 1.2, rof: 0.35, range: 90, head: 1.5, sound: 'lance' },
+    power: { name: 'Gravity Well', key: 'well', desc: 'Throw a small star. Where it lands, it pulls nearby enemies toward the middle for 3 seconds.',
+      charges: 1, cd: 12, radius: 7, pull: 6, dur: 3, speed: 24, dps: 0, slow: 0, reveal: 0, implode: 0, lift: false, push: false, horizon: 0, twin: false, exec: 0 },
+    util: { name: 'Starstep', key: 'float', cd: 11, desc: 'Jump up and float slowly back down for 2.5 seconds.' },
+    ult: { name: 'Meteor Shower', key: 'meteor', desc: 'Call down 12 meteors around the spot you aim at (up to 40 m away) over 3 seconds. Each deals 55 damage in a small blast.' },
+    addons: [
+      { id: 'lens', name: 'Polished Lens', r: 0, icon: 'eye', d: ['+ The well pulls from 1.5 m further out'], m: P => { P.radius += 1.5; } },
+      { id: 'core', name: 'Heavy Core', r: 0, icon: 'stone', d: ['+ The well pulls 30% harder'], m: P => { P.pull *= 1.3; } },
+      { id: 'night', name: 'Long Night', r: 0, icon: 'moon', d: ['+ The well lasts 1 s longer'], m: P => { P.dur += 1; } },
+      { id: 'orbit', name: 'Quick Orbit', r: 0, icon: 'ring', d: ['+ Cooldown 2 s shorter'], m: P => { P.cd -= 2; } },
+      { id: 'chart', name: 'Star Chart', r: 0, icon: 'star', d: ['+ Enemies caught in the well are shown to your team'], m: P => { P.reveal = 2; } },
+      { id: 'crush', name: 'Crushing Weight', r: 1, icon: 'plate', d: ['+ The well deals 15 damage per second to enemies inside'], m: P => { P.dps += 15; } },
+      { id: 'moons', name: 'Twin Moons', r: 1, icon: 'twin', d: ['+ Two wells before the cooldown', '- Cooldown 3 s longer'], m: P => { P.charges = 2; P.cd += 3; } },
+      { id: 'vacuum', name: 'Cold Vacuum', r: 1, icon: 'drop', d: ['+ Enemies inside the well are slowed by 40%'], m: P => { P.slow = 0.6; } },
+      { id: 'comet', name: 'Comet Tail', r: 1, icon: 'feather', d: ['+ You throw the star 60% further'], m: P => { P.speed *= 1.6; } },
+      { id: 'collapse', name: 'Collapse', r: 2, icon: 'fuse', d: ['+ When the well ends it implodes: 80 damage to everyone near the middle'], m: P => { P.implode = 80; } },
+      { id: 'weightless', name: 'Weightless', r: 2, icon: 'wing', d: ['+ Enemies inside the well float helplessly up off the ground'], m: P => { P.lift = true; } },
+      { id: 'repulsor', name: 'Repulsor', r: 2, icon: 'wave', d: ['+ The well pushes enemies out instead of pulling them in', '+ It lasts 2 s longer'], m: P => { P.push = true; P.dur += 2; } },
+      { id: 'horizon', name: 'Event Horizon', r: 3, icon: 'skull', d: ['+ Enemies dragged to the very middle take 60 damage per second'], m: P => { P.horizon = 60; } },
+      { id: 'supermassive', name: 'Supermassive', r: 3, icon: 'gem', d: ['+ The well is 60% bigger and pulls 60% harder', '- Cooldown 4 s longer'], m: P => { P.radius *= 1.6; P.pull *= 1.6; P.cd += 4; } },
+      { id: 'iriBinary', name: 'Binary Star', r: 4, icon: 'twin', d: ['+ Every throw splits into two wells, side by side', '+ A beam between them burns enemies who cross it (40 per second)'], m: P => { P.twin = true; } },
+      { id: 'iriHole', name: 'Black Hole', r: 4, icon: 'coil', d: ['+ The well lasts 6 s and pulls twice as hard', '+ Enemies who reach the middle below 30% health are destroyed', '- Cooldown 8 s longer'], m: P => { P.dur = 6; P.pull *= 2; P.exec = 0.3; P.cd += 8; } },
+    ],
+  },
+
 };
 const HERO_KEYS = Object.keys(HEROES);
 for (const k of HERO_KEYS) { HEROES[k].glow = HEROES[k].look.glow; HEROES[k].addons.forEach((a, i) => { a.idx = i; a.hero = k; }); }
@@ -297,21 +326,21 @@ const Inventory = {
   count(hero, i) { return this.get(hero)[i] | 0; },
   add(hero, i, n = 1) { const h = this.get(hero); h[i] = (h[i] | 0) + n; Settings.save(); },
   take(hero, i) { const h = this.get(hero); if ((h[i] | 0) <= 0) return false; h[i]--; if (!h[i]) delete h[i]; Settings.save(); return true; },
-  // a roll on the drop table, for this hero
-  roll(hero) {
+  // a roll on the drop table, for this hero; `min` forces at least that rarity (the pity guarantee)
+  roll(hero, min = 0) {
     // the more you play a hero, the better the draws get (up to about double the odds of the top two rarities)
-    const xp = Math.min(1, (Settings.played[hero] | 0) / 40), w = RARITY.map((R, i) => R.drop * (i >= 3 ? 1 + xp : i === 0 ? 1 - xp * 0.35 : 1)), sum = w.reduce((a, b) => a + b, 0);
+    const xp = Math.min(1, (Settings.played[hero] | 0) / 40), w = RARITY.map((R, i) => i < min ? 0 : R.drop * (i >= 3 ? 1 + xp : i === 0 ? 1 - xp * 0.35 : 1)), sum = w.reduce((a, b) => a + b, 0);
     let x = Math.random() * sum, r = 0; for (; r < 4; r++) { x -= w[r]; if (x < 0) break; }
     const pool = HEROES[hero].addons.filter(a => a.r === r); return pick(pool).idx;
   },
-  // first time anyone opens the game: a few commons for every hero, so the slots are never empty to start with
+  // every player has two of every Common and Uncommon for every hero (topped up once per hero)
   starter() {
     if (Settings.invV !== 2) { Settings.inv = {}; Settings.loadouts = {}; Settings.given = {}; Settings.invV = 2; }
     let changed = false;
     for (const k of HERO_KEYS) {
-      if (Settings.given[k]) continue; Settings.given[k] = 1; changed = true;
-      const commons = HEROES[k].addons.filter(a => a.r === 0); for (const a of commons.sort(() => Math.random() - 0.5).slice(0, 3)) this.add(k, a.idx, 2);
-      this.add(k, pick(HEROES[k].addons.filter(a => a.r === 1)).idx, 1);
+      if ((Settings.given[k] | 0) >= 2) continue; Settings.given[k] = 2; changed = true;
+      const h = this.get(k);
+      for (const a of HEROES[k].addons) if (a.r <= 1) h[a.idx] = Math.max(h[a.idx] | 0, 2);
     }
     if (changed) Settings.save();
   },
@@ -325,12 +354,30 @@ const Inventory = {
     M.paid = M.paid || {};
     for (const i of a.addons) { const k = a.heroKey + ':' + i; if (!M.paid[k] && this.take(a.heroKey, i)) M.paid[k] = 1; }
   },
-  // the end of a match: three draws for a win, two for a draw, one for a loss, all for the hero you finished as
+  // pity counters: draws since the last Rare-or-better, Very-Rare-or-better and Iridescent, per hero
+  PITY: [0, 0, 10, 30, 60],
+  pity(hero) { const P = Settings.pity || (Settings.pity = {}); return P[hero] || (P[hero] = [0, 0, 0, 0, 0]); },
+  // the end of a match: five draws for a win, three for a draw, two for a loss, for the hero you finished as,
+  // plus bonus draws for the day's first win and for win streaks; any draw can come up double
   award(hero, result) {
-    const n = result > 0 ? 3 : result === 0 ? 2 : 1, got = [];
-    for (let i = 0; i < n; i++) { const idx = this.roll(hero); this.add(hero, idx); got.push(idx); }
+    const bonuses = [], today = new Date().toDateString();
+    let n = result > 0 ? 5 : result === 0 ? 3 : 2;
+    if (result > 0) {
+      Settings.streak = (Settings.streak | 0) + 1;
+      if (Settings.firstWin !== today) { Settings.firstWin = today; n += 2; bonuses.push('First win of the day +2'); }
+      if (Settings.streak >= 3) { const b = Math.min(3, Settings.streak - 2); n += b; bonuses.push(`${Settings.streak}-win streak +${b}`); }
+    } else Settings.streak = 0;
+    const pity = this.pity(hero), draws = [];
+    for (let i = 0; i < n; i++) {
+      for (let r = 2; r <= 4; r++) pity[r]++;
+      let min = 0; for (let r = 4; r >= 2; r--) if (pity[r] >= this.PITY[r]) { min = r; break; }
+      const idx = this.roll(hero, min), r = HEROES[hero].addons[idx].r, dbl = Math.random() < 0.08;
+      for (let q = 2; q <= r; q++) pity[q] = 0;
+      this.add(hero, idx, dbl ? 2 : 1);
+      draws.push({ idx, r, dbl, forced: min > 0 && r >= min });
+    }
     Settings.played[hero] = (Settings.played[hero] | 0) + 1; Settings.save();
-    return got;
+    return { draws, bonuses, pity: pity.slice() };
   },
 };
 function loadoutFor(heroKey) { return Inventory.loadout(heroKey); }
@@ -381,4 +428,4 @@ const ICONS = {
   web: '<circle cx="32" cy="32" r="22" fill="none" stroke-width="3"/><circle cx="32" cy="32" r="12" fill="none" stroke-width="3"/><path d="M32 8v48M8 32h48M15 15l34 34M49 15L15 49" stroke-width="3"/>',
 };
 function iconSVG(name) { return `<svg viewBox="0 0 64 64" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" fill="none">${ICONS[name] || ICONS.gem}</svg>`; }
-const POWER_ICON = { snare: 'jaw', blink: 'shard', ram: 'piston', fade: 'mask', glaive: 'twin', lantern: 'lantern', sub: 'wave', line: 'spool', rewind: 'clock' };
+const POWER_ICON = { snare: 'jaw', blink: 'shard', ram: 'piston', fade: 'mask', glaive: 'twin', lantern: 'lantern', sub: 'wave', line: 'spool', rewind: 'clock', well: 'gem' };

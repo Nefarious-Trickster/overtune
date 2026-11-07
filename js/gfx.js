@@ -783,6 +783,13 @@ const Props = {
   hanglantern(p, L) {
     const g = new THREE.Group(); g.position.set(p.x, p.y, p.z); L.add(g);
     const c = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.8, 4), SURF.iron); c.position.y = 0.4; g.add(c);
+    // a post to hang from: up from the deck or ground, with an arm out to the chain
+    if (p.x2 != null) {
+      const base = p.base || 0, top = p.y + 0.85, wood = SURF.darkwood || SURF.iron;
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, top - base, 6), wood); post.position.set(p.x2, (top + base) / 2, p.z2); post.castShadow = true; L.add(post);
+      const dx = p.x - p.x2, dz = p.z - p.z2, len = Math.hypot(dx, dz) + 0.1, arm = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, len), wood);
+      arm.position.set((p.x + p.x2) / 2, top, (p.z + p.z2) / 2); arm.rotation.y = Math.atan2(dx, dz); L.add(arm);
+    }
     const cage = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 0.36, 6), SURF.iron); g.add(cage);
     const f = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), glowMat(p.color || 0xffc070, 5)); g.add(f);
     addLightSource(p.x, p.y, p.z, p.color || 0xffc070, p.i || 1.3, p.d || 10, null);

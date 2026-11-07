@@ -4,10 +4,10 @@
 // Each copy simulates the actors it owns (its player, and the bots if it hosts) and draws the rest from
 // snapshots. Hits are judged by the attacker's copy and applied by the target's owner.
 // ============================================================================
-const F_ALIVE = 1, F_GROUND = 2, F_CLOAK = 4, F_FADING = 8, F_REVEAL = 16, F_ROOT = 32, F_STUN = 64, F_CHARGE = 128, F_REV = 256, F_WIND = 512, F_BLINKCH = 1024, F_FATIGUE = 2048, F_NIGHT = 4096, F_UNBOUND = 8192, F_HEAL = 16384, F_SLOW = 32768, F_PLACE = 65536, F_PROT = 131072, F_SUB = 262144, F_FLAME = 524288, F_BEAM = 1048576, F_CHANNEL = 2097152, F_ORBIT = 4194304, F_SHIELD = 8388608, F_SLASH = 16777216;
+const F_ALIVE = 1, F_GROUND = 2, F_CLOAK = 4, F_FADING = 8, F_REVEAL = 16, F_ROOT = 32, F_STUN = 64, F_CHARGE = 128, F_REV = 256, F_WIND = 512, F_BLINKCH = 1024, F_FATIGUE = 2048, F_NIGHT = 4096, F_UNBOUND = 8192, F_HEAL = 16384, F_SLOW = 32768, F_PLACE = 65536, F_PROT = 131072, F_SUB = 262144, F_FLAME = 524288, F_BEAM = 1048576, F_CHANNEL = 2097152, F_ORBIT = 4194304, F_SHIELD = 8388608, F_SLASH = 16777216, F_LANCE = 33554432;
 const RESPAWN_T = 7;
 
-const Game = { state: 'menu', actors: [], byId: new Map(), me: null, t: 0, match: null, snares: new Map(), lanterns: new Map(), projs: [], zones: [], decoys: [], walls: new Map(), timers: [], seq: 0 };
+const Game = { state: 'menu', actors: [], byId: new Map(), me: null, t: 0, match: null, snares: new Map(), lanterns: new Map(), projs: [], zones: [], wells: [], decoys: [], walls: new Map(), timers: [], seq: 0 };
 const BOT_NAMES = ['Vesper', 'Rook', 'Tallow', 'Quill', 'Ashby', 'Sorrel', 'Kestrel', 'Grist', 'Marlow', 'Pike', 'Wren', 'Thane', 'Juniper', 'Cobalt', 'Hollis', 'Reed', 'Sable', 'Moss', 'Dray', 'Fennick', 'Ottoline', 'Bram', 'Cinder', 'Lowe'];
 
 function isEnemy(a, b) { if (!a || !b || a === b) return false; if (Game.match && Game.match.mode === 'ffa') return a.id !== b.id; return a.team !== b.team; }
@@ -56,7 +56,7 @@ function rebuildModel(a) {
 }
 function resetKit(a) {
   const W = a.H.weapon, P = a.P;
-  a.ammo = W.mag || 0; a.reloadT = 0; a.fireT = 0; a.burstLeft = 0; a.bloom = 0; a.utilT = 0; a.heat = 0; a.tide = 100; a.lockT = 0; a.beamT = null; a.stitch = {}; a.overheat = 0; a.swingT = 0;
+  a.ammo = W.mag || 0; a.reloadT = 0; a.fireT = 0; a.burstLeft = 0; a.bloom = 0; a.utilT = 0; a.heat = 0; a.tide = 100; a.lockT = 0; a.beamT = null; a.stitch = {}; a.overheat = 0; a.swingT = 0; a.charge = 0;
   a.pw = {};
   if (P.key === 'snare') a.pw = { charges: P.auto ? 0 : P.carry, rech: 0, placing: 0, n: 0, autoT: P.auto || 0 };
   if (P.key === 'blink') a.pw = { charges: P.charges, rech: 0, chargeT: 0, charging: false, chainT: 0, used: 0 };
@@ -66,6 +66,7 @@ function resetKit(a) {
   if (P.key === 'lantern') a.pw = { charges: P.carry, rech: 0, placing: 0, hold: 0, chan: 0, chanTo: null, walkCd: 0, n: 0 };
   if (P.key === 'sub') a.pw = { state: 'up', t: 0, cd: 0, trailT: 0, drownAcc: {} };
   if (P.key === 'line') a.pw = { charges: P.charges, rech: 0 };
+  if (P.key === 'well') a.pw = { charges: P.charges, rech: 0, n: 0 };
   if (P.key === 'rewind') a.pw = { charges: P.charges, rech: 0, hist: [], ehist: [], histT: 0, anchor: null };
 }
 function spawnActor(a, at) {
@@ -93,7 +94,7 @@ function pickSpawn(a) {
 }
 
 // ---------------------------------------------------------------- statuses
-const TIMED = ['root', 'stun', 'reveal', 'blind', 'strike', 'ambush', 'flick', 'unbound', 'night', 'nightFlash', 'senseT', 'swift', 'fatigue', 'vulnT', 'lightT', 'hiddenRev'];
+const TIMED = ['root', 'stun', 'reveal', 'blind', 'strike', 'ambush', 'flick', 'unbound', 'night', 'nightFlash', 'senseT', 'swift', 'fatigue', 'vulnT', 'lightT', 'hiddenRev', 'float'];
 function stTick(a, dt) {
   const s = a.st;
   for (const k of TIMED) if (s[k] > 0) s[k] = Math.max(0, s[k] - dt);
@@ -126,6 +127,8 @@ function applyFx(a, fx, srcId) {
     else s.dots.push({ dps: fx.dot[0] / fx.dot[1], t: fx.dot[1], src: srcId, kind: fx.dot[2] || 'bleed', how: fx.dot[2] });
   }
   if (fx.charm && !U) s.charm = { t: fx.charm, src: srcId };
+  if (fx.pull && !U) s.pull = { x: fx.pull[0], z: fx.pull[1], v: fx.pull[2], t: 0.3 };
+  if (fx.float && !U) { s.float = Math.max(s.float || 0, fx.float); if (a.grounded) { a.vel.y = Math.max(a.vel.y, 3); a.grounded = false; } }
   if (fx.tp) { a.pos.set(fx.tp[0], fx.tp[1], fx.tp[2]); a.vel.set(0, 0, 0); }
   if (fx.knock && !U) { a.vel.x += fx.knock[0]; a.vel.y = Math.max(a.vel.y, fx.knock[1]); a.vel.z += fx.knock[2]; a.grounded = false; a.knockT = 0.5; a.dashT = 0; a.grapple = null; }
   if (a.P.key === 'fade' && a.pw.state !== 'vis') s.flick = 0.35;
@@ -213,6 +216,7 @@ function onEvent(E, remote) {
       Sfx.play('reveal'); break;
     }
     case 'fb': { for (const s of Game.snares.values()) if (s.owner === E[1]) s.boostT = E[2]; break; }
+    case 'wv': placeWell(E[1], E[2], new V3(E[3], E[4], E[5]), E[6] || {}); break;
     case 'zn': addZone(E[1], new V3(E[2], E[3], E[4]), E[5], E[6], E[7], E[8], E[9] || 1); break;
     case 'dc': { const a = Game.byId.get(E[1]); if (a) spawnDecoy(a, new V3(E[2], E[3], E[4]), E[5], E[6] || 3); break; }
     case 'pk': Pickups.take(E[1] | 0, E[2]); break;
@@ -229,6 +233,8 @@ function sanitizeFx(f) {
   if (Array.isArray(f.vuln)) o.vuln = [n(f.vuln[0], 1, 2), n(f.vuln[1], 0, 8)];
   if (Array.isArray(f.dot)) o.dot = [n(f.dot[0], 0, 120), n(f.dot[1], 0.5, 8), typeof f.dot[2] === 'string' ? f.dot[2].slice(0, 8) : 'bleed'];
   if (Array.isArray(f.knock)) o.knock = [n(f.knock[0], -45, 45), n(f.knock[1], -5, 22), n(f.knock[2], -45, 45)];
+  if (Array.isArray(f.pull)) { const B = World.bounds; o.pull = [n(f.pull[0], B.x0, B.x1), n(f.pull[1], B.z0, B.z1), n(f.pull[2], -20, 20)]; }
+  if (f.float) o.float = n(f.float, 0, 3);
   if (Array.isArray(f.tp)) { const B = World.bounds; o.tp = [n(f.tp[0], B.x0, B.x1), n(f.tp[1], -1, 40), n(f.tp[2], B.z0, B.z1)]; }
   return o;
 }
@@ -254,6 +260,7 @@ function stepLocal(a, dt) {
   let speedMul = slowMul(a), noFire = false, forced = null;
   if (a.st.swift > 0) speedMul *= 1.4;
   if (a.st.night > 0) speedMul *= 1.1;
+  if (a.charge > 0) speedMul *= 0.7;
   // ---------------------------------------------------- the power
   if (P.key === 'snare') {
     if (P.auto) { pw.autoT -= dt; if (pw.autoT <= 0) { pw.autoT = P.auto; autoSnare(a); } }
@@ -341,6 +348,9 @@ function stepLocal(a, dt) {
   } else if (P.key === 'line') {
     if (pw.charges < P.charges) { pw.rech += dt; if (pw.rech >= P.cd) { pw.rech = 0; pw.charges++; } }
     if (pressed('power') && pw.charges > 0 && !stunned) { pw.charges--; fireLine(a); }
+  } else if (P.key === 'well') {
+    if (pw.charges < P.charges) { pw.rech += dt; if (pw.rech >= P.cd) { pw.rech = 0; pw.charges++; } }
+    if (pressed('power') && pw.charges > 0 && !stunned) { pw.charges--; throwWell(a); }
   } else if (P.key === 'rewind') {
     // the past, kept ten times a second: where you were, how hurt you were, how loaded; and where your enemies stood
     pw.histT -= dt;
@@ -379,8 +389,14 @@ function stepLocal(a, dt) {
     if (a.grounded || wish.lengthSq() > 0.01) { a.vel.x = damp(a.vel.x, tx, accel / 6, dt); a.vel.z = damp(a.vel.z, tz, accel / 6, dt); }
     if (I.jump && a.grounded && !rooted && !isSub(a)) { a.vel.y = 7.2; a.grounded = false; Sfx.play('jump', a.pos, 0.4); }
   }
+  // a gravity well drags you toward its middle (or shoves you out)
+  const pl = a.st.pull;
+  if (pl && pl.t > 0) {
+    pl.t -= dt; const dx = pl.x - a.pos.x, dz = pl.z - a.pos.z, d = Math.hypot(dx, dz);
+    if (d > 0.4) { const ux = dx / d, uz = dz / d, along = a.vel.x * ux + a.vel.z * uz, want = pl.v * Math.min(1, d / 1.5); if (Math.sign(want) * along < Math.abs(want) * 1.2) { const k = want * (a.grounded ? 8 : 3) * dt; a.vel.x += ux * k; a.vel.z += uz * k; } }
+  }
   if (a.knockT > 0) a.knockT -= dt;
-  a.gravMul = a.grapple ? 0 : a.leapT > 0 ? 0.8 : 1; if (a.leapT > 0) a.leapT -= dt;
+  a.gravMul = a.grapple ? 0 : a.st.float > 0 ? 0.18 : a.leapT > 0 ? 0.8 : 1; if (a.leapT > 0) a.leapT -= dt;
   const wasAir = !a.grounded, res = World.moveBody(a, dt);
   if (wasAir && a.grounded && res.landV > 6) { Sfx.play('land', a.pos, Math.min(1, res.landV / 14)); if (a === Game.me) View.land(res.landV); }
   if (P.key === 'ram' && pw.state === 'charge' && res.wall && res.wallSpeed > P.speed * 0.5) ramCrash(a, res.wall);
@@ -409,6 +425,7 @@ function weaponTick(a, dt, want, wantReload) {
   if (W.kind === 'flame') return flameTick(a, dt, want);
   if (W.kind === 'beam') return beamTick(a, dt, want);
   if (W.kind === 'melee') return meleeTick(a, dt, want);
+  if (W.kind === 'lance') return lanceTick(a, dt, want);
   if (a.reloadT > 0) { a.reloadT -= dt; if (a.reloadT <= 0) a.ammo = W.mag; return; }
   if (a.burstLeft > 0) { a.burstT -= dt; if (a.burstT <= 0 && a.ammo > 0) { fireProj(a); a.burstLeft--; a.burstT = W.burstGap; if (!a.burstLeft) a.fireT = W.rof; } else if (a.ammo <= 0) a.burstLeft = 0; return; }
   if ((wantReload && a.ammo < W.mag) || (a.ammo <= 0 && a.fireT <= 0)) { a.reloadT = W.reload; Sfx.play('reload', a === Game.me ? null : a.pos, 0.5); if (a === Game.me) View.reload(W.reload); return; }
@@ -570,7 +587,7 @@ function rayActor(o, d, a, maxT, pad = 0) {
 }
 
 // ---------------------------------------------------------------- projectiles: bolts, shards, moths, flasks, needles, glaives, lines
-const PROJ = { bolt: { pad: 0.08, life: 4 }, shard: { pad: 0.1, life: 3 }, moth: { pad: 0.3, life: 5 }, flask: { pad: 0.15, life: 5 }, needle: { pad: 0.06, life: 2 }, hand: { pad: 0.08, life: 2.5 }, glaive: { pad: 0.28, life: 6 }, line: { pad: 0.35, life: 1.5 } };
+const PROJ = { bolt: { pad: 0.08, life: 4 }, shard: { pad: 0.1, life: 3 }, moth: { pad: 0.3, life: 5 }, flask: { pad: 0.15, life: 5 }, needle: { pad: 0.06, life: 2 }, hand: { pad: 0.08, life: 2.5 }, star: { pad: 0.25, life: 6 }, glaive: { pad: 0.28, life: 6 }, line: { pad: 0.35, life: 1.5 } };
 function projMesh(kind, owner, o) {
   const glow = owner ? owner.H.look.glow : 0xffffff;
   if (kind === 'glaive') return buildGlaive(glow, 1.3);
@@ -580,6 +597,7 @@ function projMesh(kind, owner, o) {
   if (kind === 'flask') return buildFlask(glow);
   if (kind === 'needle') return buildNeedle(glow);
   if (kind === 'hand') return buildHand(glow);
+  if (kind === 'star') return buildStar(glow);
   if (kind === 'line') return buildLineHead(glow, o.web);
   return new THREE.Mesh(sph(0.12, 8, 6), mGlow(glow, 5));
 }
@@ -635,12 +653,13 @@ function projTick(dt) {
     if (p.kind === 'flask' && Math.random() < 0.5) Fx.spawn('add', p.pos.x, p.pos.y, p.pos.z, 0, 0.3, 0, 1.2, 3, 0.6, 0.05, 0.3);
     if (p.line && owner) p.line.set(owner === Game.me ? View.muzzleWorld(0) : chest(owner), p.pos);
     const life = p.kind === 'line' ? (o.rg || 32) / Math.max(1, p.vel.length()) : (PROJ[p.kind] || {}).life || 5;
-    if (p.t > life || p.pos.y < -5) killProj(p);
+    if (p.t > life || p.pos.y < -5) { if (p.kind === 'star' && p.local && owner) spawnWells(p, owner); killProj(p); }
   }
 }
 // returns true when the projectile is finished with
 function projHitActor(p, h, owner) {
   const o = p.o, t = h.a; p.hitSet.add(t.id);
+  if (p.kind === 'star') { projImpact(p, { nx: 0, ny: 1, nz: 0 }, owner); return true; }
   if (p.kind === 'line') { lineCatch(owner, t); if (++p.hits >= (o.mu || 1)) { killProj(p); return true; } return false; }
   if (p.kind === 'glaive') {
     let d = o.d || 60; if (h.head) d *= 1.5;
@@ -661,6 +680,7 @@ function projHitActor(p, h, owner) {
 }
 function projImpact(p, wh, owner) {
   const o = p.o;
+  if (p.kind === 'star') { if (p.local && owner) spawnWells(p, owner); Fx.burst(p.pos, owner ? owner.H.look.glow : 0xffa8f0, 20, 4, 0.5, 0.08, { k: 3 }); killProj(p); return; }
   if (p.kind === 'glaive') {
     Fx.sparks(p.pos, { x: wh.nx, y: wh.ny, z: wh.nz }, 0xffe0a0, 10); Sfx.play('glaiveHit', p.pos, 0.7);
     if (o.bl) { if (p.local) splash(p, o.bl, o.br, null); Fx.explosion(p.pos, o.br * 0.6, 0xff8a3a); }
@@ -1036,6 +1056,7 @@ function useUtil(a) {
     const f = flatFwd(a.yaw); a.vel.y = 11.5; a.vel.x += f.x * 5; a.vel.z += f.z * 5; a.grounded = false; a.leapT = 1.2;
     Sfx.play('leap', at); emit(['fx', 'leap', r2(a.pos.x), r2(a.pos.y), r2(a.pos.z), 0, 0]);
   } else if (U.key === 'shell') { a.st.shield = { hp: 100, t: 4 }; Sfx.play('wall', at); emit(['fx', 'shell', ...here, 0, 0]); }
+  else if (U.key === 'float') { a.vel.y = Math.max(a.vel.y, 8.5); a.grounded = false; a.st.float = 2.5; Sfx.play('leap', at); emit(['fx', 'leap', r2(a.pos.x), r2(a.pos.y), r2(a.pos.z), 0, 0]); }
   else if (U.key === 'haste') { a.st.swift = 3; if (a.H.weapon.mag) { a.ammo = a.H.weapon.mag; a.reloadT = 0; } Sfx.play('dash', at); emit(['fx', 'dash', ...here, 0, 0]); }
   else if (U.key === 'leech') { a.st.leech = { t: 3, acc: 0 }; Sfx.play('leech', at); emit(['fx', 'leech', ...here, 7, 0]); }
   else if (U.key === 'grapple') {
@@ -1053,6 +1074,72 @@ function leechTick(a, dt) {
   }
   if (L.t <= 0) a.st.leech = null;
 }
+// ---------------------------------------------------------------- Orrin: the star lance and gravity wells
+function lanceTick(a, dt, want) {
+  const W = a.H.weapon;
+  if (a.fireT > 0) { a.charge = 0; return; }
+  if (want) { const was = a.charge || 0; a.charge = Math.min(W.charge, was + dt); if (a === Game.me && was < W.charge && a.charge >= W.charge) Sfx.play('tick', null, 0.7); return; }
+  if ((a.charge || 0) < 0.06) { a.charge = 0; return; }
+  const f = clamp(a.charge / W.charge, 0, 1); a.charge = 0; a.fireT = W.rof;
+  const dmg = lerp(W.dmgMin, W.dmgMax, f * f) * dmgMul(a), eye = eyePos(a), d = aimDir(a.yaw, a.pitch);
+  const wh = World.ray(eye.x, eye.y, eye.z, d.x, d.y, d.z, W.range, a.team), maxT = wh ? wh.t : W.range;
+  for (const t of Game.actors) { if (!t.alive || !isEnemy(a, t)) continue; const h = rayActor(eye, d, t, maxT, 0.04 + f * 0.1); if (h) hitActor(a, t, dmg * (h.head ? W.head : 1), { head: h.head, how: 'lance' }); }
+  for (const dc of Game.decoys) if (dc.owner !== a.id && dc.t > 0) { const q = dc.pos.clone().setY(dc.pos.y + 1).sub(eye), u = q.dot(d); if (u > 0 && u < maxT && q.addScaledVector(d, -u).length() < 0.6) popDecoy(dc); }
+  if (wh && wh.wall) emit(['wh', wh.wall.id, dmg]);
+  if (a === Game.me) View.kick(0.02 + f * 0.05);
+  const o = a === Game.me ? View.muzzleWorld(0) : (a.model ? a.model.muzzle.getWorldPosition(new V3()) : eye), end = eye.clone().addScaledVector(d, maxT);
+  emit(['fx', 'lance', r2(o.x), r2(o.y), r2(o.z), [r2(end.x), r2(end.y), r2(end.z)], r2(f)]);
+}
+function wellPack(P) { return { r: P.radius, d: P.dur, pl: P.pull, dp: P.dps, sl: P.slow, rv: P.reveal, lf: P.lift ? 1 : 0, im: P.implode, ps: P.push ? 1 : 0, hz: P.horizon, ex: P.exec, tw: P.twin ? 1 : 0 }; }
+function throwWell(a) {
+  const P = a.P, e = eyePos(a), d = aimDir(a.yaw, a.pitch + 0.1), o = e.clone().addScaledVector(d, 0.6);
+  emit(['pr', 'star', a.id, r2(o.x), r2(o.y), r2(o.z), r2(d.x * P.speed), r2(d.y * P.speed), r2(d.z * P.speed), { g: 14, w: wellPack(P) }]);
+  Sfx.play('well', a === Game.me ? null : a.pos, 0.7);
+  if (a === Game.me) View.throwAnim();
+}
+function spawnWells(p, owner) {
+  const w = p.o.w || {}, gy = World.groundAt(p.pos.x, p.pos.z, p.pos.y + 0.5), base = owner.id + '#w' + (owner.pw.n = (owner.pw.n | 0) + 1);
+  if (w.tw) {
+    const v = p.vel.clone().setY(0); if (v.lengthSq() < 0.01) v.set(1, 0, 0); v.normalize(); const side = new V3(-v.z, 0, v.x);
+    for (const s of [-1, 1]) { const q = p.pos.clone().addScaledVector(side, s * 3.2); emit(['wv', base + (s > 0 ? 'b' : 'a'), owner.id, r2(q.x), r2(World.groundAt(q.x, q.z, p.pos.y + 0.5)), r2(q.z), Object.assign({ link: base }, w)]); }
+  } else emit(['wv', base, owner.id, r2(p.pos.x), r2(gy), r2(p.pos.z), w]);
+}
+function placeWell(id, ownerId, pos, o) {
+  if (Game.wells.some(w => w.id === id)) return;
+  const owner = Game.byId.get(ownerId), r = clamp(+o.r || 7, 1, 20), d = clamp(+o.d || 3, 0.5, 10);
+  const w = { id, owner: ownerId, pos: pos.clone(), o, r, t: d, life: d, tickT: 0, mesh: buildWell(r, owner ? owner.H.look.glow : 0xffa8f0, !!o.ps) };
+  w.mesh.position.copy(pos); G.scene.add(w.mesh); Game.wells.push(w);
+  Sfx.play('well', pos, 1);
+}
+function wellTick(dt) {
+  for (let i = Game.wells.length - 1; i >= 0; i--) {
+    const w = Game.wells[i], o = w.o, owner = Game.byId.get(w.owner), k = 1 - w.t / w.life;
+    w.t -= dt;
+    w.mesh.userData.core.rotation.y += dt * 3; w.mesh.userData.ring.rotation.z += dt * (o.ps ? -2 : 2); w.mesh.userData.ring.scale.setScalar(1 - ((G.time * (o.ps ? -0.6 : 0.6)) % 1 + 1) % 1 * 0.85);
+    if (Math.random() < dt * 30) { const ang = Math.random() * TAU, rr = w.r * (0.6 + Math.random() * 0.4), q = w.pos.clone().add(new V3(Math.cos(ang) * rr, 0.2 + Math.random() * 1.5, Math.sin(ang) * rr)), v = w.pos.clone().setY(w.pos.y + 1).sub(q).multiplyScalar(o.ps ? -0.8 : 0.8); Fx.spawn('add', q.x, q.y, q.z, v.x, v.y, v.z, 1.6, 0.8, 1.8, 0.07, 0.7); }
+    if (owner && !owner.remote) {
+      w.tickT -= dt;
+      if (w.tickT <= 0) {
+        w.tickT = 0.2;
+        for (const t of Game.actors) {
+          if (!t.alive || !isEnemy(owner, t) || isSub(t)) continue;
+          const p = t.renderPos || t.pos, d = Math.hypot(p.x - w.pos.x, p.z - w.pos.z); if (d > w.r || Math.abs(p.y - w.pos.y) > 5) continue;
+          const fx = { pull: [w.pos.x, w.pos.z, (o.ps ? -1 : 1) * (+o.pl || 6)] }; if (o.sl) fx.slow = [o.sl, 0.3]; if (o.rv) fx.reveal = o.rv; if (o.lf) fx.float = 0.4;
+          let dmg = (+o.dp || 0) * 0.2; if (o.hz && d < 2) dmg += o.hz * 0.2;
+          hitActor(owner, t, dmg, { fx, how: 'well', exec: o.ex && d < 1.6 ? o.ex : 0 });
+        }
+        // Binary Star: a beam between the pair
+        if (o.link && w.id.endsWith('a')) { const mate = Game.wells.find(x => x.id === o.link + 'b'); if (mate) { const A = w.pos.clone().setY(w.pos.y + 1), B = mate.pos.clone().setY(mate.pos.y + 1), seg = B.clone().sub(A), L = seg.length(); seg.normalize(); for (const t of Game.actors) { if (!t.alive || !isEnemy(owner, t)) continue; const c = chest(t), u = clamp(c.clone().sub(A).dot(seg), 0, L); if (A.clone().addScaledVector(seg, u).distanceTo(c) < 0.9) hitActor(owner, t, 8, { how: 'well' }); } } }
+      }
+    }
+    if (o.link && w.id.endsWith('a')) { const mate = Game.wells.find(x => x.id === o.link + 'b'); if (mate && Math.random() < dt * 24) { const q = w.pos.clone().lerp(mate.pos, Math.random()); Fx.spawn('add', q.x, q.y + 1, q.z, 0, 0, 0, 2.4, 1.2, 2.6, 0.09, 0.25); } }
+    if (w.t <= 0) {
+      if (o.im && owner && !owner.remote) { emit(['fx', 'boom', r2(w.pos.x), r2(w.pos.y + 1), r2(w.pos.z), w.r * 0.6, owner.H.look.glow]); for (const t of Game.actors) if (t.alive && isEnemy(owner, t) && !isSub(t) && (t.renderPos || t.pos).distanceTo(w.pos) < w.r * 0.6 + 0.5) hitActor(owner, t, o.im, { how: 'well' }); }
+      G.scene.remove(w.mesh); Game.wells.splice(i, 1); Fx.burst(w.pos.clone().setY(w.pos.y + 1), 0xffa8f0, 20, 4, 0.5, 0.08);
+    }
+  }
+}
+
 // ---------------------------------------------------------------- Rewind
 function rewindPoint(a) {
   const pw = a.pw, P = a.P;
@@ -1103,6 +1190,17 @@ function useUlt(a) {
       for (const t of Game.actors) if (t.alive && isEnemy(a, t) && !isSub(t) && chest(t).distanceTo(l.pos) < l.r + 0.5 && World.clear(l.pos.x, l.pos.y + 1.2, l.pos.z, t.pos.x, t.pos.y + 1.2, t.pos.z)) hitActor(a, t, 80, { fx: { blind: 2.5 }, how: 'flare' });
     }
   } else if (K === 'tide') emit(['zn', 'bog', r2(a.pos.x), r2(a.pos.y), r2(a.pos.z), 8, 35, 6, a.id, 0.6]);
+  else if (K === 'meteor') {
+    const e = eyePos(a), d = aimDir(a.yaw, a.pitch), h = World.ray(e.x, e.y, e.z, d.x, d.y, d.z, 40, -9), c = h ? new V3(h.x, h.y, h.z) : e.clone().addScaledVector(d, 40);
+    c.y = World.groundAt(c.x, c.z, c.y + 1);
+    emit(['fx', 'meteormark', r2(c.x), r2(c.y), r2(c.z), 7, 0]);
+    for (let i = 0; i < 12; i++) later(0.5 + i * 0.25, () => {
+      if (!Game.match) return;
+      const ang = Math.random() * TAU, rr = Math.sqrt(Math.random()) * 6.5, q = new V3(c.x + Math.cos(ang) * rr, 0, c.z + Math.sin(ang) * rr); q.y = World.groundAt(q.x, q.z, c.y + 3);
+      emit(['fx', 'meteor', r2(q.x), r2(q.y), r2(q.z), 3.2, 0]);
+      for (const t of Game.actors) if (t.alive && isEnemy(a, t) && !isSub(t) && t.pos.distanceTo(q) < 3.4) { const k = t.pos.clone().sub(q).setY(0); if (k.lengthSq() > 0.01) k.normalize(); hitActor(a, t, 55, { fx: { knock: [k.x * 4, 6, k.z * 4] }, how: 'meteor' }); }
+    });
+  }
   else if (K === 'stop') {
     for (const t of Game.actors) if (t.alive && isEnemy(a, t) && !isSub(t) && t.pos.distanceTo(a.pos) < 20 && World.clear(a.pos.x, a.pos.y + 1.4, a.pos.z, t.pos.x, t.pos.y + 1.2, t.pos.z)) hitActor(a, t, 0, { fx: { stun: 2.5, vuln: [1.25, 4] }, how: 'stop' });
     emit(['fx', 'stop', r2(a.pos.x), r2(a.pos.y + 1), r2(a.pos.z), 20, 0]);
@@ -1190,6 +1288,9 @@ function namedFx(name, p, a, b) {
   else if (name === 'rewind') { const to = new V3(a, World.groundAt(a, b, p.y + 2) + 1, b); for (let i = 0; i <= 16; i++) { const q = p.clone().lerp(to, i / 16); Fx.spawn('add', q.x + rand(-0.2, 0.2), q.y + rand(-0.5, 0.5), q.z + rand(-0.2, 0.2), 0, 0.3, 0, 1.2, 2.4, 3, 0.09, 0.5 + i * 0.03); } Fx.ring(p.clone().setY(p.y - 0.9), 1.4, 0xa8e8ff, 0.4, 4); Fx.ring(to.clone().setY(to.y - 0.9), 1.4, 0xa8e8ff, 0.4, 4); }
   else if (name === 'stop') { Fx.sphere(p, a || 8, 0xa8e8ff, 0.6, 1.2); Fx.ring(p.clone().setY(p.y - 0.9), a || 8, 0xa8e8ff, 0.9, 3); Sfx.play('stop', p); muzzleLight(p, 0xa8e8ff, 14); }
   else if (name === 'anchor') { Fx.ring(p, 1.6, 0xa8e8ff, 0.8, 2); Fx.burst(p.clone().setY(p.y + 0.5), 0xa8e8ff, 16, 2, 0.6, 0.07); }
+  else if (name === 'lance') { const end = Array.isArray(a) ? new V3(a[0], a[1], a[2]) : p.clone(), f = +b || 0; Fx.tracer(p, end, 0xffa8f0, 0.05 + f * 0.12, 0.25 + f * 0.25, 4); Fx.tracer(p, end, 0xffffff, 0.02 + f * 0.04, 0.2, 5); Fx.burst(end, 0xffa8f0, 10 + f * 20, 4, 0.4, 0.07, { k: 4 }); muzzleLight(p, 0xffa8f0, 4 + f * 8); Sfx.play('lance', p, 0.6 + f * 0.4); }
+  else if (name === 'meteormark') { Fx.ring(p.clone().setY(p.y + 0.1), a || 7, 0xff8a3a, 2.6, 2, 0.2); Sfx.play('ult', p, 0.6); }
+  else if (name === 'meteor') { const top = p.clone().add(new V3(rand(-6, 6), 34, rand(-6, 6))); Fx.tracer(top, p, 0xffb070, 0.35, 0.3, 4); Fx.explosion(p.clone().setY(p.y + 0.5), a || 3.2, 0xff8a3a); Fx.puff(p, 0x5a4a40, 8, 0.8, 1.2); Sfx.play('boom', p, 0.8); muzzleLight(p.clone().setY(p.y + 1), 0xff8a3a, 10); }
   else if (name === 'thread') Fx.tracer(p, new V3(a, World.groundAt(a, b, 99) + 1.2, b), 0xff5a7a, 0.02, 0.6, 3);
 }
 function deathFx(a) {
@@ -1200,7 +1301,7 @@ function deathFx(a) {
 }
 
 // ---------------------------------------------------------------- per-frame bookkeeping shared by every copy
-function worldTick(dt) { projTick(dt); snareTick(dt); lanternTick(dt); wallTick(dt); zoneTick(dt); decoyTick(dt); timerTick(dt); }
+function worldTick(dt) { projTick(dt); snareTick(dt); lanternTick(dt); wellTick(dt); wallTick(dt); zoneTick(dt); decoyTick(dt); timerTick(dt); }
 function actorFlags(a) {
   let f = 0; const s = a.st, pw = a.pw, P = a.P;
   if (a.alive) f |= F_ALIVE; if (a.grounded) f |= F_GROUND; if (s.reveal > 0) f |= F_REVEAL; if (s.root > 0) f |= F_ROOT; if (s.stun > 0) f |= F_STUN;
@@ -1215,6 +1316,7 @@ function actorFlags(a) {
   if (a.spawnProt > 0) f |= F_PROT; if (s.shield) f |= F_SHIELD;
   if (a.fireOn && a.H.weapon.kind === 'flame') f |= F_FLAME; if (a.fireOn && a.H.weapon.kind === 'beam' && a.beamT) f |= F_BEAM;
   if (a.swingT > 0) f |= F_SLASH;
+  if (a.charge > 0) f |= F_LANCE;
   return f;
 }
 function cloakLevel(a) {

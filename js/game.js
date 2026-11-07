@@ -211,6 +211,8 @@ function drawExtras(a, f, p, dt) {
     if (a !== Game.me && Math.random() < dt * 10) muzzleLight(o.clone().addScaledVector(d, 2), 0xff7a2e, 6);
     if (a !== Game.me && (X.sT = (X.sT || 0) - dt) <= 0) { X.sT = 0.22; Sfx.play('flame', p, 0.7); }
   }
+  // Orrin gathering starlight at the lance tip
+  if (f & F_LANCE && a !== Game.me && Math.random() < dt * 30) { const o = M.muzzle.getWorldPosition(new V3()); Fx.spawn('add', o.x + rand(-0.4, 0.4), o.y + rand(-0.4, 0.4), o.z + rand(-0.4, 0.4), 0, 0, 0, 2.4, 1.2, 2.2, 0.06, 0.25); }
   // Ivra's orbiting glaives
   const orb = (f & F_ORBIT) ? (a.remote ? a.orbitN : a.pw.count) | 0 : 0;
   if (orb > 0) {
@@ -317,6 +319,11 @@ const Flow = {
     for (const p of Game.projs) G.scene.remove(p.mesh); Game.projs = [];
     for (const w of [...Game.walls.values()]) removeWall(w);
     for (const d of Game.decoys) G.scene.remove(d.m.root); Game.decoys = []; Game.fires = [];
+    for (const l of [...Game.lanterns.values()]) removeLantern(l);
+    for (const z of Game.zones) G.scene.remove(z.mesh); Game.zones = [];
+    for (const w of Game.wells) G.scene.remove(w.mesh); Game.wells = [];
+    Game.timers = [];
+    scrubHeroes(Showcase.model ? [Showcase.model.root] : []);
     Bots.B.clear(); Game.me = null; Game.match = null;
   },
   // the host keeps every side at strength with bots
@@ -352,7 +359,7 @@ const Flow = {
     Sfx.play(M.win === -1 ? 'zone' : won ? 'win' : 'lose');
     // add-on drops for the hero you finished the match as (only once you've played a real stretch of it)
     let drops = null;
-    if (me && M.t > 45 && !M.awarded) { M.awarded = true; drops = { hero: me.heroKey, got: Inventory.award(me.heroKey, M.win === -1 ? 0 : won ? 1 : -1) }; }
+    if (me && M.t > 45 && !M.awarded) { M.awarded = true; drops = Object.assign({ hero: me.heroKey, won: M.win === -1 ? 0 : won ? 1 : -1 }, Inventory.award(me.heroKey, M.win === -1 ? 0 : won ? 1 : -1)); }
     HUD.end(won, drops);
     Input.unlock();
   },

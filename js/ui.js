@@ -130,6 +130,7 @@ const View = {
     if (f & F_FLAME) { R.position.x += rand(-0.004, 0.004); R.position.y += rand(-0.004, 0.004); R.rotation.x += 0.04; }
     if (me.heat > 0 || me.overheat > 0) { const h = me.overheat > 0 ? 1 : me.heat; R.rotation.z += h * 0.06 * Math.sin(G.time * 40); }
     if (V.kind === 'beam') { const on = !!(f & F_BEAM); this.beamK = damp(this.beamK || 0, on ? 1 : 0, 10, dt); R.position.y += this.beamK * 0.05; R.rotation.x += this.beamK * 0.12 + Math.sin(G.time * 22) * 0.01 * this.beamK; }
+    if (V.kind === 'lance') { const c = clamp((me.charge || 0) / me.H.weapon.charge, 0, 1); if (!V.lanceGlow) { V.lanceGlow = new THREE.Mesh(sph(0.06, 12, 8), mGlow(me.H.look.glow, 5)); V.muzzle.add(V.lanceGlow); } V.lanceGlow.visible = c > 0.02; V.lanceGlow.scale.setScalar(0.3 + c * 1.6 + (c >= 1 ? Math.sin(G.time * 30) * 0.15 : 0)); R.position.z += c * 0.05; R.position.x += rand(-1, 1) * c * 0.002; }
     if (V.key === 'wick') { R.rotation.z = Math.sin(G.time * 2.2) * 0.08 + this.swayX * 2; R.rotation.x = Math.sin(G.time * 1.7) * 0.05; }
     if (this.throwT > 0 && V.kind === 'proj' && (V.key === 'mire' || V.key === 'spindle')) { /* handled below as the off hand */ }
     // the power in the off hand
@@ -138,7 +139,7 @@ const View = {
     if (P.key === 'glaive' && (pw.winding || this.throwT > 0)) { offOn = true; const w = pw.winding ? clamp(pw.wind / P.windMax, 0, 1) : 0; if (this.throwT > 0) { this.throwT -= dt; const k = 1 - this.throwT / 0.35; off.position.set(-0.1 + k * 0.1, -0.15 - k * 0.25, -0.6 - k * 0.3); off.rotation.set(-0.3 - k, 0, 0.6); } else { off.position.set(-0.3 - w * 0.1, -0.12 + w * 0.08, -0.32 + w * 0.12); off.rotation.set(0.2 + w * 0.5, 0, 0.4 + w * 0.3); } if (V.extra.prop) V.extra.prop.rotation.y = G.time * (pw.winding ? 14 * w : 0); }
     if (P.key === 'blink' && (pw.charging || this.blinkT > 0)) { offOn = true; const k = pw.charging ? clamp(pw.chargeT / P.chargeTime, 0, 1) : 1; off.position.set(-0.24, -0.24 + k * 0.04, -0.46); off.rotation.set(-0.2, 0, 0); V.extra.orb.scale.setScalar(0.5 + k * 1.2 + Math.sin(G.time * 30) * 0.08); V.extra.ring.rotation.set(G.time * 3, G.time * 5, 0); V.extra.ring.scale.setScalar(0.6 + k); }
     if (P.key === 'lantern' && (pw.placing > 0 || pw.chan > 0 || pw.hold > 0.1)) { offOn = true; const k = pw.placing > 0 ? 1 - pw.placing / P.place : pw.chan > 0 ? 1 - pw.chan / P.walk : 0.3; off.position.set(-0.2, -0.32 + k * 0.1, -0.42 - k * 0.1); off.rotation.set(-0.2 - k * 0.3, 0, 0); if (V.extra.prop) V.extra.prop.userData.flame.scale.setScalar(1 + (pw.chan > 0 ? k * 2 : 0) + Math.sin(G.time * 25) * 0.1); }
-    if ((P.key === 'line' || P.key === 'sub' || P.key === 'rewind') && this.throwT > 0 && V.extra.orb) { offOn = true; this.throwT -= dt; const k = 1 - this.throwT / 0.35; off.position.set(-0.22 + k * 0.08, -0.22 + k * 0.05, -0.42 - k * 0.25); off.rotation.set(-0.4 * k, 0, 0); V.extra.orb.scale.setScalar(1.4 - k); V.extra.ring.rotation.set(G.time * 6, G.time * 4, 0); V.extra.ring.scale.setScalar(0.5 + k * 1.5); }
+    if ((P.key === 'line' || P.key === 'sub' || P.key === 'rewind' || P.key === 'well') && this.throwT > 0 && V.extra.orb) { offOn = true; this.throwT -= dt; const k = 1 - this.throwT / 0.35; off.position.set(-0.22 + k * 0.08, -0.22 + k * 0.05, -0.42 - k * 0.25); off.rotation.set(-0.4 * k, 0, 0); V.extra.orb.scale.setScalar(1.4 - k); V.extra.ring.rotation.set(G.time * 6, G.time * 4, 0); V.extra.ring.scale.setScalar(0.5 + k * 1.5); }
     else if (this.throwT > 0 && P.key !== 'glaive') this.throwT -= dt;
     if (this.blinkT > 0) this.blinkT -= dt;
     off.visible = offOn;
@@ -241,10 +242,9 @@ const HUD = {
   end(won, drops) {
     const M = Game.match, el = $('#endscreen'); el.hidden = false; $('#deathpanel').hidden = true;
     const D = $('#end-drops');
-    if (drops && drops.got.length) {
-      const H = HEROES[drops.hero];
-      D.innerHTML = `<small>${drops.got.length === 3 ? 'VICTORY CACHE' : drops.got.length === 2 ? 'DRAW CACHE' : 'CONSOLATION'} · ${esc(H.name)}</small><div class="drops">${drops.got.map((i, n) => { const a = H.addons[i]; return `<div class="drop r${a.r}" style="--d:${0.5 + n * 0.55}s"><i>${iconSVG(a.icon)}</i><b>${esc(a.name)}</b><span>${RARITY[a.r].name}</span><em>×${Inventory.count(drops.hero, i)} owned</em></div>`; }).join('')}</div>`;
-      drops.got.forEach((i, n) => setTimeout(() => Sfx.play(H.addons[i].r >= 3 ? 'ultReady' : 'pickup', null, 0.6 + H.addons[i].r * 0.1), 500 + n * 550));
+    if (drops && drops.draws.length) {
+      D.innerHTML = `<button class="btn primary cache-btn" data-act="openCache">Open your cache · ${drops.draws.length} add-ons</button>`;
+      Cache.pending = drops; setTimeout(() => { if (Cache.pending === drops) Cache.open(drops); }, 1400);
     } else D.innerHTML = M.t <= 45 ? '<small class="dim">No add-ons — the match was too short</small>' : '';
     const title = M.win === -1 ? 'DRAW' : won ? 'VICTORY' : 'DEFEAT';
     $('#end-title').textContent = title; $('#end-title').className = M.win === -1 ? '' : won ? 'win' : 'lose';
@@ -268,6 +268,7 @@ const HUD = {
     const W = me.H.weapon;
     if (W.kind === 'flame') { const oh = me.overheat > 0; $('#ammo-num').textContent = oh ? 'VENT' : Math.round(me.heat * 100) + '%'; $('#ammo-max').textContent = ' heat'; $('#ammo').classList.toggle('reload', oh); $('#reload-fill').style.transform = `scaleX(${oh ? 1 - me.overheat / W.lockout : me.heat})`; }
     else if (W.kind === 'beam') { $('#ammo-num').textContent = Math.round(me.tide); $('#ammo-max').textContent = ' tide'; $('#ammo').classList.toggle('reload', me.tide < 10); $('#reload-fill').style.transform = `scaleX(${me.tide / 100})`; }
+    else if (W.kind === 'lance') { const c = clamp((me.charge || 0) / W.charge, 0, 1); $('#ammo-num').textContent = me.fireT > 0 ? '—' : c >= 1 ? 'MAX' : Math.round(c * 100) + '%'; $('#ammo-max').textContent = ' charge'; $('#ammo').classList.toggle('reload', me.fireT > 0); $('#reload-fill').style.transform = `scaleX(${c})`; }
     else if (W.kind === 'melee') { $('#ammo-num').textContent = '∞'; $('#ammo-max').textContent = ''; $('#ammo').classList.remove('reload'); $('#reload-fill').style.transform = 'scaleX(0)'; }
     else { $('#ammo-num').textContent = me.reloadT > 0 ? '—' : me.ammo; $('#ammo-max').textContent = '/' + W.mag; $('#ammo').classList.toggle('reload', me.reloadT > 0); $('#reload-fill').style.transform = `scaleX(${me.reloadT > 0 ? 1 - me.reloadT / W.reload : 0})`; }
     this.powerWidget(me);
@@ -319,6 +320,7 @@ const HUD = {
     else if (P.key === 'lantern') { if (P.carried) label = 'CARRIED'; else { pips = pipHTML(pw.charges, P.carry); if (pw.chan > 0) { bar = 1 - pw.chan / P.walk; label = 'WALKING'; state = 'charging'; } else if (pw.placing > 0) label = 'LIGHTING'; else if (pw.walkCd > 0) cd = pw.walkCd; else if (pw.charges < P.carry) bar = pw.rech / P.recharge; } }
     else if (P.key === 'sub') { if (pw.state === 'under') { bar = 1 - pw.t / P.maxTime; label = 'SUBMERGED'; state = 'active'; } else if (pw.state === 'sinking') { label = 'SINKING'; state = 'charging'; } else if (pw.cd > 0) cd = pw.cd; }
     else if (P.key === 'line') { pips = pipHTML(pw.charges, P.charges); if (pw.charges < P.charges) bar = pw.rech / P.cd; }
+    else if (P.key === 'well') { pips = pipHTML(pw.charges, P.charges); if (pw.charges < P.charges) bar = pw.rech / P.cd; }
     else if (P.key === 'rewind') { pips = pipHTML(pw.charges, P.charges); if (pw.anchor) { bar = 1 - (Game.t - pw.anchor.t) / P.anchor; label = 'ANCHORED'; state = 'active'; } else if (pw.charges < P.charges) bar = pw.rech / P.cd; }
     else if (P.key === 'glaive') { pips = pipHTML(pw.count, P.cap); if (P.orbit && pw.count) label = 'ORBITING'; if (pw.winding) { bar = clamp((pw.wind - P.windMin) / (P.windMax - P.windMin), 0, 1); label = bar >= 1 ? 'FULL' : 'WIND'; state = 'charging'; } else if (pw.count < P.cap) bar = pw.rech / P.regen; }
     const key = pips + '|' + label + '|' + state + '|' + Math.ceil(cd);
@@ -371,7 +373,7 @@ function fmtTime(t) { t = Math.max(0, Math.ceil(t)); return Math.floor(t / 60) +
 function scoreText(t) { const M = Game.match; if (!M) return 0; if (M.mode === 'koth') return Math.floor(M.sc[t]) + '%'; if (M.mode === 'elim') return M.rd.w[t]; return Math.floor(M.sc[t]); }
 function howName(k, how) {
   if (!k) return how;
-  const map = { snare: k.H.power.name, blink: 'Rift Step', ram: 'Ramjet', glaive: 'Glaive', ambush: 'Ambush', backstab: 'Backstab', knives: 'Whisper Knives', slam: k.H.ult.name, burn: 'Burning', bleed: 'Bleed', poison: 'Venom', acid: 'Acid', flame: 'Boiler', beam: 'Tidecaller', furnace: 'Furnace', lantern: 'Lantern', beacon: 'Beacon', flare: k.H.ult.name, geyser: 'Geyser', drown: 'Drowned', line: 'Marionette Line', leech: k.H.util.name, cradle: k.H.ult.name, heart: k.H.ult.name, bolt: 'Rattlejaw', shard: 'Shardcaster', moth: 'Moth Swarm', flask: "Brewer's Flasks", needle: 'Thread Needles', hand: 'Second Hand', rewind: 'Rewind', stop: k.H.ult.name };
+  const map = { snare: k.H.power.name, blink: 'Rift Step', ram: 'Ramjet', glaive: 'Glaive', ambush: 'Ambush', backstab: 'Backstab', knives: 'Whisper Knives', slam: k.H.ult.name, burn: 'Burning', bleed: 'Bleed', poison: 'Venom', acid: 'Acid', flame: 'Boiler', beam: 'Tidecaller', furnace: 'Furnace', lantern: 'Lantern', beacon: 'Beacon', flare: k.H.ult.name, geyser: 'Geyser', drown: 'Drowned', line: 'Marionette Line', leech: k.H.util.name, cradle: k.H.ult.name, heart: k.H.ult.name, bolt: 'Rattlejaw', shard: 'Shardcaster', moth: 'Moth Swarm', flask: "Brewer's Flasks", needle: 'Thread Needles', hand: 'Second Hand', rewind: 'Rewind', stop: k.H.ult.name, lance: 'Star Lance', well: 'Gravity Well', meteor: 'Meteor Shower' };
   return map[how] || how;
 }
 
@@ -388,6 +390,7 @@ function powerStats(heroKey, addons) {
   if (P.key === 'glaive') { row('Glaives carried', 'cap', n); row('Return time', 'regen', s, -1); if (P.orbit) row('Glaives orbit you', 'orbit', yes); else { row('Full wind-up', 'windMax', s, -1); row('Damage', 'dmgMax', v => `${Math.round(P.dmgMin)}–${Math.round(v)}`); row('Throw speed', 'spdMax', v => Math.round(v) + ' m/s'); row('Move while winding', 'slow', pct); } opt('Venom', 'venom', n); opt('Ricochets', 'ricochet', n); opt('Burst damage', 'blast', n); opt('Twin throw', 'twin', yes); opt('Bloodtrail reveal', 'mark', s); opt('Full wind-up kills', 'oneshot', yes); opt('Glaives return', 'returning', yes); opt('Pierce', 'pierce', yes); }
   if (P.key === 'lantern') { if (P.carried) row('Lantern carried with you', 'carried', yes); else { row('Lanterns hung', 'carry', n); row('Recharge', 'recharge', s, -1); row('Lantern walk', 'walk', s, -1); row('Walk cooldown', 'walkCd', s, -1); } row('Light radius', 'radius', m); row('Slow in light', 'slow', v => Math.round((1 - v) * 100) + '%', -1); opt('Light lingers', 'linger', s); opt('Throw range', 'throwDist', m); opt('Echo reveal', 'echo', s); opt('Roots on first touch', 'root', s); opt('Burn', 'burn', ps); opt('Beams between lanterns', 'beacon', n); opt('Hidden from enemies', 'hidden', yes); opt('Turret moths every', 'turret', s, -1); opt('Moth damage', 'mothBoost', pct); }
   if (P.key === 'sub') { row('Sink time', 'sink', s, -1); row('Max time under', 'maxTime', s); row('Speed under', 'speed', pct); row('Cooldown', 'cd', s, -1); row('Geyser damage', 'dmg', n); row('Geyser radius', 'radius', m); row('Launch', 'knock', n); opt('Heal under', 'heal', ps); opt('Acid pool', 'pool', ps); opt('Pulls enemies in', 'pull', yes); opt('Roots', 'root', s); opt('Drown above you', 'drown', ps); opt('Acid trail', 'trail', ps); opt('Flask ring', 'flaskRing', yes); opt('Throw from below', 'artillery', yes); opt('Fen: everything bigger', 'fen', yes); }
+  if (P.key === 'well') { row('Wells', 'charges', n); row('Cooldown', 'cd', s, -1); row('Pull radius', 'radius', m); row(P.push ? 'Push strength' : 'Pull strength', 'pull', v => (Math.round(v * 10) / 10) + ' m/s'); row('Lasts', 'dur', s); row('Throw speed', 'speed', v => Math.round(v) + ' m/s'); opt('Damage inside', 'dps', ps); opt('Slow inside', 'slow', v => Math.round((1 - v) * 100) + '%'); opt('Reveals', 'reveal', yes); opt('Implosion', 'implode', n); opt('Lifts enemies', 'lift', yes); opt('Pushes instead', 'push', yes); opt('Centre damage', 'horizon', ps); opt('Two wells per throw', 'twin', yes); opt('Destroys below', 'exec', pct); }
   if (P.key === 'rewind') { if (P.anchor) row('Anchor lasts', 'anchor', s); else row('Reaches back', 'back', s); row('Rewinds', 'charges', n); row('Cooldown', 'cd', s, -1); row('Restores health', 'heal', yes); opt('Bonus heal', 'bonus', n); opt('Reloads', 'reload', yes); opt('Silent', 'silent', yes); opt('Cleanses', 'cleanse', yes); opt('Echo lasts', 'decoy', s); opt('Departure blast', 'depart', n); opt('Arrival blast', 'arrive', n); opt('Sand slow', 'sand', s); opt('Cheats death', 'paradox', yes); opt('Drags a victim back', 'retro', yes); opt('Freezes nearby for', 'freeze', s); }
   if (P.key === 'line') { row('Lines', 'charges', n); row('Recharge', 'cd', s, -1); row('Range', 'range', m); row('Line speed', 'speed', v => Math.round(v) + ' m/s'); row('Damage', 'dmg', n); opt('Stun', 'stun', s); opt('Vulnerable', 'vuln', s); opt('Slow', 'slow', s); opt('Swap places', 'swap', yes); opt('Choke (root)', 'choke', s); if (P.multi > 1) row('Catches up to', 'multi', n); opt('Gallows: hurl up', 'gallows', yes); opt('Puppet for', 'puppet', s); opt('Web', 'web', yes); opt('Meet them halfway', 'meet', yes); }
   return out;
@@ -433,6 +436,7 @@ const UI = {
       case 'useHero': this.useHero(); break;
       case 'loadoutBack': if (Game.state === 'play') { this.show('pause'); } else this.show(this.back === 'loadout' ? 'main' : this.back); break;
       case 'resume': this.resume(); break;
+      case 'openCache': if (Cache.pending) Cache.open(Cache.pending); break;
       case 'pauseLoadout': this.loadoutHero = Game.me ? (Game.me.pendingHero ? Game.me.pendingHero.h : Game.me.heroKey) : Settings.hero; this.back = 'pause'; this.show('loadout'); break;
       case 'pauseSettings': this.back = 'pause'; this.show('settings'); break;
       case 'settingsBack': this.show(Game.state === 'play' ? 'pause' : 'main'); break;
@@ -603,16 +607,17 @@ const Showcase = {
   get SPOTS() { const o = {}; for (const k of MAP_KEYS) o[k] = MAPS[k].show; return o; },
   enter() {
     const key = MAPS[Settings.map] ? Settings.map : 'kiln';
-    if (this.map !== key || !G.level) { World.load(MAPS[key]); buildLevel(MAPS[key]); this.map = key; this.model = null; }
+    if (this.map !== key || !G.level) { if (this.model) G.scene.remove(this.model.root); scrubHeroes(); World.load(MAPS[key]); buildLevel(MAPS[key]); this.map = key; this.model = null; }
     if (!this.key) { this.key = new THREE.SpotLight(0xffffff, 0, 14, 0.5, 0.6, 1.5); this.rim = new THREE.PointLight(0xffffff, 0, 8); G.scene.add(this.key); G.scene.add(this.key.target); G.scene.add(this.rim); }
     this.focus(Settings.hero, true);
   },
   focus(key, force) {
     if (Game.state === 'play') return;
+    const S = this.SPOTS[this.map]; if (!S) return;          // no showcase map loaded (yet)
     if (this.hero === key && this.model && !force) return;
     if (this.model) G.scene.remove(this.model.root);
-    this.hero = key; this.model = buildHero(key, TEAM_HEX[0]); G.scene.add(this.model.root);
-    const S = this.SPOTS[this.map]; this.model.root.position.set(S.x, S.y, S.z); this.model.root.rotation.y = S.yaw;
+    this.hero = key; this.model = buildHero(key, TEAM_HEX[0]); this.model.root.userData.showcase = true; G.scene.add(this.model.root);
+    this.model.root.position.set(S.x, S.y, S.z); this.model.root.rotation.y = S.yaw;
     this.pop = 0;
   },
   update(dt) {
@@ -637,4 +642,58 @@ const Showcase = {
     this.key.visible = this.rim.visible = true;
   },
   hide() { if (this.model) { G.scene.remove(this.model.root); this.model = null; } if (this.key) { this.key.visible = false; this.rim.visible = false; } },
+};
+
+// ---------------------------------------------------------------- the cache: add-ons won at the end of a match, revealed one card at a time
+const Cache = {
+  pending: null, d: null, open_: 0,
+  open(d) {
+    if (this.d === d && !$('#cache').hidden) return;
+    this.d = d; this.pending = null; this.revealed = new Set(); this.busy = 0;
+    const H = HEROES[d.hero], el = $('#cache'), seen = {};
+    const kind = d.won > 0 ? 'VICTORY CACHE' : d.won === 0 ? 'DRAW CACHE' : 'CONSOLATION CACHE';
+    const cards = d.draws.map((x, i) => {
+      const a = H.addons[x.idx], first = !seen[x.idx]; seen[x.idx] = 1;
+      const isNew = first && Inventory.count(d.hero, x.idx) === d.draws.filter(y => y.idx === x.idx).reduce((n, y) => n + (y.dbl ? 2 : 1), 0);
+      return `<button class="ccard tell${x.r}" data-i="${i}" style="--i:${i}"><div class="cback"><svg viewBox="0 0 64 64"><path d="M32 6 L56 32 L32 58 L8 32 Z" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="32" cy="32" r="7" fill="currentColor"/></svg><span>?</span></div><div class="cfront r${a.r}">${x.forced ? '<em class="tag pity">GUARANTEED</em>' : ''}${x.dbl ? '<em class="tag dbl">DOUBLE ×2</em>' : ''}${isNew ? '<em class="tag new">NEW</em>' : ''}<i>${iconSVG(a.icon)}</i><b>${esc(a.name)}</b><span>${RARITY[a.r].name}</span><p>${esc(a.d[0].slice(2))}</p><small>${Inventory.count(d.hero, x.idx)} owned</small></div></button>`;
+    }).join('');
+    const P = d.pity, left = r => Math.max(1, Inventory.PITY[r] - P[r]);
+    el.innerHTML = `<div class="cache-in" style="--hero:#${new THREE.Color(H.look.glow).getHexString()}">
+      <small>${kind} · ${esc(H.name.toUpperCase())}</small><h2>${d.draws.length} add-ons</h2>
+      <div class="cbonus">${d.bonuses.map(b => `<span>${esc(b)}</span>`).join('')}</div>
+      <div class="ccards">${cards}</div>
+      <div class="cpity"><span>Rare+ guaranteed within <b>${left(2)}</b> draws</span><span>Very Rare+ within <b>${left(3)}</b></span><span>Iridescent within <b>${left(4)}</b></span></div>
+      <div class="cact"><button class="btn ghost" id="cache-all">Reveal all</button><button class="btn primary" id="cache-done" hidden>Collect</button></div></div>`;
+    el.hidden = false; el.classList.remove('flash3', 'flash4');
+    $$('#cache .ccard').forEach(b => b.onclick = () => this.reveal(+b.dataset.i));
+    $('#cache-all').onclick = () => this.revealAll();
+    $('#cache-done').onclick = () => this.close();
+    Sfx.play('round', null, 0.6);
+  },
+  // the card shakes and glows for longer the rarer it is, then flips
+  reveal(i, after) {
+    if (this.revealed.has(i)) { if (after) after(); return; }
+    this.revealed.add(i); this.busy++;
+    const x = this.d.draws[i], card = $(`#cache .ccard[data-i="${i}"]`), wait = [250, 380, 650, 1000, 1500][x.r];
+    card.classList.add('charging'); card.style.setProperty('--wait', wait + 'ms');
+    const ticks = Math.round(wait / 120); for (let k = 0; k < ticks; k++) setTimeout(() => Sfx.play('tick', null, 0.25 + k / ticks * 0.4), k * 120);
+    setTimeout(() => {
+      card.classList.remove('charging'); card.classList.add('flipped');
+      Sfx.play('rev' + x.r, null, 0.9);
+      if (x.r >= 3) { const el = $('#cache'); el.classList.remove('flash3', 'flash4'); void el.offsetWidth; el.classList.add(x.r === 4 ? 'flash4' : 'flash3'); }
+      this.busy--;
+      if (this.revealed.size === this.d.draws.length) { $('#cache-all').hidden = true; $('#cache-done').hidden = false; this.summary(); }
+      if (after) after();
+    }, wait);
+  },
+  revealAll() {
+    const order = this.d.draws.map((_, i) => i).filter(i => !this.revealed.has(i));
+    const next = () => { const i = order.shift(); if (i == null) return; this.reveal(i, () => setTimeout(next, 180)); };
+    next();
+  },
+  summary() {
+    const H = HEROES[this.d.hero], counts = [0, 0, 0, 0, 0]; for (const x of this.d.draws) counts[x.r] += x.dbl ? 2 : 1;
+    const D = $('#end-drops'); if (D) D.innerHTML = `<small>CACHE · ${esc(H.name.toUpperCase())}</small><div class="csum">${counts.map((c, r) => c ? `<span class="chip r${r}">${c} ${RARITY[r].name}</span>` : '').join('')}</div>`;
+  },
+  close() { $('#cache').hidden = true; if (this.d && this.revealed.size < this.d.draws.length) this.summary(); },
 };

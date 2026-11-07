@@ -398,7 +398,7 @@ const MAPS = {
         // the rail siding to the south: three box cars and a flatbed, and a signal box
         m.box(-56, -38, 10, 3, 3.1, { mat: 'container2' }); m.box(-42, -38, 10, 3, 3.1, { mat: 'container' }); m.box(-28, -38, 10, 3, 3.1, { mat: 'container3' });
         m.box(-14, -38, 8, 3, 1.2, { mat: 'plank' }); m.ramp(-8, -38, 4, 3, 0, 1.2, 'x-', { mat: 'plank' });
-        m.box(-20.5, -38, 2, 2, 1.0, { y: 1.2, mat: 'crate' });
+        m.box(-16, -38, 2, 2, 1.0, { y: 1.2, mat: 'crate' });
         m.prop('pipe', { pts: [[-62, 0.12, -39.8], [-6, 0.12, -39.8]], r: 0.1 }); m.prop('pipe', { pts: [[-62, 0.12, -36.2], [-6, 0.12, -36.2]], r: 0.1 });
         m.room(-46, -26, 6, 6, 3.4, { mat: 'brick', open: [['e', 0, 1.8, 0, 2.6], ['n', 1, 1.6, 1.4, 2.6]], roof: false });
         m.box(-46, -26, 6, 6, 0.3, { y: 3.4, mat: 'plank' });
@@ -418,10 +418,9 @@ const MAPS = {
         // set dressing
         m.prop('molten', { x: -20, z: 0.0, w: 8, d: 0.9 }); m.prop('molten', { x: -32.5, z: -24, w: 0.9, d: 6 });
         m.prop('pipe', { pts: [[-67.6, 10, -45], [-67.6, 10, 45]], r: 0.5 });
-        m.prop('pipe', { pts: [[-26, 11.5, 5], [-26, 11.5, 20], [-12, 11.5, 20], [-12, 11.5, 28]], r: 0.35 });
         m.prop('smoke', { x: -26, y: 12.4, z: 5 }); m.prop('smoke', { x: -61, y: 8.6, z: 34, s: 0.6 });
         m.prop('lamp', { x: -27, y: 5.2, z: -16.95, yaw: 0, color: 0xffa54d });
-        m.prop('chain', { x: -16, y: 9, z: 13, len: 6 }); m.prop('chain', { x: -8, y: 9, z: -10, len: 5 });
+        m.prop('chain', { x: -19, y: 8, z: 37.5, len: 3.6 }); m.prop('chain', { x: -31, y: 8, z: 35, len: 3 });
         m.prop('barrel', { x: -31, z: -9 }); m.prop('barrel', { x: -31.8, z: -9.6 }); m.prop('barrel', { x: -14, z: 22 }); m.prop('barrel', { x: -41, z: -14 });
         m.light(-20, 1.2, 0, 0xff6a1a, 2.4, 10); m.light(-27, 6.5, -16.6, 0xffa54d, 1.6, 14); m.light(-42, 4, -38, 0xffc27a, 1.2, 14);
       });
@@ -485,7 +484,7 @@ const MAPS = {
         m.room(-30, -29.5, 5, 4, 2.8, { y: 4, mat: 'ruin', open: [['n', 0, 1.8, 0, 2.2], ['e', 0, 1.6, 0, 2.2], ['w', 0, 1.6, 0, 2.2]], roofMat: 'roofstone' });
         m.ramp(-30, -20, 4, 4, 0, 2, 'z-', { mat: 'stepstone' }); m.ramp(-30, -23.5, 3, 3, 2, 4, 'z-', { mat: 'stepstone' });
         m.ramp(-40, -28, 4, 4, 0, 2, 'x+', { mat: 'stepstone' });
-        m.prop('brazier', { x: -30, y: 6.8, z: -29.5 });
+        m.prop('brazier', { x: -30, y: 7.2, z: -29.5 });
         // the sunken garden (south-west): pool, hedges, waterfall
         m.box(-50, -24, 1.2, 6, 1.4, { mat: 'hedge' }); m.box(-15, -18, 4, 1.2, 1.4, { mat: 'hedge' }); m.box(-46, -37, 3.5, 1.2, 1.4, { mat: 'hedge' });
         m.box(-19, -6, 1.6, 1.6, 1.2, { mat: 'ruin' }); m.box(-44, 4, 2, 2, 1.6, { mat: 'ruin' }); m.box(-12, -30, 2, 2, 1.6, { mat: 'ruin' });
@@ -605,7 +604,7 @@ const MAPS = {
         m.ramp(-53, -9, 4, 3, 0, 2.4, 'x-', { mat: 'plank' });
         m.walk(-55, 10, -49, 10, 2.4, 2.4);
         m.ramp(-62, 15, 3, 4, 0, 2.4, 'z-', { mat: 'plank' });
-        m.prop('hanglantern', { x: -55.5, y: 3.6, z: -3, color: m.flip ? 0xffa060 : 0x8ae0ff }); m.prop('hanglantern', { x: -55.5, y: 3.6, z: 3, color: m.flip ? 0xffa060 : 0x8ae0ff });
+        m.prop('hanglantern', { x: -55.5, y: 3.6, z: -3, x2: -56.3, z2: -3, base: 2.4, color: m.flip ? 0xffa060 : 0x8ae0ff }); m.prop('hanglantern', { x: -55.5, y: 3.6, z: 3, x2: -56.3, z2: 3, base: 2.4, color: m.flip ? 0xffa060 : 0x8ae0ff });
         m.light(-63, 5.6, -5, 0xffc27a, 1.6, 12); m.light(-63, 5.6, 5, 0xffc27a, 1.6, 12);
         // the boardwalk ring: north and south runs on stilts, huts along them
         m.walk(-55, 2, -40, 2, 2.4, 2.4, { rails: [-1] });                 // spawn -> middle hut
@@ -641,9 +640,10 @@ const MAPS = {
         for (const p of [[-44, 12], [-24, 28, 2.4], [-18, -14], [-34, -32, 1.6], [-56, -24], [-8, 30]]) m.spawn('ffa', p[0], p[1], p[2] || 0);
         for (const t of [[-56, 38], [-30, -42], [-8, -28], [-46, 40], [-64, -40], [-4, 22], [-24, 44]]) m.prop('deadtree', { x: t[0], z: t[1], s: rand(0.9, 1.4) });
         for (const t of [[-30, 14], [-12, 8], [-44, -26], [-22, -36], [-56, 22], [-8, -16], [-34, 40], [-60, -18]]) m.prop('reeds', { x: t[0], z: t[1] });
-        m.prop('hanglantern', { x: -36, y: 4.6, z: -2.2, color: 0xffc070 }); m.prop('hanglantern', { x: -24, y: 4.3, z: 21, color: 0xffc070 }); m.prop('hanglantern', { x: -40, y: 4.6, z: 22, color: 0xb48aff, i: 1.0 });
-        m.prop('hanglantern', { x: -46, y: 3.4, z: -20, color: 0x9aff5a, i: 1.0 }); m.prop('hanglantern', { x: -14, y: 4.0, z: -20.2, color: 0xffc070 });
-        m.prop('hanglantern', { x: -6.5, y: 6.5, z: -6, color: 0xb48aff, i: 1.4, d: 12 });
+        m.prop('hanglantern', { x: -37.4, y: 4.2, z: -2.2, x2: -38.2, z2: -2.2, base: 0, color: 0xffc070 }); m.prop('hanglantern', { x: -24.6, y: 4.3, z: 21, x2: -25.4, z2: 20.4, base: 2.4, color: 0xffc070 }); m.prop('hanglantern', { x: -38.6, y: 4.4, z: 21.4, x2: -38.6, z2: 20.4, base: 2.4, color: 0xb48aff, i: 1.0 });
+        m.prop('hanglantern', { x: -45.4, y: 3.2, z: -20.1, x2: -45.4, z2: -20.8, base: 1.6, color: 0x9aff5a, i: 1.0 }); m.prop('hanglantern', { x: -12.2, y: 3.8, z: -20.0, x2: -12.2, z2: -19.2, base: 0, color: 0xffc070 });
+        m.prop('hanglantern', { x: -6.5, y: 6.4, z: -5.6, x2: -6.5, z2: -6.6, base: 4.7, color: 0xb48aff, i: 1.4, d: 12 });
+        for (const x of [-4.6, 4.6]) m.box(x, 6.5, 0.4, 0.4, 3.2, { y: 1.2, mat: 'darkwood', round: true });
       });
       M.prop('skyline', {});
       M.light(0, 9, 0, 0xb48aff, 2.4, 20);

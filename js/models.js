@@ -116,7 +116,7 @@ const BONES = [
 ];
 const BI = {}; BONES.forEach((b, i) => { BI[b[0]] = i; });
 // per-hero tweaks to the skeleton: shoulder width
-const RIG_OPT = { gauge: { sh: 0.31 }, mire: { sh: 0.2 }, ivra: { sh: 0.19 }, marrow: { sh: 0.19 }, veil: { sh: 0.16 }, spindle: { sh: 0.17 }, wick: { sh: 0.17 }, lark: { sh: 0.17 }, sable: { sh: 0.18 } };
+const RIG_OPT = { gauge: { sh: 0.31 }, mire: { sh: 0.2 }, ivra: { sh: 0.19 }, marrow: { sh: 0.19 }, veil: { sh: 0.16 }, spindle: { sh: 0.17 }, wick: { sh: 0.17 }, lark: { sh: 0.17 }, sable: { sh: 0.18 }, orrin: { sh: 0.17 } };
 function makeRig(opt = {}) {
   const bones = BONES.map(b => { const B = new THREE.Bone(); B.name = b[0]; B.position.set(b[2], b[3], b[4]); if (opt.sh && b[0].startsWith('clav')) B.position.x = Math.sign(b[2]) * opt.sh; return B; });
   BONES.forEach((b, i) => { if (b[1]) bones[BI[b[1]]].add(bones[i]); });
@@ -232,6 +232,16 @@ function weaponParts(key, w, look, ac) {
     w(sph(0.068, 12, 10), GL_(0x9aff5a, 3), [0, 0.0, -0.06], [0, 0, 0], [1, 0.75, 1]);
     cyl(0.024, 0.02, 0.04, P_(0x7a5a3a, 0.8, 0), [0, 0.18, -0.06]); w(new THREE.TorusGeometry(0.075, 0.004, 4, 16), MT, [0, 0.02, -0.06], [Math.PI / 2, 0, 0]);
     return { gripL: null, muzzle: [0, 0.05, -0.12], hold: [0.22, -0.1, -0.28] };
+  }
+  if (key === 'orrin') {
+    // Star Lance: a long brass astrolabe rod with turning rings and a crystal star at its tip
+    cyl(0.018, 0.022, 1.0, BR, [0, 0, -0.25], [Math.PI / 2, 0, 0], 10);
+    box(0.045, 0.13, 0.05, 0.015, WD, [0, -0.07, 0.05], [0.2, 0, 0]);
+    for (const [z, r] of [[-0.55, 0.09], [-0.42, 0.07], [0.1, 0.05]]) w(new THREE.TorusGeometry(r, 0.008, 6, 24), BR, [0, 0, z], [0, 0.5 + z, 0.3]);
+    w(new THREE.OctahedronGeometry(1, 0), G, [0, 0, -0.8], [Math.PI / 2, 0, 0], [0.045, 0.11, 0.045]);
+    for (let i = 0; i < 4; i++) { const g = i / 4 * TAU; w(new THREE.ConeGeometry(0.012, 0.09, 4), BR, [Math.cos(g) * 0.05, Math.sin(g) * 0.05, -0.72], [-Math.PI / 2, 0, 0]); }
+    box(0.012, 0.03, 0.3, 0.004, ac, [0.02, 0, -0.2]);
+    return { gripL: [0, 0, -0.24], muzzle: [0, 0, -0.86], hold: [0.1, -0.15, -0.2] };
   }
   if (key === 'sable') {
     // Second Hand: a brass clock-pistol; the dial is the cylinder, the barrel is a long minute hand
@@ -367,7 +377,7 @@ function costume(K, key) {
     for (let i = 0; i < 7; i++) { const a = i * 0.9; K.on('head', new THREE.CapsuleGeometry(0.018, 0.06 + (i % 3) * 0.04, 3, 6), P_(0xf4ead0, 0.3, 0), [Math.cos(a) * 0.12, 0.24 - (i % 3) * 0.04, Math.sin(a) * 0.12]); }
     K.cyl('head', 0.12, 0.12, 0.012, P_(0xd8c8a0, 0.5, 0), [0, 0.3, 0], [0, 0, 0], 18);
     K.cyl('head', 0.006, 0.006, 0.05, P_(0x1a1410, 0.8, 0), [0, 0.32, 0]);
-    K.on('acc', new THREE.ConeGeometry(0.045, 0.16, 10), GL_(0xffb84a, 6), [0, 0.17, 0]); K.ball('acc', 0.03, GL_(0xfff0c0, 8), [0, 0.13, 0]);
+    K.on('acc', new THREE.ConeGeometry(0.045, 0.16, 10), GL_(0xffb84a, 3.2), [0, 0.17, 0]); K.ball('acc', 0.03, GL_(0xfff0c0, 4), [0, 0.13, 0]);
     for (const x of [-0.05, 0.05]) K.ball('head', 0.016, P_(0x1a1410, 0.5, 0), [x, 0.18, -0.12]);
     // a lantern at the hip
     K.on('hips', new THREE.CylinderGeometry(0.06, 0.07, 0.14, 8), BR, [0.22, -0.12, 0.05]); K.ball('hips', 0.04, GL_(0xffd27a, 5), [0.22, -0.12, 0.05]);
@@ -388,6 +398,26 @@ function costume(K, key) {
     K.tor('hips', 0.2, 0.02, LT, [0, 0.0, 0], [Math.PI / 2, 0, 0], TAU, 24);
     for (let i = 0; i < 4; i++) { const a = 2.4 + i * 0.5; K.on('hips', new THREE.CylinderGeometry(0.03, 0.04, 0.1, 10), P_(0x2a4a2a, 0.1, 0.2), [Math.cos(a) * 0.22, -0.05, Math.sin(a) * 0.22]); K.ball('hips', 0.028, GL_(0x9aff5a, 3), [Math.cos(a) * 0.22, -0.06, Math.sin(a) * 0.22]); }
     return { scale: 1.0, hunch: 0.3 };
+  }
+  if (key === 'orrin') {
+    // a robed astronomer: a hood full of night sky, planets circling the head, a star-chart cape
+    K.body({ suit: P_(0x1a1630, 0.8, 0.05), skin: P_(L.skin, 0.6, 0), boot: P_(0x1a1424, 0.6, 0.2), thin: 0.9, noHead: true });
+    K.loft('chest', [[-0.02, 0.34, 0.23], [0.14, 0.39, 0.26], [0.26, 0.42, 0.25], [0.33, 0.3, 0.21]], M);
+    K.loft('tail', [[-0.88, 0.6, 0.5], [-0.5, 0.48, 0.4], [-0.15, 0.4, 0.32], [0.05, 0.36, 0.28]], M, [0, 0, -0.04], null, null, 22, [-1.35, 4.5]);
+    K.loft('tail', [[-0.9, 0.61, 0.51], [-0.84, 0.59, 0.49]], GL_(L.glow, 1.6), [0, 0, -0.04], null, null, 22, [-1.35, 4.5]);
+    K.loft('cape', [[-1.08, 0.66, 0.06], [-0.6, 0.6, 0.06], [-0.1, 0.52, 0.05], [0.04, 0.44, 0.05]], S2, [0, -0.05, 0.03], [0.12, 0, 0], null, 8);
+    for (let i = 0; i < 18; i++) K.ball('cape', 0.008 + (i % 3) * 0.004, GL_(0xfff4d0, 4), [Math.sin(i * 2.3) * 0.26, -0.15 - (i * 0.37 % 0.85), 0.06], null, 6);
+    K.tor('hips', 0.2, 0.025, CL, [0, 0.0, 0], [Math.PI / 2, 0, 0], TAU, 24); K.on('hips', new THREE.OctahedronGeometry(0.04, 0), MT, [0, 0.0, -0.21]);
+    for (const sd of ['R', 'L']) { K.loft('fore' + sd, [[-0.2, 0.13, 0.13], [-0.08, 0.11, 0.11], [0.0, 0.1, 0.1]], M); K.tor('fore' + sd, 0.065, 0.01, MT, [0, -0.2, 0], [Math.PI / 2, 0, 0]); K.ball('clav' + sd, 0.1, M, [0, 0, 0], [1.2, 0.8, 1.1]); }
+    // the hood, open over a face of stars
+    K.loft('head', [[-0.02, 0.26, 0.28], [0.1, 0.29, 0.32], [0.24, 0.28, 0.3], [0.34, 0.19, 0.24], [0.42, 0.04, 0.12, 2, 0, 0.06]], M, [0, 0, 0.03], null, null, 22, [-1.0, 4.15]);
+    K.loft('head', [[0.0, 0.15, 0.17], [0.1, 0.19, 0.21], [0.22, 0.19, 0.21], [0.3, 0.12, 0.15], [0.33, 0.02, 0.02]], P_(0x05040c, 0.9, 0), [0, 0, 0.02]);
+    for (let i = 0; i < 9; i++) { const g = i * 2.4; K.ball('head', 0.006 + (i % 3) * 0.004, GL_(i % 4 ? 0xfff4d0 : L.glow, 6), [Math.cos(g) * 0.06 * (1 + i % 3 * 0.4), 0.15 + Math.sin(g * 1.3) * 0.07, -0.095], null, 6); }
+    K.ball('head', 0.022, GL_(L.glow, 5), [0.03, 0.17, -0.1], null, 8);
+    // little planets in orbit
+    K.tor('acc', 0.3, 0.004, MT, [0, -0.02, 0], [Math.PI / 2 - 0.3, 0, 0.2], TAU, 40);
+    K.ball('acc', 0.04, P_(0xd87a4a, 0.6, 0.1), [0.29, 0.05, 0.05]); K.ball('acc', 0.028, P_(0x6ab0d8, 0.5, 0.1), [-0.2, -0.08, -0.2]); K.ball('acc', 0.02, GL_(0xfff0a0, 4), [-0.05, 0.08, 0.29]);
+    return { scale: 1.04 };
   }
   if (key === 'sable') {
     // a tall thief in a navy tailcoat with brass fittings, a cracked clock face for a head and a pendulum at the back
@@ -446,7 +476,7 @@ function buildHero(key, accent) {
   K.pb.lit = K.pb.lit.filter(p => p.bone !== wb); K.pb.glow = K.pb.glow.filter(p => p.bone !== wb);
   weaponParts(key, (g, p, pos, rot, scl) => K.pb.add(g, p, pos, rot, scl, rig[wb].matrixWorld, wb), H.look, K.ac);
   const geos = K.pb.bake(true);
-  const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+  const root = new THREE.Group(), body = new THREE.Group(); root.add(body); root.userData.hero = key;
   const holder = new THREE.Group(); holder.scale.setScalar(info.scale || 1); body.add(holder);
   holder.add(rig[0]);
   const skel = new THREE.Skeleton(rig), meshes = [];
@@ -528,7 +558,7 @@ function poseIdle(M, t) { poseHero(M, { spd: 0, phase: 0, air: 0, pitch: -0.05, 
 // ---------------------------------------------------------------- the first-person view: forearms, hands and the weapon
 function buildViewmodel(key) {
   const H = HEROES[key], L = H.look, vm = new THREE.Group(), ac = P_(0x2a8aa0, 0.4, 0.6);
-  const VP = { marrow: [0.2, -0.25, -0.52, 0.8], lark: [0.2, -0.2, -0.42, 0.9], gauge: [0.23, -0.29, -0.52, 0.78], veil: [0.2, -0.22, -0.4, 1], ivra: [0.2, -0.23, -0.46, 0.85], wick: [0.25, -0.14, -0.56, 0.75], mire: [0.22, -0.24, -0.5, 0.75], spindle: [0.2, -0.23, -0.46, 0.9], sable: [0.2, -0.22, -0.44, 0.95] }[key] || [0.2, -0.2, -0.4, 1];
+  const VP = { marrow: [0.2, -0.25, -0.52, 0.8], lark: [0.2, -0.2, -0.42, 0.9], gauge: [0.23, -0.29, -0.52, 0.78], veil: [0.2, -0.22, -0.4, 1], ivra: [0.2, -0.23, -0.46, 0.85], wick: [0.25, -0.14, -0.56, 0.75], mire: [0.22, -0.24, -0.5, 0.75], spindle: [0.2, -0.23, -0.46, 0.9], sable: [0.2, -0.22, -0.44, 0.95], orrin: [0.19, -0.22, -0.46, 0.85] }[key] || [0.2, -0.2, -0.4, 1];
   const sleeve = key === 'gauge' ? P_(L.metal, 0.35, 0.85) : key === 'ivra' ? P_(0xb8873a, 0.3, 0.95) : key === 'spindle' ? P_(L.main, 0.55, 0.2) : P_(L.main, 0.6, 0.15);
   const glove = key === 'gauge' ? P_(0x3a3632, 0.45, 0.7) : key === 'spindle' ? P_(0xe0d6c4, 0.8, 0) : key === 'mire' ? P_(L.skin, 0.65, 0) : key === 'wick' ? P_(0xe8d8b0, 0.4, 0) : P_(0x2a2420, 0.7, 0.05);
   const groups = {};
@@ -551,7 +581,7 @@ function buildViewmodel(key) {
   // the power in the off hand
   if (key === 'marrow') { const s = buildSnare(TEAM_HEX[0]); s.scale.setScalar(0.38); s.position.set(0.02, 0.06, -0.06); s.rotation.x = 0.6; O.g.add(s); extra.prop = s; }
   if (key === 'ivra') { const g = buildGlaive(L.glow, 1.2); g.position.set(0.02, 0.1, -0.02); g.rotation.set(0.2, 0, 1.2); O.g.add(g); extra.prop = g; }
-  if (key === 'lark' || key === 'spindle' || key === 'mire' || key === 'sable') { const o = new THREE.Mesh(sph(0.05, 14, 10), mGlow(L.glow, 6)); o.position.set(0, 0.07, -0.05); O.g.add(o); extra.orb = o; const r = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.006, 6, 24), mGlow(0xffffff, 4)); r.position.copy(o.position); O.g.add(r); extra.ring = r; }
+  if (key === 'lark' || key === 'spindle' || key === 'mire' || key === 'sable' || key === 'orrin') { const o = new THREE.Mesh(sph(0.05, 14, 10), mGlow(L.glow, 6)); o.position.set(0, 0.07, -0.05); O.g.add(o); extra.orb = o; const r = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.006, 6, 24), mGlow(0xffffff, 4)); r.position.copy(o.position); O.g.add(r); extra.ring = r; }
   if (key === 'wick') { const l = buildLantern(L.glow); l.scale.setScalar(0.35); l.position.set(0.0, -0.05, -0.05); O.g.add(l); extra.prop = l; }
   for (const k in groups) { const geos = groups[k].pb.bake(false); for (const t of ['lit', 'glow']) if (geos[t]) { const m = new THREE.Mesh(geos[t], heroMat(t === 'lit' ? 'lit' : 'glow')); m.frustumCulled = false; m.userData.base = m.material; groups[k].g.add(m); } }
   const muzzle = new THREE.Object3D(); muzzle.position.set(...hold.muzzle); R.g.add(muzzle);
@@ -599,9 +629,22 @@ function buildWall(teamHex) {
 }
 function buildBolt() { const g = new THREE.Group(); const s = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.6, 6), mStd(0x6a5a44, 0.5, 0.2)); s.rotation.x = Math.PI / 2; g.add(s); const h = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.1, 4), mStd(0x8a8f96, 0.3, 0.9)); h.rotation.x = -Math.PI / 2; h.position.z = -0.34; g.add(h); for (const r of [0, Math.PI / 2]) { const f = new THREE.Mesh(new THREE.PlaneGeometry(0.06, 0.1), mStd(0xd8cfb8, 0.8, 0)); f.position.z = 0.26; f.rotation.set(Math.PI / 2, r, 0); g.add(f); } return g; }
 function buildShard(glow) { const g = new THREE.Group(); const c = new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), mGlow(glow, 5)); c.scale.set(0.05, 0.05, 0.22); g.add(c); return g; }
-function buildMoth(glow) { const g = new THREE.Group(); const b = new THREE.Mesh(new THREE.CapsuleGeometry(0.03, 0.08, 3, 6), mGlow(glow, 2)); b.rotation.x = Math.PI / 2; g.add(b); const wm = new THREE.MeshBasicMaterial({ color: hdrCol(0xffe8b0, 2.5), side: THREE.DoubleSide, transparent: true, opacity: 0.85 }); const wings = []; for (const s of [-1, 1]) { const piv = new THREE.Group(); const w = new THREE.Mesh(new THREE.CircleGeometry(0.11, 8), wm); w.position.x = s * 0.1; w.scale.set(1, 0.7, 1); w.rotation.x = Math.PI / 2; piv.add(w); g.add(piv); wings.push(piv); } g.userData.wings = wings; return g; }
+function buildMoth(glow) { const g = new THREE.Group(); const b = new THREE.Mesh(new THREE.CapsuleGeometry(0.03, 0.08, 3, 6), mGlow(glow, 1.4)); b.rotation.x = Math.PI / 2; g.add(b); const wm = new THREE.MeshBasicMaterial({ color: hdrCol(0xffe8b0, 1.3), side: THREE.DoubleSide, transparent: true, opacity: 0.85 }); const wings = []; for (const s of [-1, 1]) { const piv = new THREE.Group(); const w = new THREE.Mesh(new THREE.CircleGeometry(0.11, 8), wm); w.position.x = s * 0.1; w.scale.set(1, 0.7, 1); w.rotation.x = Math.PI / 2; piv.add(w); g.add(piv); wings.push(piv); } g.userData.wings = wings; return g; }
 function buildFlask(glow) { const g = new THREE.Group(); const b = new THREE.Mesh(sph(0.08, 10, 8), new THREE.MeshStandardMaterial({ color: 0x2a4a2a, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.7 })); g.add(b); const in_ = new THREE.Mesh(sph(0.06, 8, 6), mGlow(glow, 3)); g.add(in_); const n = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.08, 8), mStd(0x7a5a3a, 0.8, 0)); n.position.y = 0.09; g.add(n); return g; }
 function buildHand(glow) { const g = new THREE.Group(); const b = new THREE.Mesh(extG([[0, 0], [0.02, 0.05], [0.01, 0.34], [0, 0.4], [-0.01, 0.34], [-0.02, 0.05]], 0.01), mStd(0xc89a4a, 0.3, 0.9)); b.rotation.x = -Math.PI / 2; b.position.z = 0.2; g.add(b); const c = new THREE.Mesh(extG([[0, 0.05], [0.008, 0.3], [0, 0.36], [-0.008, 0.3]], 0.014, 0.002), mGlow(glow, 4)); c.rotation.x = -Math.PI / 2; c.position.z = 0.2; g.add(c); return g; }
+function buildStar(glow) { const g = new THREE.Group(); const c = new THREE.Mesh(new THREE.OctahedronGeometry(0.14, 0), mGlow(glow, 3)); g.add(c); const h = new THREE.Mesh(sph(0.22, 10, 8), new THREE.MeshBasicMaterial({ color: hdrCol(glow, 0.8), transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false })); g.add(h); return g; }
+// a gravity well: a dark core, a lensing shell and a ring that shrinks inward (or grows outward when it repels)
+function buildWell(r, glow, push) {
+  const g = new THREE.Group();
+  const core = new THREE.Group(); core.position.y = 1.1; g.add(core);
+  core.add(new THREE.Mesh(sph(0.35, 16, 12), new THREE.MeshBasicMaterial({ color: 0x000000 })));
+  core.add(new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.05, 8, 32), mGlow(glow, 2.6)));
+  const shell = new THREE.Mesh(sph(0.9, 16, 12), new THREE.MeshBasicMaterial({ color: hdrCol(glow, 0.5), transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.BackSide })); core.add(shell);
+  const disc = new THREE.Mesh(new THREE.RingGeometry(r - 0.12, r, 48), new THREE.MeshBasicMaterial({ color: hdrCol(glow, 1.2), transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide, toneMapped: false })); disc.rotation.x = -Math.PI / 2; disc.position.y = 0.06; g.add(disc);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(r * 0.9, r, 48), new THREE.MeshBasicMaterial({ color: hdrCol(glow, 0.8), transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide, toneMapped: false })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.07; g.add(ring);
+  g.userData = { core, ring };
+  return g;
+}
 function buildNeedle(glow) { const g = new THREE.Group(); const n = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.002, 0.3, 4), mStd(0xe8e8f0, 0.2, 1)); n.rotation.x = Math.PI / 2; g.add(n); const t = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.002, 0.25, 4), new THREE.MeshBasicMaterial({ color: hdrCol(glow, 3), transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false })); t.rotation.x = Math.PI / 2; t.position.z = 0.25; g.add(t); return g; }
 function buildLineHead(glow, web) {
   const g = new THREE.Group();
@@ -622,17 +665,18 @@ function buildLantern(glow) {
   const bot = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 0.04, 6), br); bot.position.y = -0.16; cage.add(bot);
   for (let i = 0; i < 6; i++) { const a = i / 6 * TAU, b = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.34, 4), br); b.position.set(Math.cos(a) * 0.1, 0, Math.sin(a) * 0.1); cage.add(b); }
   const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.3, 6), new THREE.MeshBasicMaterial({ color: hdrCol(glow, 0.6), transparent: true, opacity: 0.35, depthWrite: false })); cage.add(glass);
-  const flame = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.14, 8), mGlow(glow, 7)); cage.add(flame);
+  const flame = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.14, 8), mGlow(glow, 2.6)); cage.add(flame);
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.25, 0.06, 10), dk); base.position.y = 0.03; g.add(base);
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
   g.userData = { flame };
   return g;
 }
 function buildLightPool(r) {
+  // a soft warm wash with a clear rim: normal blending, so overlapping pools don't add up into a white-out
   const cv = document.createElement('canvas'); cv.width = cv.height = 128; const c = cv.getContext('2d'), gr = c.createRadialGradient(64, 64, 0, 64, 64, 64);
-  gr.addColorStop(0, 'rgba(255,220,140,0.55)'); gr.addColorStop(0.75, 'rgba(255,190,100,0.2)'); gr.addColorStop(0.97, 'rgba(255,200,120,0.45)'); gr.addColorStop(1, 'rgba(255,200,120,0)'); c.fillStyle = gr; c.fillRect(0, 0, 128, 128);
-  const m = new THREE.Mesh(new THREE.CircleGeometry(r, 40), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), color: new THREE.Color(1.6, 1.3, 0.9), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-  m.rotation.x = -Math.PI / 2; const g = new THREE.Group(); m.position.y = 0.04; g.add(m); return g;
+  gr.addColorStop(0, 'rgba(255,214,140,0.16)'); gr.addColorStop(0.8, 'rgba(255,200,120,0.08)'); gr.addColorStop(0.93, 'rgba(255,205,130,0.38)'); gr.addColorStop(0.97, 'rgba(255,205,130,0.12)'); gr.addColorStop(1, 'rgba(255,200,120,0)'); c.fillStyle = gr; c.fillRect(0, 0, 128, 128);
+  const m = new THREE.Mesh(new THREE.CircleGeometry(r, 40), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), color: 0xffffff, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, toneMapped: false }));
+  m.rotation.x = -Math.PI / 2; m.renderOrder = 2; const g = new THREE.Group(); m.position.y = 0.05; g.add(m); return g;
 }
 function buildZoneDisk(kind, r) {
   const cv = document.createElement('canvas'); cv.width = cv.height = 128; const c = cv.getContext('2d');
@@ -643,4 +687,9 @@ function buildZoneDisk(kind, r) {
   const k = kind === 'fire' ? 2.2 : 1.4;
   const m = new THREE.Mesh(new THREE.CircleGeometry(r, 32), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), color: new THREE.Color(k, k, k), transparent: true, opacity: 0.6, depthWrite: false, blending: kind === 'fire' ? THREE.AdditiveBlending : THREE.NormalBlending, polygonOffset: true, polygonOffsetFactor: -3 }));
   m.rotation.x = -Math.PI / 2; return m;
+}
+
+// remove every hero model in the scene that no longer belongs to anything (showcase leftovers, stale decoys)
+function scrubHeroes(keep = []) {
+  for (const o of [...G.scene.children]) if (o.userData && o.userData.hero && !keep.includes(o)) G.scene.remove(o);
 }

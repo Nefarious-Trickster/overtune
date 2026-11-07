@@ -1,6 +1,6 @@
 # Overtune
 
-A 3D hero shooter you play in the browser. Nine heroes, each with a weapon that plays nothing like the others and one signature **power** — and every power is tuned with **add-ons**, earned by playing and used up when you deploy, Dead by Daylight style.
+A 3D hero shooter you play in the browser. Ten heroes, each with a weapon that plays nothing like the others and one signature **power** — and every power is tuned with **add-ons**, earned by playing and used up when you deploy, Dead by Daylight style.
 
 **Play:** https://nefarious-trickster.github.io/overtune/
 
@@ -16,16 +16,19 @@ A 3D hero shooter you play in the browser. Nine heroes, each with a weapon that 
 | **Wick**, the Lamplighter | Moth Swarm — slow homing moths | **Lanterns** — light that reveals and slows; walk between them | Wax Shell | Flare |
 | **Mire**, the Bog Witch | Brewer's Flasks — lobbed acid pools | **Submerge** — sink, move unseen, erupt in a geyser | Leech | Bog Tide |
 | **Spindle**, the Puppeteer | Thread Needles — bursts that Stitch enemies in place | **Marionette Line** — hook and reel enemies in | Grapple | Cat's Cradle |
+| **Orrin**, the Starbinder | Star Lance — hold to charge a beam that pierces everyone in a line | **Gravity Well** — throw a star that drags enemies to its centre | Starstep | Meteor Shower |
 | **Sable**, the Clockbreaker | Second Hand — clock hands fired in pairs that slow what they hit | **Rewind** — snap back 3 s to where you were, with the health you had | Overwind | Stopped Time |
 
 ## Add-ons
 
 Every hero has 16 add-ons in five rarities. Commons are clean upgrades; the higher you go the more they change the power — Very Rare and Iridescent add-ons rewrite how it works entirely, usually at a price.
 
-- **You earn them by playing.** Finish a match (longer than 45 s) and you draw add-ons for the hero you ended on: **3 for a win, 2 for a draw, 1 for a loss**. The more matches you've played as a hero, the better that hero's odds of Very Rare and Iridescent draws.
+- **You earn them by playing.** Finish a match (longer than 45 s) and you open a cache for the hero you ended on: **5 draws for a win, 3 for a draw, 2 for a loss**, plus **+2 for your first win of the day** and **+1 to +3 for a win streak**. Cards are turned one at a time; rare ones hum before you flip them.
+- **Pity:** a Rare or better is guaranteed at least every 10 draws, Very Rare or better every 30, Iridescent every 60 (per hero). Any draw has an 8% chance to come up double. The more matches you've played as a hero, the better that hero's odds.
+- **Everyone starts with two of every Common and Uncommon** for every hero.
 - **They stack.** You can own several of the same add-on.
 - **Slotting one uses it up** when the match starts (respawns and later rounds of the same match are free).
-- Everyone starts with a few Commons and an Uncommon for each hero. Your collection is saved in your browser.
+- Your collection is saved in your browser.
 
 ## Modes and maps
 

@@ -25,13 +25,14 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 // ---------------------------------------------------------------- settings
 const Settings = {
   name: 'Player' + Math.floor(Math.random() * 900 + 100), sens: 1.0, fov: 95, q: 2, vol: 0.8, music: 0.5, invertY: false,
-  hero: 'marrow', loadouts: {}, tipsShown: 0, mode: 'tdm', map: 'kiln', size: 4, diff: 1, ffaSize: 6, showFps: false, xhair: 1, inv: {}, invV: 0, played: {}, given: {},
+  hero: 'marrow', loadouts: {}, tipsShown: 0, mode: 'tdm', map: 'kiln', size: 4, diff: 1, ffaSize: 6, showFps: false, xhair: 1, inv: {}, invV: 0, played: {}, given: {}, pity: {}, streak: 0, firstWin: '',
   load() {
     try { const s = JSON.parse(localStorage.getItem('overtune.settings') || '{}'); for (const k in s) if (k in this && typeof this[k] !== 'function') this[k] = s[k]; } catch (e) { /* private window */ }
     if (typeof this.loadouts !== 'object' || !this.loadouts) this.loadouts = {};
     if (typeof this.inv !== 'object' || !this.inv) this.inv = {};
     if (typeof this.played !== 'object' || !this.played) this.played = {};
     if (typeof this.given !== 'object' || !this.given) this.given = {};
+    if (typeof this.pity !== 'object' || !this.pity) this.pity = {};
   },
   save() {
     const o = {}; for (const k in this) if (typeof this[k] !== 'function') o[k] = this[k];
@@ -168,6 +169,13 @@ const Sfx = {
     tick(t, o) { this.osc(t, 0.02, 3000, 2800, 'square', 0.12, o); this.osc(t + 0.25, 0.02, 2400, 2300, 'square', 0.1, o); },
     rewind(t, o) { this.osc(t, 0.45, 300, 1600, 'sawtooth', 0.12, o, 0.02); this.nz(t, 0.45, 1200, 2, 'bandpass', 0.5, o, 0.3, 'lin'); for (let i = 0; i < 6; i++) this.osc(t + i * 0.05, 0.02, 3000 - i * 200, 2800 - i * 200, 'square', 0.08, o); },
     stop(t, o) { this.osc(t, 2.2, 110, 108, 'sine', 0.8, o); this.osc(t, 2.0, 220, 218, 'triangle', 0.3, o); this.osc(t, 1.6, 554, 550, 'sine', 0.15, o); this.nz(t, 0.6, 600, 1, 'lowpass', 0.6, o, 0.01); },
+    lance(t, o) { this.osc(t, 0.5, 1800, 200, 'sawtooth', 0.25, o); this.osc(t, 0.6, 900, 120, 'sine', 0.5, o); this.nz(t, 0.35, 4000, 1, 'bandpass', 0.6, o); },
+    well(t, o) { this.osc(t, 1.0, 60, 140, 'sine', 0.6, o, 0.1); this.osc(t, 0.9, 400, 90, 'triangle', 0.15, o, 0.05); this.nz(t, 0.8, 300, 2, 'lowpass', 0.4, o, 0.2); },
+    rev0(t, o) { this.osc(t, 0.25, 520, 520, 'triangle', 0.25, o); this.osc(t + 0.06, 0.25, 780, 780, 'triangle', 0.18, o); },
+    rev1(t, o) { for (const [i, f] of [660, 990].entries()) this.osc(t + i * 0.07, 0.35, f, f, 'triangle', 0.25, o); this.nz(t, 0.2, 6000, 2, 'highpass', 0.1, o); },
+    rev2(t, o) { for (const [i, f] of [523, 659, 784, 1047].entries()) this.osc(t + i * 0.06, 0.5, f, f, 'triangle', 0.22, o); this.nz(t, 0.4, 7000, 2, 'highpass', 0.15, o, 0.02); },
+    rev3(t, o) { this.osc(t, 0.6, 90, 40, 'sine', 0.7, o); for (const [i, f] of [392, 494, 587, 784, 988].entries()) this.osc(t + 0.05 + i * 0.07, 0.8, f, f, 'triangle', 0.22, o); this.nz(t, 0.8, 5000, 1, 'highpass', 0.2, o, 0.05); },
+    rev4(t, o) { this.osc(t, 1.0, 70, 30, 'sine', 0.9, o); this.nz(t, 0.5, 800, 1, 'lowpass', 0.6, o); for (const [i, f] of [523, 659, 784, 1047, 1319, 1568, 2093].entries()) { this.osc(t + 0.1 + i * 0.08, 1.4, f, f, 'triangle', 0.2, o); this.osc(t + 0.1 + i * 0.08, 1.4, f * 1.005, f * 1.005, 'sine', 0.12, o); } this.nz(t + 0.1, 1.6, 8000, 1, 'highpass', 0.25, o, 0.3); },
     win(t, o) { [523, 659, 784, 1046].forEach((f, i) => this.osc(t + i * 0.13, 0.6, f, f, 'triangle', 0.3, o)); },
     lose(t, o) { [392, 330, 262].forEach((f, i) => this.osc(t + i * 0.2, 0.7, f, f * 0.98, 'triangle', 0.3, o)); },
   },
