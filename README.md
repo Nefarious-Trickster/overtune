@@ -1,6 +1,6 @@
 # Overtune
 
-A 3D hero shooter you play in the browser. Eleven heroes, each with a weapon that plays nothing like the others and one signature **power** — and every power is tuned with **add-ons**, earned by playing and used up when you deploy, Dead by Daylight style.
+A 3D hero shooter you play in the browser. Thirteen heroes, each with a weapon that plays nothing like the others and one signature **power** — and every power is tuned with **add-ons**, earned by playing and used up when you deploy, Dead by Daylight style.
 
 **Play:** https://nefarious-trickster.github.io/overtune/
 
@@ -18,11 +18,17 @@ A 3D hero shooter you play in the browser. Eleven heroes, each with a weapon tha
 | **Spindle**, the Puppeteer | Thread Needles — bursts that Stitch enemies in place | **Marionette Line** — hook and reel enemies in | Grapple | Cat's Cradle |
 | **Thane**, the Stormcaller | Arc Caster — lightning that jumps to a second enemy | **Thunderhead** — a storm cloud that strikes enemies beneath it | Bolt Step | Tempest |
 | **Orrin**, the Starbinder | Star Lance — hold to charge a beam that pierces everyone in a line | **Gravity Well** — throw a star that drags enemies to its centre | Starstep | Meteor Shower |
+| **Bjorn**, the Skinchanger | Hand Axes — spinning axes thrown in an arc | **Bearform** — become a bear: bigger, faster, armored, clawing | War Cry | Stampede |
+| **Ossian**, the Gravecaller | Sinew Crossbow — bone bolts two at a time | **Raise Dead** — skeletons that hunt and claw your enemies | Bone Ward | Army of the Grave |
 | **Sable**, the Clockbreaker | Second Hand — clock hands fired in pairs that slow what they hit | **Rewind** — snap back 3 s to where you were, with the health you had | Overwind | Stopped Time |
+
+## Models
+
+The heroes are built from [KayKit](https://kaylousberg.com)'s free (CC0) Adventurers and Skeletons character packs by Kay Lousberg, with KayKit's animation set. Each hero gets its own body, recoloured texture, hat or helmet, weapons from the packs and props of its own, and a team-coloured rim so friend and foe read at a glance. If the models can't load, the game falls back to its older hand-built heroes.
 
 ## Add-ons
 
-Every hero has 20 add-ons in five rarities. Commons are clean upgrades; the higher you go the more they change the power. The two **Iridescent** add-ons per hero aren't bigger numbers — each one rewrites how the power works and comes with a real price: Marrow's snares become mines, Gauge carries enemies on his charge and crushes them into walls, Ivra's glaives become sawblades, Thane's cloud stores lightning to drop all at once, Orrin becomes the gravity well himself, Sable stops time instead of rewinding, and so on.
+Every hero has 20 add-ons (260 in all) in five rarities. Commons are clean upgrades; the higher you go the more they change the power. The two **Iridescent** add-ons per hero aren't bigger numbers — each one rewrites how the power works and comes with a real price: Marrow's snares become mines, Gauge carries enemies on his charge and crushes them into walls, Ivra's glaives become sawblades, Thane's cloud stores lightning to drop all at once, Orrin becomes the gravity well himself, Sable stops time instead of rewinding, and so on.
 
 - **You earn them by playing.** Finish a match (longer than 45 s) and you crack open a cache for the hero you ended on. A win is worth 4 draws, a draw 3, a loss 2 — plus more for harder enemies (up to +5 on Overtuned), for how hard you won (up to +4 for a flawless win), +1 for topping the scoreboard, +1 for a close loss, +2 for your first win of the day and up to +3 for a win streak. Harder enemies also make rare draws more likely.
 - **The cache:** strike the prism three times — hit it as the ring closes for a Perfect (+3 shards each, and an extra Overtune token for three in a row); from the second crack its glow gives away the best thing inside. The cards fly out of the broken prism; turn them one by one (or press Space) — rare ones hum and leak their colour before they flip, and big pulls get a banner. Then spend Overtune tokens to gamble a card up a rarity: it flickers between the two like a slowing wheel, then climbs or shatters into shards.
@@ -35,7 +41,7 @@ Every hero has 20 add-ons in five rarities. Commons are clean upgrades; the high
 
 ## Modes and maps
 
-Team Deathmatch · Control · Elimination (no respawns, first to 3 rounds) · Free-for-All — against bots at four difficulties — Recruit, Veteran, Elite and Overtuned. Harder bots react faster, aim better (and for the head), lead moving targets, hit harder and hunt human players; on **Overtuned**, every bot also brings both of its hero's Iridescent add-ons — on five maps:
+Team Deathmatch · Control · Elimination (no respawns, first to 3 rounds) · Free-for-All — against bots at four difficulties — Recruit, Veteran, Elite and Overtuned. Harder bots react faster, aim better (and for the head), lead moving targets, hit harder, charge their ultimates faster, dodge when you line up a shot and hunt human players; Elite and Overtuned bots also have extra health, and Overtuned bots see all the way around them; on **Overtuned**, every bot also brings both of its hero's Iridescent add-ons — on five maps:
 
 - **Kiln Yard** — a foundry district at dusk: a casting hall with a mezzanine, a rail siding, a raised crucible.
 - **Verdance** — a jungle temple: terraces, a ruined hall, a sun ziggurat, a sunken garden.

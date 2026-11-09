@@ -535,3 +535,8 @@ td.ads { white-space: nowrap; } td.ads .mini { width: 18px; height: 18px; margin
 .cact { display: flex; gap: 12px; justify-content: center; }
 .cact kbd { margin-left: 6px; opacity: 0.6; }
 @media (max-height: 640px) { .chead h2 { font-size: 32px; } .cgem svg { width: 150px; height: 188px; } .cpity { display: none; } }
+/* thirteen heroes: a tighter rail that scrolls if the window is short */
+.herocol { overflow-y: auto; max-height: calc(100vh - 70px); scrollbar-width: thin; }
+.herocol .herocard { padding: 7px 12px; }
+.herocol .herocard span { display: none; }
+@media (min-height: 860px) { .herocol .herocard { padding: 9px 12px; } }

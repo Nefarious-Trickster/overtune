@@ -41,7 +41,7 @@ function removeActor(a) {
 function setHero(a, key, addons) {
   const changed = a.heroKey !== key || a.modelTeam !== modelColorFor(a) || JSON.stringify(a.addons) !== JSON.stringify(addons);
   a.heroKey = key; a.H = HEROES[key]; a.addons = (addons || []).slice(0, 2); a.P = powerFor(key, a.addons);
-  a.maxHp = Math.round(a.H.hp * (a.P.perma ? 0.8 : 1));
+  a.maxHp = Math.round(a.H.hp * (a.P.perma ? 0.8 : 1) * (a.isBot ? Bots.diff().hp || 1 : 1));
   if (!a.alive) a.hp = a.maxHp; else a.hp = Math.min(a.hp, a.maxHp);
   resetKit(a);
   if (changed || !a.model) rebuildModel(a);
@@ -69,6 +69,8 @@ function resetKit(a) {
   if (P.key === 'cloud') a.pw = { charges: P.charges, rech: 0, n: 0 };
   if (P.key === 'well') a.pw = { charges: P.charges, rech: 0, n: 0 };
   if (P.key === 'rewind') a.pw = { charges: P.charges, rech: 0, hist: [], ehist: [], histT: 0, anchor: null };
+  if (P.key === 'bear') a.pw = { state: P.perm ? 'bear' : 'man', t: 0, cd: 0, swipes: 0 };
+  if (P.key === 'raise') a.pw = { charges: P.charges, rech: 0 };
 }
 function spawnActor(a, at) {
   if (a.pendingHero) { const ph = a.pendingHero; a.pendingHero = null; a.alive = false; setHero(a, ph.h, ph.a); }
@@ -79,7 +81,7 @@ function spawnActor(a, at) {
   resetKit(a);
   if (a.P.carried && !a.remote) emit(['ln', a.id + '#carry', a.id, 0, 0, 0, { r: a.P.radius, f: 1 }]);
   a.spawnProt = 2; a.anim.death = 0; a.killer = null;
-  if (a.model) { a.model.root.visible = a !== Game.me; a.model.body.rotation.set(0, 0, 0); a.model.body.position.set(0, 0, 0); }
+  if (a.model) { a.model.root.visible = a !== Game.me; a.model.body.rotation.set(0, 0, 0); a.model.body.position.set(0, 0, 0); if (a.model.kk) KK.revive(a.model); }
   if (a === Game.me) { Inventory.consumeFor(a); HUD.respawned(); View.reset(); }
 }
 function pickSpawn(a) {
@@ -95,7 +97,7 @@ function pickSpawn(a) {
 }
 
 // ---------------------------------------------------------------- statuses
-const TIMED = ['root', 'stun', 'reveal', 'blind', 'strike', 'ambush', 'flick', 'unbound', 'night', 'nightFlash', 'senseT', 'swift', 'fatigue', 'vulnT', 'lightT', 'hiddenRev', 'float'];
+const TIMED = ['rage', 'stampede', 'root', 'stun', 'reveal', 'blind', 'strike', 'ambush', 'flick', 'unbound', 'night', 'nightFlash', 'senseT', 'swift', 'fatigue', 'vulnT', 'lightT', 'hiddenRev', 'float'];
 function stTick(a, dt) {
   const s = a.st;
   for (const k of TIMED) if (s[k] > 0) s[k] = Math.max(0, s[k] - dt);
@@ -110,7 +112,7 @@ function stTick(a, dt) {
   }
 }
 function slowMul(a) { let m = 1; if (a.st.slows) for (const x of a.st.slows) m = Math.min(m, x.mul); return m; }
-function unstoppable(a) { return a.P.key === 'ram' && a.P.jugg && (a.pw.state === 'rev' || a.pw.state === 'charge'); }
+function unstoppable(a) { return (a.st && a.st.stampede > 0) || (a.P.key === 'ram' && a.P.jugg && (a.pw.state === 'rev' || a.pw.state === 'charge')); }
 function applyFx(a, fx, srcId) {
   if (!fx) return;
   const s = a.st, U = unstoppable(a);
@@ -142,7 +144,7 @@ function hitActor(src, tgt, dmg, opts = {}) {
   if (!tgt || !tgt.alive || (isSub(tgt) && !opts.subOk)) return;
   const sid = src ? src.id : opts.srcId;
   if (dmg > 0 && src && src.isBot && !src.remote && src !== tgt) dmg *= Bots.diff().dmg || 1;
-  if (dmg > 0 && src && !src.remote) { src.ult = Math.min(100, src.ult + dmg * 0.03 * (src.st.unbound || src.st.night ? 0 : 1)); src.dmg += dmg; }
+  if (dmg > 0 && src && !src.remote) { src.ult = Math.min(100, src.ult + dmg * (opts.how === 'minion' ? 0.006 : 0.03) * (src.st.unbound || src.st.night ? 0 : 1)); src.dmg += dmg; }
   if (src === Game.me && dmg > 0) HUD.hit(tgt, dmg, !!opts.head);
   if (src && dmg > 0 && src !== tgt) { src.lastDealt = tgt.id; src.lastDealtT = Game.t; }
   if (!tgt.remote) applyDamage(tgt, dmg, sid, opts);
@@ -183,12 +185,13 @@ function killActor(a, srcId, how) {
 // ---------------------------------------------------------------- events: every copy runs them; local ones also go out
 function emit(ev) { Net.push(ev); onEvent(ev, false); }
 function onEvent(E, remote) {
+  if (E[0][0] === 'm' && minionEvent(E)) return;
   switch (E[0]) {
     case 'k': {
       const v = Game.byId.get(E[1]), k = Game.byId.get(E[2]), as = (E[4] || '').split(',').filter(Boolean);
       if (v && remote) { v.alive = false; v.hp = 0; }
       if (v) deathFx(v);
-      if (k && k !== v) k.k++;
+      if (k && k !== v) { k.k++; if (!k.remote && isBear(k) && k.P.extend) { k.pw.t += k.P.extend; k.st.shield = { hp: (k.st.shield ? k.st.shield.hp : 0) + 100, t: k.pw.t }; } }
       for (const id of as) { const x = Game.byId.get(id); if (x) x.a++; }
       HUD.feed(k, v, E[3]);
       if (k === Game.me && v !== Game.me) { Sfx.play('kill'); HUD.killBanner(v, E[3]); }
@@ -203,7 +206,7 @@ function onEvent(E, remote) {
       break;
     }
     case 's': { const a = Game.byId.get(E[1]); if (!a || !remote || !a.model) return; shotVisual(a, new V3(E[2], E[3], E[4]), E[5]); break; }
-    case 'pr': spawnProj(E[1], E[2], new V3(E[3], E[4], E[5]), new V3(E[6], E[7], E[8]), E[9] || {}, remote); break;
+    case 'pr': { spawnProj(E[1], E[2], new V3(E[3], E[4], E[5]), new V3(E[6], E[7], E[8]), E[9] || {}, remote); const o = remote && Game.byId.get(E[2]); if (o && o.H && o.H.weapon.proj === E[1]) o.shotT = G.time; break; }
     case 'sn': placeSnare(E[1], E[2], new V3(E[3], E[4], E[5]), E[6] || {}); break;
     case 'sp': springSnareFx(E[1], E[2]); break;
     case 'sx': { const s = Game.snares.get(E[1]); if (s) removeSnare(s); break; }
@@ -370,6 +373,10 @@ function stepLocal(a, dt) {
     if (P.self && Game.wells.some(w => w.owner === a.id && w.o.fo && w.t > 0)) speedMul *= 0.65;
     if (pw.charges < P.charges) { pw.rech += dt; if (pw.rech >= P.cd) { pw.rech = 0; pw.charges++; } }
     if (pressed('power') && pw.charges > 0 && !stunned) { pw.charges--; throwWell(a); }
+  } else if (P.key === 'bear') {
+    const r = bearTick(a, dt, pressed, stunned, rooted); speedMul *= r.speed;
+  } else if (P.key === 'raise') {
+    raiseTick(a, dt, pressed, stunned);
   } else if (P.key === 'rewind') {
     // the past, kept ten times a second: where you were, how hurt you were, how loaded; and where your enemies stood
     pw.histT -= dt;
@@ -391,8 +398,9 @@ function stepLocal(a, dt) {
   if (a.utilT > 0) a.utilT -= dt;
   if (pressed('util') && a.utilT <= 0 && !stunned && !isSub(a)) useUtil(a);
   if (a.st.leech) leechTick(a, dt);
-  a.ult = Math.min(100, a.ult + dt * 0.4 * (a.st.unbound || a.st.night ? 0 : 1));
+  a.ult = Math.min(100, a.ult + dt * 0.4 * (a.st.unbound || a.st.night ? 0 : 1) * (a.isBot ? Bots.diff().ult || 1 : 1));
   if (pressed('ult') && a.ult >= 100 && !stunned && !isSub(a)) useUlt(a);
+  if (a.st.stampede > 0) { forced = stampedeTick(a, dt); noFire = true; } else if (a.stampHit) a.stampHit = null;
   // ---------------------------------------------------- movement
   const fwd = flatFwd(a.yaw), right = new V3(-fwd.z, 0, fwd.x);
   const wish = new V3().addScaledVector(fwd, I.fwd).addScaledVector(right, I.side); if (wish.lengthSq() > 1) wish.normalize();
@@ -442,6 +450,7 @@ function weaponTick(a, dt, want, wantReload) {
   a.bloom = Math.max(0, a.bloom - dt * 0.1);
   if (a.fireT > 0) a.fireT -= dt;
   a.fireOn = false;
+  if (isBear(a)) return clawTick(a, dt, want);
   if (W.kind === 'flame') return flameTick(a, dt, want);
   if (W.kind === 'beam') return beamTick(a, dt, want);
   if (W.kind === 'melee') return meleeTick(a, dt, want);
@@ -465,7 +474,7 @@ function shotDir(a, spread, out, yawOff = 0) {
   }
   return out;
 }
-function dmgMul(a) { let d = 1; if ((a.st.strike > 0 && a.P.key === 'blink') || a.st.unbound > 0) d *= 1 + a.P.strike; if (a.st.night > 0) d *= 1.3; return d; }
+function dmgMul(a) { let d = 1; if ((a.st.strike > 0 && a.P.key === 'blink') || a.st.unbound > 0) d *= 1 + a.P.strike; if (a.st.night > 0) d *= 1.3; if (a.st.rage > 0) d *= 1.25; return d; }
 function muzzleStart(a, eye, dir) {
   if (a === Game.me) { const r = new V3(Math.cos(a.yaw), 0, -Math.sin(a.yaw)); return eye.clone().addScaledVector(r, 0.16).add(new V3(0, -0.12, 0)).addScaledVector(dir, 0.5); }
   return eye.clone().addScaledVector(dir, 0.6);
@@ -509,6 +518,7 @@ function flameTick(a, dt, want) {
     if (burnFresh) t._burnT = Game.t;
     hitActor(a, t, W.dps * tick * fo * mul, { fx: burnFresh ? { dot: [W.burn[0], W.burn[1], 'burn'] } : null, how: 'flame' });
   }
+  for (const m of minionsNear(eye, W.range, a)) { const rel = new V3(m.pos.x, m.pos.y + 0.7, m.pos.z).sub(eye); if (rel.normalize().dot(dir) > Math.cos(W.cone)) hurtMinion(m, W.dps * tick * mul * 1.5, a.id); }
 }
 // Tidecaller: lock onto whoever is nearest the crosshair and drink them; the bite grows the longer you hold on
 function beamTarget(a, W) {
@@ -563,6 +573,7 @@ function slash(a) {
     hits.push({ t, d });
   }
   hits.sort((x, y) => x.d - y.d);
+  if (!hits.length) for (const m of minionsNear(a.pos, range + 0.3, a)) { const rel = m.pos.clone().sub(a.pos).setY(0); if (rel.length() < 1 || rel.normalize().dot(flatFwd(a.yaw)) > 0.4) { hurtMinion(m, W.dmg * dmgMul(a), a.id); break; } }
   const list = ambush && P.cleave ? hits : hits.slice(0, 1);
   if (ambush) { a.st.ambush = 0; if (list.length) Sfx.play('ambush', a.pos, 0.9); }
   for (const { t } of list) {
@@ -585,6 +596,7 @@ function shotVisual(a, end, kind) {
   Sfx.play(W.sound, a.pos, 1);
 }
 function muzzleFx(a, hex) {
+  a.shotT = G.time;
   const p = a === Game.me ? View.muzzleWorld(0) : a.model ? a.model.muzzle.getWorldPosition(new V3()) : eyePos(a);
   Fx.burst(p, hex, 5, 2, 0.08, 0.08, { k: 5 }); muzzleLight(p, hex, a === Game.me ? 3 : 5);
   if (a === Game.me) View.flash();
@@ -608,7 +620,7 @@ function rayActor(o, d, a, maxT, pad = 0) {
 }
 
 // ---------------------------------------------------------------- projectiles: bolts, shards, moths, flasks, needles, glaives, lines
-const PROJ = { bolt: { pad: 0.08, life: 4 }, shard: { pad: 0.1, life: 3 }, moth: { pad: 0.3, life: 5 }, flask: { pad: 0.15, life: 5 }, needle: { pad: 0.06, life: 2 }, hand: { pad: 0.08, life: 2.5 }, star: { pad: 0.25, life: 6 }, glaive: { pad: 0.28, life: 6 }, line: { pad: 0.35, life: 1.5 } };
+const PROJ = { axe: { pad: 0.14, life: 4 }, skull: { pad: 0.25, life: 5 }, bolt: { pad: 0.08, life: 4 }, shard: { pad: 0.1, life: 3 }, moth: { pad: 0.3, life: 5 }, flask: { pad: 0.15, life: 5 }, needle: { pad: 0.06, life: 2 }, hand: { pad: 0.08, life: 2.5 }, star: { pad: 0.25, life: 6 }, glaive: { pad: 0.28, life: 6 }, line: { pad: 0.35, life: 1.5 } };
 function projMesh(kind, owner, o) {
   const glow = owner ? owner.H.look.glow : 0xffffff;
   if (kind === 'glaive') return buildGlaive(glow, 1.3);
@@ -620,6 +632,8 @@ function projMesh(kind, owner, o) {
   if (kind === 'hand') return buildHand(glow);
   if (kind === 'star') return buildStar(glow);
   if (kind === 'line') return buildLineHead(glow, o.web);
+  if (kind === 'axe') return buildAxeProj();
+  if (kind === 'skull') return buildSkullProj(glow);
   return new THREE.Mesh(sph(0.12, 8, 6), mGlow(glow, 5));
 }
 function spawnProj(kind, ownerId, pos, vel, o, remote) {
@@ -657,6 +671,10 @@ function projTick(dt) {
       for (const d of Game.decoys) if (d.owner !== p.owner && d.t > 0 && d.pos.clone().setY(d.pos.y + 1).distanceTo(p.pos) < 1.0) { popDecoy(d); popped = true; break; }
       if (popped) { killProj(p); continue; }
     }
+    if (p.local && owner && Minions.list.length && p.kind !== 'line' && !p.o.mn) {
+      const mh = minionRay(p.pos, dir, hitA ? hitA.t : hitT, owner, 0.12);
+      if (mh) { p.pos.addScaledVector(dir, mh.t); hurtMinion(mh.m, (o.d || 30) * (p.kind === 'glaive' ? 1 : 1), owner.id); if (p.kind === 'flask' || p.kind === 'star' || p.kind === 'skull') projImpact(p, { nx: 0, ny: 1, nz: 0 }, owner); else if (p.kind !== 'glaive') killProj(p); else { p.mesh.position.copy(p.pos); } if (p.kind !== 'glaive') continue; }
+    }
     if (hitA) { p.pos.addScaledVector(dir, hitA.t); if (projHitActor(p, hitA, owner)) continue; }
     else if (wh) {
       p.pos.set(wh.x, wh.y, wh.z);
@@ -667,7 +685,9 @@ function projTick(dt) {
       else { projImpact(p, wh, owner); continue; }
     } else p.pos.add(step);
     p.mesh.position.copy(p.pos);
-    if (p.kind === 'glaive') { p.mesh.rotation.y += dt * 22; Fx.spawn('add', p.pos.x, p.pos.y, p.pos.z, 0, 0, 0, 0.8, 2.4, 1.8, 0.12, 0.16); }
+    if (p.kind === 'axe') { p.mesh.lookAt(p.pos.clone().add(p.vel)); p.mesh.rotateX(-p.t * 22); }
+    else if (p.kind === 'skull') { p.mesh.rotation.x += dt * 8; p.mesh.rotation.z += dt * 5; if (Math.random() < 0.5) Fx.spawn('add', p.pos.x, p.pos.y, p.pos.z, 0, 0.3, 0, 1, 3, 1.6, 0.06, 0.4); }
+    else if (p.kind === 'glaive') { p.mesh.rotation.y += dt * 22; Fx.spawn('add', p.pos.x, p.pos.y, p.pos.z, 0, 0, 0, 0.8, 2.4, 1.8, 0.12, 0.16); }
     else p.mesh.lookAt(p.pos.clone().add(p.vel));
     if (p.kind === 'moth') { const w = p.mesh.userData.wings; if (w) { w[0].rotation.z = Math.sin(p.t * 40) * 0.8; w[1].rotation.z = -Math.sin(p.t * 40) * 0.8; } if (Math.random() < 0.4) Fx.spawn('add', p.pos.x, p.pos.y, p.pos.z, 0, 0.2, 0, 2.5, 2, 0.8, 0.05, 0.4); }
     if (p.kind === 'shard') Fx.spawn('add', p.pos.x, p.pos.y, p.pos.z, 0, 0, 0, 1.4, 1.0, 3, 0.06, 0.12);
@@ -680,7 +700,7 @@ function projTick(dt) {
 // returns true when the projectile is finished with
 function projHitActor(p, h, owner) {
   const o = p.o, t = h.a; p.hitSet.add(t.id);
-  if (p.kind === 'star') { projImpact(p, { nx: 0, ny: 1, nz: 0 }, owner); return true; }
+  if (p.kind === 'star' || p.kind === 'skull') { projImpact(p, { nx: 0, ny: 1, nz: 0 }, owner); return true; }
   if (p.kind === 'line') { lineCatch(owner, t); if (++p.hits >= (o.mu || 1)) { killProj(p); return true; } return false; }
   if (p.kind === 'glaive') {
     let d = o.d || 60; if (h.head) d *= 1.5;
@@ -702,6 +722,8 @@ function projHitActor(p, h, owner) {
 }
 function projImpact(p, wh, owner) {
   const o = p.o;
+  if (p.kind === 'skull') { if (p.local && owner) skullLand(p.pos.clone(), owner); Sfx.play('bones', p.pos, 1); killProj(p); return; }
+  if (p.kind === 'axe') { Fx.sparks(p.pos, { x: wh.nx, y: wh.ny, z: wh.nz }, 0xffe0a0, 8); Sfx.play('ricochet', p.pos, 0.5); p.stuck = 2; return; }
   if (p.kind === 'star') { if (p.local && owner) spawnWells(p, owner); Fx.burst(p.pos, owner ? owner.H.look.glow : 0xffa8f0, 20, 4, 0.5, 0.08, { k: 3 }); killProj(p); return; }
   if (p.kind === 'glaive') {
     Fx.sparks(p.pos, { x: wh.nx, y: wh.ny, z: wh.nz }, 0xffe0a0, 10); Sfx.play('glaiveHit', p.pos, 0.7);
@@ -743,6 +765,7 @@ function splash(p, dmg, r, skip) {
     if (!World.clear(p.pos.x, p.pos.y + 0.2, p.pos.z, c.x, c.y, c.z)) continue;
     hitActor(owner, a, dmg * (1 - clamp((d - 0.4) / r, 0, 1) * 0.6), { how: p.kind });
   }
+  for (const m of minionsNear(p.pos, r, owner)) hurtMinion(m, dmg * 0.8, owner.id);
 }
 function stitchHit(owner, t) {
   const s = owner.stitch[t.id] || (owner.stitch[t.id] = { n: 0, t: 0 });
@@ -897,7 +920,7 @@ function ramContacts(a) {
     emit(['fx', 'ram', r2(t.pos.x), r2(t.pos.y + 1), r2(t.pos.z), 0, 0]);
     if (a === Game.me) View.shake(0.6);
     if (!P.multi) { endRam(a, true); return; }
-  }
+  }  for (const m of minionsNear(a.pos.clone().add(fwd), 1.4, a)) if (!pw.hit.has(m.id)) { pw.hit.add(m.id); hurtMinion(m, P.dmg, a.id); }
 }
 // the wrecking ball: carry what you hit on the front of the charge
 function pinTick(a, dt) {
@@ -1102,7 +1125,9 @@ function lineCatch(a, t) {
 function useUtil(a) {
   const U = a.H.util; a.utilT = U.cd;
   const at = a === Game.me ? null : a.pos, here = [r2(a.pos.x), r2(a.pos.y + 1), r2(a.pos.z)];
-  if (U.key === 'heal') { a.st.heal = { rate: 110 / 3, t: 3 }; Sfx.play('heal', at); emit(['fx', 'heal', ...here, 0, 0]); }
+  if (U.key === 'warcry') { warCry(a); Sfx.play('roar', at, 0.9); }
+  else if (U.key === 'ward') boneWard(a);
+  else if (U.key === 'heal') { a.st.heal = { rate: 110 / 3, t: 3 }; Sfx.play('heal', at); emit(['fx', 'heal', ...here, 0, 0]); }
   else if (U.key === 'dash') {
     const I = a.input, fwd = flatFwd(a.yaw), right = new V3(-fwd.z, 0, fwd.x), d = new V3().addScaledVector(fwd, I.fwd).addScaledVector(right, I.side);
     if (d.lengthSq() < 0.01) d.copy(fwd); d.normalize();
@@ -1146,12 +1171,15 @@ function leechTick(a, dt) {
 }
 // ---------------------------------------------------------------- Thane: chain lightning and storm clouds
 function arcFire(a) {
+  a.shotT = G.time;
   const W = a.H.weapon, eye = eyePos(a), d = shotDir(a, W.spread + (Math.hypot(a.vel.x, a.vel.z) > 1 ? W.spreadMove : 0), new V3());
   a.ammo--;
   const wh = World.ray(eye.x, eye.y, eye.z, d.x, d.y, d.z, W.range, a.team), maxT = wh ? wh.t : W.range;
   let best = null; for (const t of Game.actors) { if (!t.alive || !isEnemy(a, t)) continue; const h = rayActor(eye, d, t, maxT, 0.12); if (h && (!best || h.t < best.t)) best = h; }
   const o = a === Game.me ? View.muzzleWorld(0) : (a.model ? a.model.muzzle.getWorldPosition(new V3()) : eye), mul = dmgMul(a);
-  let end = best ? best.pt : eye.clone().addScaledVector(d, maxT);
+  const mh = Minions.list.length ? minionRay(eye, d, best ? best.t : maxT, a, 0.12) : null;
+  if (mh) { best = null; hurtMinion(mh.m, W.dmg * mul, a.id); }
+  let end = mh ? eye.clone().addScaledVector(d, mh.t) : best ? best.pt : eye.clone().addScaledVector(d, maxT);
   emit(['fx', 'arc', r2(o.x), r2(o.y), r2(o.z), [r2(end.x), r2(end.y), r2(end.z)], 0]);
   if (best) {
     hitActor(a, best.a, W.dmg * mul * (best.head ? W.head : 1), { head: best.head, how: 'arc' });
@@ -1256,10 +1284,11 @@ function lanceTick(a, dt, want) {
   if (a.fireT > 0) { a.charge = 0; return; }
   if (want) { const was = a.charge || 0; a.charge = Math.min(W.charge, was + dt); if (a === Game.me && was < W.charge && a.charge >= W.charge) Sfx.play('tick', null, 0.7); return; }
   if ((a.charge || 0) < 0.06) { a.charge = 0; return; }
-  const f = clamp(a.charge / W.charge, 0, 1); a.charge = 0; a.fireT = W.rof;
+  const f = clamp(a.charge / W.charge, 0, 1); a.charge = 0; a.fireT = W.rof; a.shotT = G.time;
   const dmg = lerp(W.dmgMin, W.dmgMax, f * f) * dmgMul(a), eye = eyePos(a), d = aimDir(a.yaw, a.pitch);
   const wh = World.ray(eye.x, eye.y, eye.z, d.x, d.y, d.z, W.range, a.team), maxT = wh ? wh.t : W.range;
   for (const t of Game.actors) { if (!t.alive || !isEnemy(a, t)) continue; const h = rayActor(eye, d, t, maxT, 0.04 + f * 0.1); if (h) hitActor(a, t, dmg * (h.head ? W.head : 1), { head: h.head, how: 'lance' }); }
+  for (const m of Minions.list) { if (!minionEnemyOf(a, m)) continue; const q = new V3(m.pos.x, m.pos.y + 0.75 * (m.o.sz || 1), m.pos.z).sub(eye), u = q.dot(d); if (u > 0 && u < maxT && q.addScaledVector(d, -u).length() < 0.55 * (m.o.sz || 1) + f * 0.1) hurtMinion(m, dmg, a.id); }
   for (const dc of Game.decoys) if (dc.owner !== a.id && dc.t > 0) { const q = dc.pos.clone().setY(dc.pos.y + 1).sub(eye), u = q.dot(d); if (u > 0 && u < maxT && q.addScaledVector(d, -u).length() < 0.6) popDecoy(dc); }
   if (wh && wh.wall) emit(['wh', wh.wall.id, dmg]);
   if (a === Game.me) View.kick(0.02 + f * 0.05);
@@ -1360,6 +1389,8 @@ function useUlt(a) {
   const K = a.H.ult.key; a.ult = 0;
   Sfx.play('ult', a === Game.me ? null : a.pos, 1);
   emit(['fx', 'ult', r2(a.pos.x), r2(a.pos.y + 1), r2(a.pos.z), K, a.id]);
+  if (K === 'stampede') { a.st.stampede = 3; a.stampHit = new Set(); Sfx.play('roar', a === Game.me ? null : a.pos, 1); return; }
+  if (K === 'army') { armyOfTheGrave(a); return; }
   if (K === 'field') { emit(['rv', a.team, 8, a.id]); if (!a.P.auto) a.pw.charges = a.P.carry; emit(['fb', a.id, 8]); }
   else if (K === 'unbound') { a.st.unbound = 8; a.pw.charges = a.P.charges; a.st.fatigue = 0; }
   else if (K === 'slam') {
@@ -1453,6 +1484,9 @@ function decoyTick(dt) {
 }
 function timerTick(dt) { for (let i = Game.timers.length - 1; i >= 0; i--) { const t = Game.timers[i]; t.t -= dt; if (t.t <= 0) { Game.timers.splice(i, 1); try { t.fn(); } catch (e) { /* skip */ } } } }
 function namedFx(name, p, a, b) {
+  if (name === 'roar') { Fx.ring(p.clone().setY(p.y - 1.1), a || 4, 0xff9a4a, 0.5, 5, 0.1); Fx.puff(p, 0x8a6a4a, 10, 0.8, 1.2); Sfx.play('roar', p, 0.9); return; }
+  if (name === 'claw') { const yaw = +b || 0, f = new V3(-Math.sin(yaw), 0, -Math.cos(yaw)), r = new V3(-f.z, 0, f.x); for (let i = -1; i <= 1; i++) { const s = p.clone().addScaledVector(r, -0.9).add(new V3(0, 0.5 + i * 0.25, 0)), e = p.clone().addScaledVector(r, 0.9).add(new V3(0, -0.3 + i * 0.25, 0)); Fx.tracer(s, e, 0xffe0c0, 0.12, 0.05, 3); } if (a) Fx.ring(p.clone().setY(p.y - 1), 3, 0xffe0c0, 0.3, 4); return; }
+  if (name === 'poof') { Fx.puff(p, 0x9a8a7a, 14, 0.9, 1.4); return; }
   if (name === 'boom') { Fx.explosion(p, a || 3, b || 0xff8a3a); Sfx.play('boom', p); }
   else if (name === 'pulse') { Fx.ring(p, a || 4, 0xff8a3a, 0.5, 5, 0.1); Fx.burst(p.clone().setY(p.y + 0.3), 0xffa050, 12, 4, 0.4, 0.06); }
   else if (name === 'seam') { Fx.ring(p.clone().setY(p.y - 0.75), a || 3, 0xb48aff, 0.45, 5); Fx.sphere(p, a || 3, 0xb48aff, 0.25, 2); }
@@ -1498,7 +1532,7 @@ function deathFx(a) {
 }
 
 // ---------------------------------------------------------------- per-frame bookkeeping shared by every copy
-function worldTick(dt) { projTick(dt); snareTick(dt); lanternTick(dt); wellTick(dt); cloudTick(dt); wallTick(dt); zoneTick(dt); decoyTick(dt); timerTick(dt); }
+function worldTick(dt) { minionTick(dt); projTick(dt); snareTick(dt); lanternTick(dt); wellTick(dt); cloudTick(dt); wallTick(dt); zoneTick(dt); decoyTick(dt); timerTick(dt); }
 function actorFlags(a) {
   let f = 0; const s = a.st, pw = a.pw, P = a.P;
   if (a.alive) f |= F_ALIVE; if (a.grounded) f |= F_GROUND; if (s.reveal > 0) f |= F_REVEAL; if (s.root > 0) f |= F_ROOT; if (s.stun > 0) f |= F_STUN;
@@ -1514,6 +1548,7 @@ function actorFlags(a) {
   if (a.fireOn && a.H.weapon.kind === 'flame') f |= F_FLAME; if (a.fireOn && a.H.weapon.kind === 'beam' && a.beamT) f |= F_BEAM;
   if (a.swingT > 0) f |= F_SLASH;
   if (a.charge > 0) f |= F_LANCE;
+  if (isBear(a) || s.stampede > 0) f |= F_BEAR; if (s.stampede > 0) f |= F_CHARGE;
   return f;
 }
 function cloakLevel(a) {

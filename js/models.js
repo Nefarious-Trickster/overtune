@@ -254,6 +254,24 @@ function weaponParts(key, w, look, ac) {
     box(0.012, 0.03, 0.3, 0.004, ac, [0.02, 0, -0.2]);
     return { gripL: [0, 0, -0.24], muzzle: [0, 0, -0.86], hold: [0.1, -0.15, -0.2] };
   }
+  if (key === 'bjorn') {
+    // Hand Axes: a short hickory haft with a bearded iron head
+    cyl(0.018, 0.022, 0.5, WD, [0, 0.05, -0.12], [Math.PI / 2 - 0.3, 0, 0], 8);
+    w(extG([[0, 0], [0.16, 0.04], [0.2, 0.16], [0.12, 0.2], [0.02, 0.1]], 0.02), MT, [0.0, 0.1, -0.36], [Math.PI / 2 - 0.3, Math.PI / 2, 0]);
+    box(0.03, 0.04, 0.06, 0.01, LT, [0, -0.02, 0.06]);
+    box(0.02, 0.012, 0.08, 0.003, ac, [0.012, 0.06, -0.24]);
+    return { muzzle: [0, 0.1, -0.4], hold: [0.12, -0.2, -0.2] };
+  }
+  if (key === 'ossian') {
+    // Sinew Crossbow: a pistol crossbow with rib-bone limbs and a sinew string
+    box(0.05, 0.06, 0.4, 0.015, P_(0x2a3a30, 0.6, 0.1), [0, 0.02, -0.1]); box(0.04, 0.11, 0.05, 0.015, LT, [0, -0.05, 0.06], [0.25, 0, 0]);
+    for (const s of [-1, 1]) w(tubeG([[0, 0.04, -0.28], [s * 0.14, 0.05, -0.26], [s * 0.24, 0.03, -0.18]], 0.013, 6, 10), P_(0xe9dcc2, 0.6, 0));
+    for (const s of [-1, 1]) w(tubeG([[s * 0.24, 0.03, -0.18], [0, 0.045, -0.04]], 0.003, 4, 4), P_(0x9a6a4a, 0.8, 0));
+    w(new THREE.CylinderGeometry(0.007, 0.007, 0.3, 6), P_(0xe9dcc2, 0.6, 0), [0, 0.06, -0.16], [Math.PI / 2, 0, 0]);
+    w(new THREE.SphereGeometry(0.03, 8, 6), G, [0, 0.0, -0.3]);
+    box(0.052, 0.01, 0.12, 0.003, ac, [0, 0.055, -0.06]);
+    return { muzzle: [0, 0.06, -0.34], hold: [0.1, -0.16, -0.22] };
+  }
   if (key === 'sable') {
     // Second Hand: a brass clock-pistol; the dial is the cylinder, the barrel is a long minute hand
     box(0.04, 0.12, 0.05, 0.015, DK, [0, -0.06, 0.04], [0.25, 0, 0]);
@@ -497,7 +515,12 @@ function costume(K, key) {
 }
 
 // ---------------------------------------------------------------- putting a hero together
+// the KayKit models when they've loaded; the old hand-built rigs if they haven't (or fail)
 function buildHero(key, accent) {
+  if (typeof KK !== 'undefined' && KK.has(key)) { try { return KK.build(key, accent); } catch (e) { console.warn('model', key, e); } }
+  return buildHeroProc(key, accent);
+}
+function buildHeroProc(key, accent) {
   const H = HEROES[key], rig = makeRig(RIG_OPT[key]), K = new HeroKit(rig, accent, H.look);
   const info = costume(K, key);
   // the weapon, in the weapon bone's space; its hold is where that bone sits under the aim pivot
@@ -547,6 +570,7 @@ const POLE_R = new V3(0.7, -0.6, 0.5).normalize(), POLE_L = new V3(-0.7, -0.6, 0
 const HAND_REST = new THREE.Quaternion().setFromEuler(new THREE.Euler(1.25, 0, 0));
 // s: { spd, phase, air, pitch, flags, swing, swingSide, t, crouch, look }
 function poseHero(M, s) {
+  if (M.kk) return KK.pose(M, s);
   const B = M.bones, f = s.flags || 0, hunch = M.info.hunch || 0;
   for (const k in B) if (k !== 'weapon' && k !== 'root') B[k].quaternion.identity();
   // legs: a walk cycle with plant and lift; tucked in the air
@@ -586,12 +610,12 @@ function poseHero(M, s) {
   const qL = solveArm(M, 'L', tL, POLE_L);
   B.handL.quaternion.copy(qL).invert().multiply(_qa.copy(aimQ)).multiply(HAND_REST);
 }
-function poseIdle(M, t) { poseHero(M, { spd: 0, phase: 0, air: 0, pitch: -0.05, flags: 0, t }); }
+function poseIdle(M, t) { if (M.kk) return KK.pose(M, { spd: 0, air: 0, pitch: -0.05, flags: 0, t }, 0.4); poseHero(M, { spd: 0, phase: 0, air: 0, pitch: -0.05, flags: 0, t }); }
 
 // ---------------------------------------------------------------- the first-person view: forearms, hands and the weapon
 function buildViewmodel(key) {
   const H = HEROES[key], L = H.look, vm = new THREE.Group(), ac = P_(0x2a8aa0, 0.4, 0.6);
-  const VP = { marrow: [0.2, -0.25, -0.52, 0.8], lark: [0.2, -0.2, -0.42, 0.9], gauge: [0.23, -0.29, -0.52, 0.78], veil: [0.2, -0.22, -0.4, 1], ivra: [0.2, -0.23, -0.46, 0.85], wick: [0.25, -0.14, -0.56, 0.75], mire: [0.22, -0.24, -0.5, 0.75], spindle: [0.2, -0.23, -0.46, 0.9], sable: [0.2, -0.22, -0.44, 0.95], orrin: [0.19, -0.22, -0.46, 0.85], thane: [0.2, -0.22, -0.42, 0.95] }[key] || [0.2, -0.2, -0.4, 1];
+  const VP = { bjorn: [0.22, -0.26, -0.5, 0.85], ossian: [0.2, -0.22, -0.44, 0.95], marrow: [0.2, -0.25, -0.52, 0.8], lark: [0.2, -0.2, -0.42, 0.9], gauge: [0.23, -0.29, -0.52, 0.78], veil: [0.2, -0.22, -0.4, 1], ivra: [0.2, -0.23, -0.46, 0.85], wick: [0.25, -0.14, -0.56, 0.75], mire: [0.22, -0.24, -0.5, 0.75], spindle: [0.2, -0.23, -0.46, 0.9], sable: [0.2, -0.22, -0.44, 0.95], orrin: [0.19, -0.22, -0.46, 0.85], thane: [0.2, -0.22, -0.42, 0.95] }[key] || [0.2, -0.2, -0.4, 1];
   const sleeve = key === 'gauge' ? P_(L.metal, 0.35, 0.85) : key === 'ivra' ? P_(0xb8873a, 0.3, 0.95) : key === 'spindle' ? P_(L.main, 0.55, 0.2) : P_(L.main, 0.6, 0.15);
   const glove = key === 'gauge' ? P_(0x3a3632, 0.45, 0.7) : key === 'spindle' ? P_(0xe0d6c4, 0.8, 0) : key === 'mire' ? P_(L.skin, 0.65, 0) : key === 'wick' ? P_(0xe8d8b0, 0.4, 0) : P_(0x2a2420, 0.7, 0.05);
   const groups = {};
@@ -615,6 +639,8 @@ function buildViewmodel(key) {
   if (key === 'marrow') { const s = buildSnare(TEAM_HEX[0]); s.scale.setScalar(0.38); s.position.set(0.02, 0.06, -0.06); s.rotation.x = 0.6; O.g.add(s); extra.prop = s; }
   if (key === 'ivra') { const g = buildGlaive(L.glow, 1.2); g.position.set(0.02, 0.1, -0.02); g.rotation.set(0.2, 0, 1.2); O.g.add(g); extra.prop = g; }
   if (key === 'lark' || key === 'spindle' || key === 'mire' || key === 'sable' || key === 'orrin' || key === 'thane') { const o = new THREE.Mesh(sph(0.05, 14, 10), mGlow(L.glow, 6)); o.position.set(0, 0.07, -0.05); O.g.add(o); extra.orb = o; const r = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.006, 6, 24), mGlow(0xffffff, 4)); r.position.copy(o.position); O.g.add(r); extra.ring = r; }
+  if (key === 'bjorn') { const c = new THREE.Group(); for (const s of [-1, 1]) for (let i = 0; i < 3; i++) { const k = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.16, 6), mStd(0xf0e6d0, 0.45, 0)); k.position.set(s * 0.2 + (i - 1) * 0.03, -0.2, -0.42); k.rotation.set(-1.2, 0, (i - 1) * 0.2); c.add(k); } c.visible = false; vm.add(c); extra.claws = c; }
+  if (key === 'ossian') { const s = buildSkullProj(L.glow); s.scale.setScalar(0.3); s.position.set(0.02, 0.06, -0.06); O.g.add(s); extra.prop = s; }
   if (key === 'wick') { const l = buildLantern(L.glow); l.scale.setScalar(0.35); l.position.set(0.0, -0.05, -0.05); O.g.add(l); extra.prop = l; }
   for (const k in groups) { const geos = groups[k].pb.bake(false); for (const t of ['lit', 'glow']) if (geos[t]) { const m = new THREE.Mesh(geos[t], heroMat(t === 'lit' ? 'lit' : 'glow')); m.frustumCulled = false; m.userData.base = m.material; groups[k].g.add(m); } }
   const muzzle = new THREE.Object3D(); muzzle.position.set(...hold.muzzle); R.g.add(muzzle);
@@ -658,6 +684,17 @@ function buildWall(teamHex) {
   const base = new THREE.Mesh(roundBox(5.3, 0.16, 0.34, 0.05), frame); base.position.y = 0.08; g.add(base);
   const top = new THREE.Mesh(roundBox(5.1, 0.04, 0.05, 0.01), mGlow(teamHex, 4)); top.position.y = 3.05; g.add(top);
   g.userData = { panel, hex };
+  return g;
+}
+function buildAxeProj() {
+  const n = typeof KK !== 'undefined' && KK.ready && KK.T.Barbarian.nodes['1H_Axe'];
+  if (n) { const g = new THREE.Group(), m = n.clone(true); m.position.set(0, 0, 0); m.rotation.set(-Math.PI / 2, 0, 0); m.scale.setScalar(0.8); m.visible = true; g.add(m); return g; }
+  const g = new THREE.Group(); g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.5, 6), mStd(0x6a4a2a))); g.add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.14, 0.02), mStd(0x9aa4ac, 0.3, 0.8))); g.children[1].position.set(0.08, 0.18, 0); g.rotation.x = -Math.PI / 2; return g;
+}
+function buildSkullProj(glow) {
+  const g = new THREE.Group(), bone = mStd(0xe9dcc2, 0.7, 0); const s = new THREE.Mesh(sph(0.2, 12, 10), bone); s.scale.set(1, 0.95, 1.05); g.add(s);
+  const j = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.08, 0.18), bone); j.position.set(0, -0.17, 0.04); g.add(j);
+  for (const x of [-0.07, 0.07]) { const e = new THREE.Mesh(sph(0.045, 8, 6), mGlow(glow, 4)); e.position.set(x, 0.02, 0.17); g.add(e); }
   return g;
 }
 function buildBolt() { const g = new THREE.Group(); const s = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.6, 6), mStd(0x6a5a44, 0.5, 0.2)); s.rotation.x = Math.PI / 2; g.add(s); const h = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.1, 4), mStd(0x8a8f96, 0.3, 0.9)); h.rotation.x = -Math.PI / 2; h.position.z = -0.34; g.add(h); for (const r of [0, Math.PI / 2]) { const f = new THREE.Mesh(new THREE.PlaneGeometry(0.06, 0.1), mStd(0xd8cfb8, 0.8, 0)); f.position.z = 0.26; f.rotation.set(Math.PI / 2, r, 0); g.add(f); } return g; }
@@ -723,7 +760,7 @@ function buildLightPool(r) {
 }
 function buildZoneDisk(kind, r) {
   const cv = document.createElement('canvas'); cv.width = cv.height = 128; const c = cv.getContext('2d');
-  const col = kind === 'fire' ? [255, 120, 30] : kind === 'bog' ? [80, 140, 40] : [150, 255, 90];
+  const col = kind === 'fire' ? [255, 120, 30] : kind === 'bog' ? [80, 140, 40] : kind === 'bone' ? [235, 225, 200] : [150, 255, 90];
   const gr = c.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, `rgba(${col},0.9)`); gr.addColorStop(0.8, `rgba(${col},0.55)`); gr.addColorStop(1, `rgba(${col},0)`);
   c.fillStyle = gr; c.fillRect(0, 0, 128, 128);
   for (let i = 0; i < 40; i++) { c.fillStyle = `rgba(${col.map(v => Math.min(255, v + 60))},${rand(0.2, 0.6)})`; c.beginPath(); c.arc(rand(20, 108), rand(20, 108), rand(2, 8), 0, TAU); c.fill(); }

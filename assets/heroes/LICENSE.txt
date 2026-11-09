@@ -1,0 +1,7 @@
+Character models and animations: KayKit Adventurers Character Pack (1.0), KayKit Skeletons Character Pack (1.0)
+Created/distributed by Kay Lousberg (www.kaylousberg.com)
+License: Creative Commons Zero, CC0 — http://creativecommons.org/publicdomain/zero/1.0/
+Free to use in personal, educational and commercial projects. Thank you, Kay!
+
+The files here are trimmed for the web: animations removed from each body and shared from anims.glb
+(a subset of the clips, with constant tracks removed and rotations quantised).

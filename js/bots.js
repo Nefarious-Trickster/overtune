@@ -6,16 +6,18 @@ const BOT_DIFF = [
   // react: delay before shooting a new target; err: aim wobble; track: how fast the aim catches up; tol: how lined-up a shot must be;
   // see: sight range; power: how often powers get used well; hs: chance to aim for the head; lead: how well shots lead a mover;
   // dmg: damage dealt; hunt: how much they go for human players; iri: always bring both Iridescents
-  { name: 'Recruit', react: 0.42, err: 0.065, track: 6.5, tol: 0.065, see: 0.95, power: 0.7, hs: 0.05, lead: 0.6, dmg: 0.9, hunt: 0 },
-  { name: 'Veteran', react: 0.22, err: 0.032, track: 11, tol: 0.038, see: 1.15, power: 0.95, hs: 0.18, lead: 0.85, dmg: 1.05, hunt: 3 },
-  { name: 'Elite', react: 0.11, err: 0.014, track: 19, tol: 0.022, see: 1.35, power: 1.0, hs: 0.35, lead: 0.95, dmg: 1.18, hunt: 6 },
-  { name: 'Overtuned', react: 0.06, err: 0.007, track: 28, tol: 0.016, see: 1.6, power: 1.0, hs: 0.5, lead: 1.0, dmg: 1.3, hunt: 9, iri: true },
+  { name: 'Recruit', react: 0.42, err: 0.065, track: 6.5, tol: 0.065, see: 0.95, power: 0.7, hs: 0.05, lead: 0.6, dmg: 0.9, hp: 1, hunt: 0, hear: 4, dodge: 0, ult: 1 },
+  { name: 'Veteran', react: 0.2, err: 0.028, track: 12, tol: 0.035, see: 1.15, power: 0.95, hs: 0.2, lead: 0.9, dmg: 1.12, hp: 1, hunt: 4, hear: 12, dodge: 0.25, ult: 1.1 },
+  { name: 'Elite', react: 0.1, err: 0.012, track: 20, tol: 0.024, see: 1.4, power: 1.0, hs: 0.4, lead: 1.0, dmg: 1.35, hp: 1.15, hunt: 8, hear: 25, dodge: 0.55, ult: 1.3 },
+  { name: 'Overtuned', react: 0.045, err: 0.005, track: 32, tol: 0.022, see: 1.8, power: 1.0, hs: 0.6, lead: 1.0, dmg: 1.65, hp: 1.4, hunt: 14, hear: 999, dodge: 0.9, ult: 1.7, iri: true },
 ];
 // how each hero likes to fight. pref: the range it wants; band: slack around it; retreat: health fraction at which it backs off;
 // kite: backpedal when an enemy gets this close; perch: hold high ground; flank: chance to circle behind the target;
 // stalk: approach unseen from behind; rush: close in no matter what; light: fight inside its own lanterns; dive: jump onto targets
 const STYLE = {
   marrow: { pref: 24, band: 5, retreat: 0.4, kite: 10, perch: true, flank: 0, peek: true },
+  bjorn: { pref: 11, band: 4, retreat: 0.25, flank: 0.3, jumpy: 0.2 },
+  ossian: { pref: 20, band: 5, retreat: 0.4, kite: 9, perch: true },
   lark: { pref: 13, band: 4, retreat: 0.3, kite: 0, flank: 0.35, jumpy: 0.25 },
   gauge: { pref: 3.5, band: 1, retreat: 0.12, rush: true },
   veil: { pref: 1.6, band: 0.6, retreat: 0.45, flank: 1, stalk: true },
@@ -28,6 +30,7 @@ const STYLE = {
   thane: { pref: 18, band: 4, retreat: 0.3, kite: 8, flank: 0.2 },
 };
 const PREF_RANGE = new Proxy({}, { get: (_, k) => (STYLE[k] || { pref: 14 }).pref });
+const BEAR_STYLE = { pref: 1.8, band: 0.6, retreat: 0.08, rush: true, jumpy: 0.15 };
 // what bots slot: better add-ons on harder settings; on Overtuned, always both Iridescents
 function botLoadout(hero, df) {
   const A = HEROES[hero].addons, iri = A.filter(a => a.r === 4).map(a => a.idx);
@@ -67,7 +70,7 @@ const Bots = {
     const p = o.renderPos || o.pos;
     const fwd = flatFwd(a.yaw), rel = new V3(p.x - a.pos.x, 0, p.z - a.pos.z).normalize();
     const recent = this.brain(a).threat === o && Game.t - this.brain(a).threatT < 2;
-    if (rel.dot(fwd) < -0.2 && !recent && d > 4) return false;
+    if (rel.dot(fwd) < -0.2 && !recent && d > (this.diff().hear || 4)) return false;
     if (d > 70 * this.diff().see) return false;
     return World.clear(a.pos.x, a.pos.y + PHYS.eye, a.pos.z, p.x, p.y + 1.2, p.z);
   },
@@ -89,6 +92,8 @@ const Bots = {
         const d = a.pos.distanceTo(o.renderPos || o.pos), s = d + o.hp * 0.04 - (o.isBot ? 0 : D.hunt || 0) - (o === b.target ? 8 : 0) - (o === b.threat && Game.t - b.threatT < 3 ? 6 : 0) + (vis ? 0 : 20);
         if (s < bs) { bs = s; best = o; best._vis = vis; }
       }
+      // skeletons are worth shooting when they're close and nothing better is
+      for (const m of Minions.list) { if (!minionEnemyOf(a, m)) continue; const d = a.pos.distanceTo(m.pos); if (d > 20 || !World.clear(a.pos.x, a.pos.y + 1.6, a.pos.z, m.pos.x, m.pos.y + 0.8, m.pos.z)) continue; const s = d + 9 - (m.target === a ? 7 : 0); if (s < bs) { bs = s; best = m; best._vis = true; } }
       const vis = best ? best._vis : false;
       if (best && best !== b.target) { b.react = D.react * (vis ? 1 : 0.5) + Math.random() * 0.1; b.err.set(rand(-1, 1), rand(-0.5, 0.5), rand(-1, 1)).multiplyScalar(D.err * 6); }
       b.target = best; b.vis = vis;
@@ -99,11 +104,15 @@ const Bots = {
     b.react -= dt;
 
     // --- where to go
-    let moveDir = null; const pref = PREF_RANGE[me];
+    let moveDir = null; const pref = isBear(a) ? BEAR_STYLE.pref : PREF_RANGE[me];
     if (T && b.vis) {
       // fight, the way this hero fights
       let followed = false; const fol = (g) => { followed = true; return this.follow(a, b, g, dt); };
-      const S = STYLE[me] || { pref: 14, band: 3, retreat: 0.3 };
+      const S = isBear(a) ? BEAR_STYLE : STYLE[me] || { pref: 14, band: 3, retreat: 0.3 };
+      if (D.dodge && !T.isBot && T.yaw != null && (b.dodgeT = (b.dodgeT || 0) - dt) <= 0) {
+        const te = eyePos(T), ad = aimDir(T.yaw, T.pitch || 0), rel = chest(a).sub(te), L = rel.length();
+        if (L > 2 && ad.dot(rel.divideScalar(L)) > Math.cos(Math.max(0.05, 0.9 / L))) { b.dodgeT = rand(0.25, 0.6); if (Math.random() < D.dodge) { b.strafe *= -1; b.strafeT = rand(0.2, 0.5); if (Math.random() < D.dodge * 0.45) I.jump = true; } }
+      }
       b.strafeT -= dt; if (b.strafeT <= 0) { b.strafeT = rand(0.5, 1.6); b.strafe = Math.random() < 0.5 ? -1 : 1; if (Math.random() < (S.jumpy || 0.12)) I.jump = true; b.flankNow = Math.random() < (S.flank || 0); }
       const to = tp.clone().sub(a.pos).setY(0); const dn = to.length(); to.normalize();
       const side = new V3(-to.z, 0, to.x).multiplyScalar(b.strafe);
@@ -179,7 +188,7 @@ const Bots = {
     a.yaw += angDiff(a.yaw, aimYaw) * k; a.pitch = clamp(lerp(a.pitch, aimPitch, k), -1.4, 1.4);
     const aimErr = Math.abs(angDiff(a.yaw, aimYaw - b.err.x)) + Math.abs(a.pitch - (aimPitch - b.err.y));
     // --- shoot
-    const W = a.H.weapon;
+    const W = isBear(a) ? { kind: 'melee', range: a.P.reach } : a.H.weapon;
     const inRange = W.kind === 'lance' ? dist < 80 : W.kind === 'flame' ? dist < W.range - 0.5 : W.kind === 'beam' ? dist < W.range - 1 : W.kind === 'melee' ? dist < W.range + 0.4 : W.proj === 'flask' ? dist < 30 : W.proj === 'moth' ? dist < 40 : dist < 70;
     const loose = W.kind === 'flame' ? 0.25 : W.kind === 'beam' ? W.cone * 0.8 : W.kind === 'melee' ? 0.6 : W.proj === 'moth' ? 0.2 : 0;
     if (T && b.vis && b.react <= 0 && inRange && aimErr < D.tol + loose + 0.6 / Math.max(2, dist)) I.fire = true;
@@ -259,12 +268,14 @@ const Bots = {
       if (U === 'grapple' && !vis && cool('grapple', rand(8, 16)) && Math.random() < 0.4) I.util = true;
       if (U === 'boltstep' && ((vis && dist > 8 && dist < 20 && a.hp > a.maxHp * 0.5 && cool('bolt', rand(2, 5))) || (vis && a.hp < a.maxHp * 0.3 && Game.t - b.threatT < 1.5))) I.util = true;
       if (U === 'float' && ((vis && a.hp < a.maxHp * 0.4 && Game.t - b.threatT < 1.5) || (!vis && cool('float', rand(10, 20)) && Math.random() < 0.3))) I.util = true;
+      if (U === 'warcry' && vis && dist < 12 && cool('cry', 1)) I.util = true;
+      if (U === 'ward' && a.hp < a.maxHp * 0.55 && Game.t - b.threatT < 2) I.util = true;
       if (U === 'haste' && ((vis && (dist > 16 || a.ammo === 0)) || (a.hp < a.maxHp * 0.3 && Game.t - b.threatT < 2))) I.util = true;
     }
     // ultimates
     if (a.ult >= 100) {
       const K = a.H.ult.key, near = Game.actors.filter(o => o.alive && isEnemy(a, o) && o.pos.distanceTo(a.pos) < 7).length;
-      if ((K === 'field' && (!vis || Game.t - b.seenT > 3)) || (K === 'unbound' && vis && a.hp > a.maxHp * 0.4) || (K === 'slam' && near >= 1 && dist < 6) || (K === 'night' && vis && dist < 25) || (K === 'storm' && vis && dist < 24) || (K === 'flare' && [...Game.lanterns.values()].some(L => L.owner === a.id && Game.actors.some(o => o.alive && isEnemy(a, o) && o.pos.distanceTo(L.pos) < L.r))) || (K === 'tide' && near >= 1) || (K === 'cradle' && vis && dist < 20) || (K === 'stop' && (near >= 2 || (vis && dist < 14))) || (K === 'meteor' && vis && dist < 38) || (K === 'tempest' && (near >= 1 || (vis && dist < 15)))) I.ult = true;
+      if ((K === 'field' && (!vis || Game.t - b.seenT > 3)) || (K === 'unbound' && vis && a.hp > a.maxHp * 0.4) || (K === 'slam' && near >= 1 && dist < 6) || (K === 'night' && vis && dist < 25) || (K === 'storm' && vis && dist < 24) || (K === 'flare' && [...Game.lanterns.values()].some(L => L.owner === a.id && Game.actors.some(o => o.alive && isEnemy(a, o) && o.pos.distanceTo(L.pos) < L.r))) || (K === 'tide' && near >= 1) || (K === 'cradle' && vis && dist < 20) || (K === 'stop' && (near >= 2 || (vis && dist < 14))) || (K === 'meteor' && vis && dist < 38) || (K === 'tempest' && (near >= 1 || (vis && dist < 15))) || (K === 'stampede' && vis && dist < 15 && Math.abs(T.pos.y - a.pos.y) < 1.5) || (K === 'army' && (near >= 1 || (vis && dist < 18)))) I.ult = true;
     }
     if (key === 'marrow') {
       b.snareT -= dt;
@@ -327,6 +338,12 @@ const Bots = {
       if (P.stopOnly) I.power = !a.prev.power && pw.charges > 0 && vis && dist < P.freezeR - 1.5 && (Game.actors.filter(o => o.alive && isEnemy(a, o) && o.pos.distanceTo(a.pos) < P.freezeR).length >= 2 || a.hp < a.maxHp * 0.5 || dist < 5) && cool('rewind', 0.4);
       else if (P.anchor) I.power = !a.prev.power && pw.charges > 0 && ((!pw.anchor && vis && dist < 18 && a.hp > a.maxHp * 0.7) || (pw.anchor && (a.hp < a.maxHp * 0.35 || Game.t - pw.anchor.t > P.anchor - 1))) && cool('rewind', 0.5);
       else I.power = !a.prev.power && pw.charges > 0 && to && ((gain > 70) || (a.hp < a.maxHp * 0.25 && Game.t - b.threatT < 1.5) || (P.arrive || P.freeze ? (T && to && T.pos.distanceTo(new V3(to.x, to.y, to.z)) < (P.freezeR || 4)) : false)) && cool('rewind', 0.6);
+    } else if (key === 'bjorn') {
+      if (P.perm) I.power = !a.prev.power && pw.cd <= 0 && vis && dist > 4 && dist < 14 && cool('pounce', 0.5);
+      else if (pw.state === 'man') I.power = !a.prev.power && pw.cd <= 0 && vis && (dist < 9 || (a.hp < a.maxHp * 0.45 && dist < 16)) && cool('bear', 0.4);
+      else I.power = !a.prev.power && !!P.wolf && a.hp < a.maxHp * 0.35 && cool('bear', 1);
+    } else if (key === 'ossian') {
+      I.power = !a.prev.power && pw.charges > 0 && ((vis && dist < (P.bomb ? 30 : P.range)) || (!P.bomb && !vis && T && Game.t - b.seenT < 2)) && b.react <= 0 && cool('raise', P.bomb ? rand(0.4, 1.2) : rand(0.8, 2));
     } else if (key === 'spindle') {
       I.power = !a.prev.power && pw.charges > 0 && vis && dist > 4 && dist < P.range * 0.85 && b.react <= 0 && cool('line', rand(0.6, 1.6));
     }

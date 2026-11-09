@@ -143,6 +143,8 @@ const View = {
     else if (this.throwT > 0 && P.key !== 'glaive') this.throwT -= dt;
     if (this.blinkT > 0) this.blinkT -= dt;
     off.visible = offOn;
+    // Bjorn as the bear: the axe goes away and the claws come out
+    if (V.extra.claws) { const b = isBear(me); V.extra.claws.visible = b; R.visible = !b; if (b && this.slashT > 0) V.extra.claws.position.set(Math.sin(this.slashT * 20) * 0.04, 0.03, -0.06 * Math.sin(this.slashT * 10)); else V.extra.claws.position.set(0, 0, 0); }
     if (P.key === 'ram') { const r = pw.state === 'rev' || pw.state === 'charge'; R.position.x += r ? 0.06 : 0; R.rotation.z += r ? -0.25 : 0; R.position.y += r ? -0.06 : 0; }
     // a faded Veil sees her own hands faded too
     const cl = cloakLevel(me), fadeLook = cl > 0.5 || me.st.night > 0;
@@ -269,7 +271,7 @@ const HUD = {
     if (W.kind === 'flame') { const oh = me.overheat > 0; $('#ammo-num').textContent = oh ? 'VENT' : Math.round(me.heat * 100) + '%'; $('#ammo-max').textContent = ' heat'; $('#ammo').classList.toggle('reload', oh); $('#reload-fill').style.transform = `scaleX(${oh ? 1 - me.overheat / W.lockout : me.heat})`; }
     else if (W.kind === 'beam') { $('#ammo-num').textContent = Math.round(me.tide); $('#ammo-max').textContent = ' tide'; $('#ammo').classList.toggle('reload', me.tide < 10); $('#reload-fill').style.transform = `scaleX(${me.tide / 100})`; }
     else if (W.kind === 'lance') { const c = clamp((me.charge || 0) / W.charge, 0, 1); $('#ammo-num').textContent = me.fireT > 0 ? '—' : c >= 1 ? 'MAX' : Math.round(c * 100) + '%'; $('#ammo-max').textContent = ' charge'; $('#ammo').classList.toggle('reload', me.fireT > 0); $('#reload-fill').style.transform = `scaleX(${c})`; }
-    else if (W.kind === 'melee') { $('#ammo-num').textContent = '∞'; $('#ammo-max').textContent = ''; $('#ammo').classList.remove('reload'); $('#reload-fill').style.transform = 'scaleX(0)'; }
+    else if (W.kind === 'melee' || isBear(me)) { $('#ammo-num').textContent = isBear(me) ? 'CLAWS' : '∞'; $('#ammo-max').textContent = ''; $('#ammo').classList.remove('reload'); $('#reload-fill').style.transform = 'scaleX(0)'; }
     else { $('#ammo-num').textContent = me.reloadT > 0 ? '—' : me.ammo; $('#ammo-max').textContent = '/' + W.mag; $('#ammo').classList.toggle('reload', me.reloadT > 0); $('#reload-fill').style.transform = `scaleX(${me.reloadT > 0 ? 1 - me.reloadT / W.reload : 0})`; }
     this.powerWidget(me);
     const uf = me.utilT > 0 ? me.utilT / me.H.util.cd : 0;
@@ -282,7 +284,7 @@ const HUD = {
     if (st.charm) chips.push(['PUPPETED', 'bad']); if (st.vulnT > 0) chips.push(['VULNERABLE', 'bad']); if (st.blind > 0) chips.push(['BLINDED', 'bad']); if (st.shield) chips.push(['SHELL', 'good']); if (st.swift > 0) chips.push(['SWIFT', 'good']);
     if (st.fatigue > 0) chips.push(['FATIGUED', 'bad']); if (st.reveal > 0) chips.push(['REVEALED', 'bad']); if (st.dots && st.dots.length) chips.push([{ poison: 'POISONED', burn: 'BURNING', acid: 'MELTING' }[st.dots[0].kind] || 'BLEEDING', 'bad']);
     if (st.strike > 0 && me.P.key === 'blink') chips.push(['RIFT STRIKE', 'good']); if (st.ambush > 0) chips.push(['AMBUSH READY', 'good']); if (st.unbound > 0) chips.push(['UNBOUND ' + Math.ceil(st.unbound), 'good']); if (st.night > 0) chips.push(['NIGHTFALL ' + Math.ceil(st.night), 'good']);
-    if (me.spawnProt > 0) chips.push(['PROTECTED', 'good']);
+    if (me.spawnProt > 0) chips.push(['PROTECTED', 'good']); if (st.rage > 0) chips.push(['WAR CRY ' + Math.ceil(st.rage), 'good']); if (st.stampede > 0) chips.push(['STAMPEDE', 'good']);
     const ch = chips.map(c => `<span class="${c[1]}">${c[0]}</span>`).join(''); if (ch !== this.chipsWas) { $('#status').innerHTML = ch; this.chipsWas = ch; }
     this.header(M, me);
     // feed ageing
@@ -320,6 +322,8 @@ const HUD = {
     else if (P.key === 'lantern') { if (P.carried) label = 'CARRIED'; else { pips = pipHTML(pw.charges, P.carry); if (pw.chan > 0) { bar = 1 - pw.chan / P.walk; label = 'WALKING'; state = 'charging'; } else if (pw.placing > 0) label = 'LIGHTING'; else if (pw.walkCd > 0) cd = pw.walkCd; else if (pw.charges < P.carry) bar = pw.rech / P.recharge; } }
     else if (P.key === 'sub') { if (pw.state === 'under') { bar = 1 - pw.t / P.maxTime; label = 'SUBMERGED'; state = 'active'; } else if (pw.state === 'sinking') { label = 'SINKING'; state = 'charging'; } else if (pw.cd > 0) cd = pw.cd; }
     else if (P.key === 'line') { pips = pipHTML(pw.charges, P.charges); if (pw.charges < P.charges) bar = pw.rech / P.cd; }
+    else if (P.key === 'bear') { if (P.perm) { label = 'BEAST'; cd = pw.cd; state = 'active'; } else if (pw.state === 'bear') { bar = P.wolf ? 1 : pw.t / P.dur; label = P.wolf ? 'WOLF' : 'BEAR'; state = 'active'; } else cd = pw.cd; }
+    else if (P.key === 'raise') { pips = pipHTML(pw.charges, P.charges); if (pw.charges < P.charges) bar = pw.rech / P.cd; const up = Minions.list.filter(m => m.owner === me.id && !m.dead).length; if (up && !P.bomb) label = up + ' RISEN'; }
     else if (P.key === 'cloud') { pips = pipHTML(pw.charges, P.charges); if (pw.charges < P.charges) bar = pw.rech / P.cd; if (P.perm) label = 'STORM RIDING'; const held = P.capacitor && Game.clouds.find(c => c.owner === me.id && c.o.cap && c.t > 0); if (held) { bar = (held.chg || 0) / P.capacitor; label = 'CHARGED ' + Math.floor(held.chg || 0); state = 'active'; } }
     else if (P.key === 'well') { pips = pipHTML(pw.charges, P.charges); if (pw.charges < P.charges) bar = pw.rech / P.cd; }
     else if (P.key === 'rewind') { pips = pipHTML(pw.charges, P.charges); if (pw.anchor) { bar = 1 - (Game.t - pw.anchor.t) / P.anchor; label = 'ANCHORED'; state = 'active'; } else if (pw.charges < P.charges) bar = pw.rech / P.cd; }
@@ -374,7 +378,7 @@ function fmtTime(t) { t = Math.max(0, Math.ceil(t)); return Math.floor(t / 60) +
 function scoreText(t) { const M = Game.match; if (!M) return 0; if (M.mode === 'koth') return Math.floor(M.sc[t]) + '%'; if (M.mode === 'elim') return M.rd.w[t]; return Math.floor(M.sc[t]); }
 function howName(k, how) {
   if (!k) return how;
-  const map = { snare: k.H.power.name, blink: 'Rift Step', ram: 'Ramjet', glaive: 'Glaive', ambush: 'Ambush', backstab: 'Backstab', knives: 'Whisper Knives', slam: k.H.ult.name, burn: 'Burning', bleed: 'Bleed', poison: 'Venom', acid: 'Acid', flame: 'Boiler', beam: 'Tidecaller', furnace: 'Furnace', lantern: 'Lantern', beacon: 'Beacon', flare: k.H.ult.name, geyser: 'Geyser', drown: 'Drowned', line: 'Marionette Line', leech: k.H.util.name, cradle: k.H.ult.name, heart: k.H.ult.name, bolt: 'Rattlejaw', shard: 'Shardcaster', moth: 'Moth Swarm', flask: "Brewer's Flasks", needle: 'Thread Needles', hand: 'Second Hand', rewind: 'Rewind', stop: k.H.ult.name, lance: 'Star Lance', well: 'Gravity Well', meteor: 'Meteor Shower', arc: 'Arc Caster', cloud: 'Thunderhead', tempest: 'Tempest', boltstep: 'Bolt Step' };
+  const map = { claw: 'Claws', stampede: 'Stampede', minion: 'Skeleton', wolf: 'Wolf Hunger', roar: 'War Cry', axe: 'Hand Axe', snare: k.H.power.name, blink: 'Rift Step', ram: 'Ramjet', glaive: 'Glaive', ambush: 'Ambush', backstab: 'Backstab', knives: 'Whisper Knives', slam: k.H.ult.name, burn: 'Burning', bleed: 'Bleed', poison: 'Venom', acid: 'Acid', flame: 'Boiler', beam: 'Tidecaller', furnace: 'Furnace', lantern: 'Lantern', beacon: 'Beacon', flare: k.H.ult.name, geyser: 'Geyser', drown: 'Drowned', line: 'Marionette Line', leech: k.H.util.name, cradle: k.H.ult.name, heart: k.H.ult.name, bolt: 'Rattlejaw', shard: 'Shardcaster', moth: 'Moth Swarm', flask: "Brewer's Flasks", needle: 'Thread Needles', hand: 'Second Hand', rewind: 'Rewind', stop: k.H.ult.name, lance: 'Star Lance', well: 'Gravity Well', meteor: 'Meteor Shower', arc: 'Arc Caster', cloud: 'Thunderhead', tempest: 'Tempest', boltstep: 'Bolt Step' };
   return map[how] || how;
 }
 
@@ -394,6 +398,8 @@ function powerStats(heroKey, addons) {
   if (P.key === 'cloud') { if (P.perm) { row('Storm over you', 'perm', yes); opt('Smite damage', 'smite', n); opt('Surge lasts', 'surge', s); row('Cooldown', 'cd', s, -1); } else if (P.capacitor) { row('Stored charges', 'capacitor', n); row('Cooldown', 'cd', s, -1); row('Lasts', 'dur', s); row('Strike radius', 'radius', m); } else { row('Clouds', 'charges', n); row('Cooldown', 'cd', s, -1); row('Lasts', 'dur', s); row('Strike radius', 'radius', m); row('Strike every', 'every', s, -1); row('Strike damage', 'dmg', n); } opt('Targets per strike', 'multi', n); opt('Jumps to', 'chains', n); opt('Stun', 'stun', s); opt('Reveal', 'reveal', s); opt('Vulnerable', 'vuln', s); opt('Drifts at', 'follow', v => v + ' m/s'); opt('Rain slow', 'rain', v => Math.round((1 - v) * 100) + '%'); opt('Refunds ammo', 'refund', yes); }
   if (P.key === 'well') { row('Wells', 'charges', n); row('Cooldown', 'cd', s, -1); row('Pull radius', 'radius', m); row(P.push ? 'Push strength' : 'Pull strength', 'pull', v => (Math.round(v * 10) / 10) + ' m/s'); row('Lasts', 'dur', s); row('Throw speed', 'speed', v => Math.round(v) + ' m/s'); opt('Damage inside', 'dps', ps); opt('Slow inside', 'slow', v => Math.round((1 - v) * 100) + '%'); opt('Reveals', 'reveal', yes); opt('Implosion', 'implode', n); opt('Lifts enemies', 'lift', yes); opt('Pushes instead', 'push', yes); opt('Centre damage', 'horizon', ps); opt('Two wells per throw', 'twin', yes); opt('Destroys below', 'exec', pct); opt('You are the well', 'self', yes); }
   if (P.key === 'rewind') { if (P.anchor) row('Anchor lasts', 'anchor', s); else row('Reaches back', 'back', s); row('Rewinds', 'charges', n); row('Cooldown', 'cd', s, -1); row('Restores health', 'heal', yes); opt('Bonus heal', 'bonus', n); opt('Reloads', 'reload', yes); opt('Silent', 'silent', yes); opt('Cleanses', 'cleanse', yes); opt('Echo lasts', 'decoy', s); opt('Departure blast', 'depart', n); opt('Arrival blast', 'arrive', n); opt('Sand slow', 'sand', s); opt('Cheats death', 'paradox', yes); opt('Drags a victim back', 'retro', yes); opt('Freezes nearby for', 'freeze', s); opt('Stops time instead', 'stopOnly', yes); }
+  if (P.key === 'bear') { if (P.perm) { row('Always the beast', 'perm', yes); row('Pounce cooldown', 'cd', s, -1); } else { row('Lasts', 'dur', v => v >= 99 ? 'As long as you like' : s(v)); row('Cooldown', 'cd', s, -1); row('Armor', 'armor', n); } row('Claw damage', 'claw', n); row('Swipe every', 'rate', s, -1); row('Reach', 'reach', m); row('Speed', 'speed', pct); row('Size', 'size', pct); opt('Lifesteal', 'lifesteal', pct); opt('Roar slows for', 'roar', s); opt('Heal on changing back', 'revert', n); opt('Pounce', 'pounce', yes); opt('Bleed', 'bleed', n); opt('Stun every 3rd swipe', 'maul', s); opt('Landing slam', 'slam', n); opt('Berserk bonus', 'berserk', pct); opt('Kill adds', 'extend', s); opt('Sense enemies within', 'sense', m); opt('Swipes all round', 'circle', yes); opt('Wolf', 'wolf', yes); opt('Health drain', 'drain', ps, -1); }
+  if (P.key === 'raise') { if (P.bomb) { row('Throws', 'charges', n); row('Recharge', 'cd', s, -1); row('Burst damage', 'bomb', () => '70'); } else { row('Raises', 'charges', n); row('Recharge each', 'cd', s, -1); row('Up at once', 'max', n); row('Skeleton health', 'hp', n); row('Claw damage', 'dmg', n); row('Attack every', 'rate', s, -1); row('Run speed', 'speed', v => (Math.round(v * 10) / 10) + ' m/s'); row('Lasts', 'life', s); row('Range', 'range', m); } opt('Slowing claws', 'slow', s); opt('Reveal nearby', 'reveal', yes); opt('Burst on death', 'explode', n); opt('Archers', 'archer', yes); opt('Heal per hit', 'heal', n); opt('Guard you', 'guard', yes); opt('Pack bonus', 'pack', pct); opt('Rise again', 'again', yes); opt('Poison', 'poison', n); opt('Colossus', 'giant', yes); }
   if (P.key === 'line') { row('Lines', 'charges', n); row('Recharge', 'cd', s, -1); row('Range', 'range', m); row('Line speed', 'speed', v => Math.round(v) + ' m/s'); row('Damage', 'dmg', n); opt('Stun', 'stun', s); opt('Vulnerable', 'vuln', s); opt('Slow', 'slow', s); opt('Swap places', 'swap', yes); opt('Choke (root)', 'choke', s); if (P.multi > 1) row('Catches up to', 'multi', n); opt('Gallows: hurl up', 'gallows', yes); opt('Puppet for', 'puppet', s); opt('Web', 'web', yes); opt('Meet them halfway', 'meet', yes); }
   return out;
 }
@@ -630,12 +636,13 @@ const Showcase = {
     const S = this.SPOTS[this.map], M = this.model, cam = G.camera, inLoadout = UI.cur === 'loadout';
     M.root.rotation.y = S.yaw + Math.sin(this.t * 0.3) * 0.25;
     // a hero at ease: weapon lowered, weight shifting, cloth stirring
-    poseHero(M, { spd: 0, phase: 0, air: 0, pitch: -0.42 + Math.sin(this.t * 0.8) * 0.03, flags: 0, t: this.t });
-    M.bones.thighR.rotation.x += 0.08; M.bones.thighL.rotation.x -= 0.06; M.bones.thighL.rotation.z -= 0.05; M.bones.shinL.rotation.x -= 0.12;
+    if (M.kk) { KK.pose(M, { spd: 0, air: 0, pitch: 0, flags: 0, t: this.t, relaxed: true }); if (this.t - (this.flourishT || 0) > 7) { this.flourishT = this.t; KK.once(M, pick(['Cheer', 'Taunt', 'Interact', (M.L.style || STYLE_KK.r2).shoot].flat()), 1, 'upper'); } }
+    else poseHero(M, { spd: 0, phase: 0, air: 0, pitch: -0.42 + Math.sin(this.t * 0.8) * 0.03, flags: 0, t: this.t });
+    if (!M.kk) { M.bones.thighR.rotation.x += 0.08; M.bones.thighL.rotation.x -= 0.06; M.bones.thighL.rotation.z -= 0.05; M.bones.shinL.rotation.x -= 0.12;
     M.bones.hips.rotation.z = Math.sin(this.t * 0.7) * 0.02; M.bones.head.rotation.y = Math.sin(this.t * 0.37) * 0.25;
-    M.bones.cape.rotation.x += Math.sin(this.t * 2.1) * 0.06; M.bones.tail.rotation.x += Math.sin(this.t * 1.7) * 0.03;
+    M.bones.cape.rotation.x += Math.sin(this.t * 2.1) * 0.06; M.bones.tail.rotation.x += Math.sin(this.t * 1.7) * 0.03; }
     const fwd = new V3(-Math.sin(S.yaw), 0, -Math.cos(S.yaw)), right = new V3(-fwd.z, 0, fwd.x);
-    const off = inLoadout ? -1.25 : 0.85, dist = (inLoadout ? 3.4 : 4.2) - this.pop * 0.3;
+    const off = inLoadout ? -1.25 : 0.85, dist = (inLoadout ? 3.4 : 4.2) + (M.kk ? (inLoadout ? 1.0 : 0.5) : 0) - this.pop * 0.3;
     const look = new V3(S.x, S.y + 1.15, S.z).addScaledVector(right, off * (inLoadout ? 1.25 : 0.6));
     const want = new V3(S.x, S.y + 1.45, S.z).addScaledVector(fwd, dist).addScaledVector(right, off + Math.sin(this.t * 0.15) * 0.3);
     if (cam.position.distanceTo(want) > 10) cam.position.copy(want); else cam.position.lerp(want, 1 - Math.exp(-3 * dt));

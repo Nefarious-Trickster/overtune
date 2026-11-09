@@ -158,7 +158,7 @@ const SHIMMER_MAT = new THREE.MeshStandardMaterial({ color: 0x101018, metalness:
 const XRAY_MAT = { enemy: new THREE.MeshBasicMaterial({ color: hdrCol(0xff2040, 1.6), transparent: true, opacity: 0.4, depthTest: false, depthWrite: false }), ally: new THREE.MeshBasicMaterial({ color: hdrCol(0x2ee6ff, 1.2), transparent: true, opacity: 0.25, depthTest: false, depthWrite: false }) };
 function setLook(a, look) {
   if (a.look === look) return; a.look = look;
-  for (const m of a.model.meshes) m.material = look === 'shimmer' ? SHIMMER_MAT : m.userData.base;
+  for (const m of a.model.allMeshes || a.model.meshes) m.material = look === 'shimmer' ? SHIMMER_MAT : m.userData.base;
   a.model.root.visible = look !== 'hidden' && a.alive !== false;
 }
 function setXray(a, kind) {
@@ -237,7 +237,10 @@ function drawActor(a, dt) {
   // death: the legs go, the body folds and topples, then sinks away
   if (!a.alive) {
     if (a.fx) for (const k in a.fx) if (a.fx[k] && a.fx[k].isObject3D) a.fx[k].visible = false;
-    if (An.death > 0) {
+    if (An.death > 0 && M.kk) {
+      An.death += dt; KK.die(M); KK.pose(M, { t: M.t }, dt); M.body.position.y = -Math.max(0, An.death - 2.0) * 0.6;
+      M.root.visible = a !== me && An.death < 3.6; setXray(a, null);
+    } else if (An.death > 0) {
       An.death += dt; const k = Math.min(1, An.death / 0.6), e = k * k;
       poseHero(M, { spd: 0, phase: 0, air: 0, pitch: -0.6 * e, flags: 0, t: M.t, crouch: e * 0.9 });
       M.body.rotation.x = -e * 1.45; M.body.position.y = -Math.max(0, An.death - 1.8) * 0.6 + e * 0.15; M.body.position.z = e * 0.4;
@@ -246,6 +249,7 @@ function drawActor(a, dt) {
     return;
   }
   M.body.rotation.x = 0; M.body.position.z = 0;
+  if (M.kk && M.dead) KK.revive(M);
   // walking
   const hs = Math.hypot(a.vel.x, a.vel.z); An.spd = damp(An.spd, hs, 10, dt);
   const fwd = flatFwd(a.yaw), along = (a.vel.x * fwd.x + a.vel.z * fwd.z) >= -0.5 ? 1 : -1;
@@ -254,14 +258,19 @@ function drawActor(a, dt) {
   if (An.swing > 0) { An.swing += dt; if (An.swing > 0.45) An.swing = 0; }
   An.crouch = damp(An.crouch || 0, f & F_PLACE ? 0.8 : 0, 10, dt);
   An.sub = damp(An.sub || 0, f & F_SUB ? 1 : 0, 6, dt);
-  poseHero(M, { spd: An.spd, phase: An.phase, air: An.air, pitch: a.pitch, flags: f, swing: An.swing, swingSide: a.swingSide || 1, t: M.t, crouch: An.crouch });
+  if (M.kk) { const r = new V3(-fwd.z, 0, fwd.x); if ((a.shotT || 0) !== M.shotSeen) { M.shotSeen = a.shotT || 0; KK.fire(M); } if (An.swing > 0 && !M.swung) { M.swung = true; KK.fire(M); } if (!(An.swing > 0)) M.swung = false; }
+  poseHero(M, { spd: An.spd, phase: An.phase, air: An.air, pitch: a.pitch, flags: f, swing: An.swing, swingSide: a.swingSide || 1, t: M.t, crouch: An.crouch, vf: a.vel.x * fwd.x + a.vel.z * fwd.z, vs: a.vel.x * -fwd.z + a.vel.z * fwd.x });
   // Submerge: Mire sinks into the ground, leaving a ripple
   M.body.position.y = -An.sub * 2.1;
+  // the bear (and the stampede) is a bigger animal
+  const big = f & F_BEAR ? (a.st && a.st.stampede > 0 ? 1.55 : local && a.P.key === 'bear' ? a.P.size : 1.35) : 1;
+  M.scaleK = damp(M.scaleK || 1, big, 8, dt); M.body.scale.setScalar(M.scaleK);
+  if (f & F_BEAR && f & F_CHARGE && Math.random() < dt * 60) Fx.spawn('add', p.x + rand(-0.8, 0.8), p.y + rand(0.2, 2.2), p.z + rand(-0.8, 0.8), 0, 1, 0, 3, 1.6, 0.6, 0.12, 0.5);
   if (An.sub > 0.3 && Math.random() < dt * 10) Fx.spawn('add', p.x + rand(-0.5, 0.5), p.y + 0.05, p.z + rand(-0.5, 0.5), 0, 0.6, 0, 0.6, 1.4, 0.4, 0.1, 0.5);
   if (a.hitFlash > 0) a.hitFlash -= dt;
   // ram trail, boiler smoke, blink glow, heal motes
   if (f & F_CHARGE && Math.random() < dt * 40) Fx.spawn('add', p.x + rand(-0.3, 0.3), p.y + rand(0.3, 1.6), p.z + rand(-0.3, 0.3), -fwd.x * 6, rand(0, 1), -fwd.z * 6, 4, 1.6, 0.4, 0.12, 0.3, 2);
-  if ((f & F_REV || a.heroKey === 'gauge') && Math.random() < dt * (f & F_REV ? 24 : 3)) { const q = M.bones.chest.localToWorld(new V3(rand(-0.13, 0.13), 0.78, 0.3)); Fx.spawn('smoke', q.x, q.y, q.z, 0, 1.5, 0, 0.25, 0.22, 0.2, 0.25, 1.0, 1, -0.3, 1); }
+  if ((f & F_REV || a.heroKey === 'gauge') && Math.random() < dt * (f & F_REV ? 24 : 3)) { const q = M.extra.smoke ? M.extra.smoke.getWorldPosition(new V3()).add(new V3(rand(-0.15, 0.15), 0, 0)) : M.bones.chest.localToWorld(new V3(rand(-0.13, 0.13), 0.78, 0.3)); Fx.spawn('smoke', q.x, q.y, q.z, 0, 1.5, 0, 0.25, 0.22, 0.2, 0.25, 1.0, 1, -0.3, 1); }
   if (f & F_BLINKCH && Math.random() < dt * 30) Fx.spawn('add', p.x + rand(-0.5, 0.5), p.y + rand(0.2, 1.8), p.z + rand(-0.5, 0.5), 0, 0.5, 0, 1.4, 1.0, 3, 0.07, 0.4);
   if (f & F_UNBOUND && Math.random() < dt * 20) Fx.spawn('add', p.x + rand(-0.4, 0.4), p.y + rand(0.2, 1.8), p.z + rand(-0.4, 0.4), 0, 1, 0, 2.4, 1.6, 4, 0.08, 0.5);
   if (f & F_HEAL && Math.random() < dt * 12) Fx.spawn('add', p.x + rand(-0.4, 0.4), p.y + rand(0.2, 1.4), p.z + rand(-0.4, 0.4), 0, 1.2, 0, 0.6, 3, 1.4, 0.06, 0.7);
@@ -323,6 +332,7 @@ const Flow = {
     for (const z of Game.zones) G.scene.remove(z.mesh); Game.zones = [];
     for (const w of Game.wells) G.scene.remove(w.mesh); Game.wells = [];
     for (const c of Game.clouds) G.scene.remove(c.mesh); Game.clouds = [];
+    clearMinions();
     Game.timers = [];
     scrubHeroes(Showcase.model ? [Showcase.model.root] : []);
     Bots.B.clear(); Game.me = null; Game.match = null;

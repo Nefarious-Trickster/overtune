@@ -4,7 +4,7 @@
 // add-ons, its hero's state, and a rolling log of events. The host (earliest to join) also publishes the bots
 // and the match itself (mode, map, scores, clock, zone, rounds).
 // ============================================================================
-const NET_V = 6;
+const NET_V = 7;
 const Net = {
   room: null, chan: null, code: null, uid: 'p' + Math.random().toString(36).slice(2, 8), jt: null, joinT: 0, status: 'idle', open: [],
   seq: 0, ring: [], lastSend: 0, peers: new Map(), hostUid: null, lastAdv: null, team: 0, ready: false, _seen: new Set(), _conn: null,
