@@ -7,7 +7,7 @@
 const F_ALIVE = 1, F_GROUND = 2, F_CLOAK = 4, F_FADING = 8, F_REVEAL = 16, F_ROOT = 32, F_STUN = 64, F_CHARGE = 128, F_REV = 256, F_WIND = 512, F_BLINKCH = 1024, F_FATIGUE = 2048, F_NIGHT = 4096, F_UNBOUND = 8192, F_HEAL = 16384, F_SLOW = 32768, F_PLACE = 65536, F_PROT = 131072, F_SUB = 262144, F_FLAME = 524288, F_BEAM = 1048576, F_CHANNEL = 2097152, F_ORBIT = 4194304, F_SHIELD = 8388608, F_SLASH = 16777216, F_LANCE = 33554432;
 const RESPAWN_T = 7;
 
-const Game = { state: 'menu', actors: [], byId: new Map(), me: null, t: 0, match: null, snares: new Map(), lanterns: new Map(), projs: [], zones: [], wells: [], decoys: [], walls: new Map(), timers: [], seq: 0 };
+const Game = { state: 'menu', actors: [], byId: new Map(), me: null, t: 0, match: null, snares: new Map(), lanterns: new Map(), projs: [], zones: [], wells: [], clouds: [], decoys: [], walls: new Map(), timers: [], seq: 0 };
 const BOT_NAMES = ['Vesper', 'Rook', 'Tallow', 'Quill', 'Ashby', 'Sorrel', 'Kestrel', 'Grist', 'Marlow', 'Pike', 'Wren', 'Thane', 'Juniper', 'Cobalt', 'Hollis', 'Reed', 'Sable', 'Moss', 'Dray', 'Fennick', 'Ottoline', 'Bram', 'Cinder', 'Lowe'];
 
 function isEnemy(a, b) { if (!a || !b || a === b) return false; if (Game.match && Game.match.mode === 'ffa') return a.id !== b.id; return a.team !== b.team; }
@@ -41,7 +41,7 @@ function removeActor(a) {
 function setHero(a, key, addons) {
   const changed = a.heroKey !== key || a.modelTeam !== modelColorFor(a) || JSON.stringify(a.addons) !== JSON.stringify(addons);
   a.heroKey = key; a.H = HEROES[key]; a.addons = (addons || []).slice(0, 2); a.P = powerFor(key, a.addons);
-  a.maxHp = Math.round(a.H.hp * (a.P.perma ? 0.6 : 1));
+  a.maxHp = Math.round(a.H.hp * (a.P.perma ? 0.8 : 1));
   if (!a.alive) a.hp = a.maxHp; else a.hp = Math.min(a.hp, a.maxHp);
   resetKit(a);
   if (changed || !a.model) rebuildModel(a);
@@ -66,6 +66,7 @@ function resetKit(a) {
   if (P.key === 'lantern') a.pw = { charges: P.carry, rech: 0, placing: 0, hold: 0, chan: 0, chanTo: null, walkCd: 0, n: 0 };
   if (P.key === 'sub') a.pw = { state: 'up', t: 0, cd: 0, trailT: 0, drownAcc: {} };
   if (P.key === 'line') a.pw = { charges: P.charges, rech: 0 };
+  if (P.key === 'cloud') a.pw = { charges: P.charges, rech: 0, n: 0 };
   if (P.key === 'well') a.pw = { charges: P.charges, rech: 0, n: 0 };
   if (P.key === 'rewind') a.pw = { charges: P.charges, rech: 0, hist: [], ehist: [], histT: 0, anchor: null };
 }
@@ -216,6 +217,8 @@ function onEvent(E, remote) {
       Sfx.play('reveal'); break;
     }
     case 'fb': { for (const s of Game.snares.values()) if (s.owner === E[1]) s.boostT = E[2]; break; }
+    case 'cl': placeCloud2(E[1], E[2], new V3(E[3], E[4], E[5]), E[6] || {}); break;
+    case 'cm': { const c = Game.clouds.find(x => x.id === E[1]); if (c && remote) c.goal = new V3(E[2], E[3], E[4]); break; }
     case 'wv': placeWell(E[1], E[2], new V3(E[3], E[4], E[5]), E[6] || {}); break;
     case 'zn': addZone(E[1], new V3(E[2], E[3], E[4]), E[5], E[6], E[7], E[8], E[9] || 1); break;
     case 'dc': { const a = Game.byId.get(E[1]); if (a) spawnDecoy(a, new V3(E[2], E[3], E[4]), E[5], E[6] || 3); break; }
@@ -348,6 +351,10 @@ function stepLocal(a, dt) {
   } else if (P.key === 'line') {
     if (pw.charges < P.charges) { pw.rech += dt; if (pw.rech >= P.cd) { pw.rech = 0; pw.charges++; } }
     if (pressed('power') && pw.charges > 0 && !stunned) { pw.charges--; fireLine(a); }
+  } else if (P.key === 'cloud') {
+    if (pw.charges < P.charges) { pw.rech += dt; if (pw.rech >= P.cd) { pw.rech = 0; pw.charges++; } }
+    if (P.perm && !Game.clouds.some(c => c.owner === a.id && c.o.pm)) emit(['cl', a.id + '#perm' + ((pw.n = (pw.n | 0) + 1)), a.id, r2(a.pos.x), r2(a.pos.y), r2(a.pos.z), Object.assign(cloudPack(P), { pm: 1, ri: 1, ev: 0.8, r: 9, dm: 50, d: 9999 })]);
+    if (pressed('power') && pw.charges > 0 && !stunned) { pw.charges--; if (P.smite) smite(a); else placeCloud(a); }
   } else if (P.key === 'well') {
     if (pw.charges < P.charges) { pw.rech += dt; if (pw.rech >= P.cd) { pw.rech = 0; pw.charges++; } }
     if (pressed('power') && pw.charges > 0 && !stunned) { pw.charges--; throwWell(a); }
@@ -432,7 +439,8 @@ function weaponTick(a, dt, want, wantReload) {
   if (!want || a.fireT > 0) return;
   if (a.P.key === 'sub' && a.pw.state === 'under') { if (a.P.artillery) { artilleryFlask(a); a.ammo--; a.fireT = W.rof * 1.2; } return; }
   if (W.burst) { a.burstLeft = W.burst; a.burstT = 0; return weaponTick(a, 0, false, false); }
-  fireProj(a); a.fireT = W.rof;
+  if (W.kind === 'arc') arcFire(a); else fireProj(a);
+  a.fireT = W.rof;
 }
 const _r = new V3(), _u = new V3();
 function shotDir(a, spread, out, yawOff = 0) {
@@ -1056,6 +1064,12 @@ function useUtil(a) {
     const f = flatFwd(a.yaw); a.vel.y = 11.5; a.vel.x += f.x * 5; a.vel.z += f.z * 5; a.grounded = false; a.leapT = 1.2;
     Sfx.play('leap', at); emit(['fx', 'leap', r2(a.pos.x), r2(a.pos.y), r2(a.pos.z), 0, 0]);
   } else if (U.key === 'shell') { a.st.shield = { hp: 100, t: 4 }; Sfx.play('wall', at); emit(['fx', 'shell', ...here, 0, 0]); }
+  else if (U.key === 'boltstep') {
+    const f = flatFwd(a.yaw), from = a.pos.clone(), hit = new Set();
+    for (let i = 0; i < 18; i++) { const before = a.pos.clone(); a.vel.set(f.x * 30, 0, f.z * 30); World.moveBody(a, 1 / 60); if (before.distanceTo(a.pos) < 0.1) break; for (const t of Game.actors) if (t.alive && isEnemy(a, t) && !hit.has(t) && !isSub(t) && (t.renderPos || t.pos).distanceTo(a.pos) < 1.4) { hit.add(t); hitActor(a, t, 30, { fx: { stun: 0.3 }, how: 'boltstep' }); } }
+    a.vel.set(f.x * 4, 0, f.z * 4);
+    emit(['fx', 'arc', r2(from.x), r2(from.y + 1), r2(from.z), [r2(a.pos.x), r2(a.pos.y + 1), r2(a.pos.z)], 1]); Sfx.play('zap', at, 1);
+  }
   else if (U.key === 'float') { a.vel.y = Math.max(a.vel.y, 8.5); a.grounded = false; a.st.float = 2.5; Sfx.play('leap', at); emit(['fx', 'leap', r2(a.pos.x), r2(a.pos.y), r2(a.pos.z), 0, 0]); }
   else if (U.key === 'haste') { a.st.swift = 3; if (a.H.weapon.mag) { a.ammo = a.H.weapon.mag; a.reloadT = 0; } Sfx.play('dash', at); emit(['fx', 'dash', ...here, 0, 0]); }
   else if (U.key === 'leech') { a.st.leech = { t: 3, acc: 0 }; Sfx.play('leech', at); emit(['fx', 'leech', ...here, 7, 0]); }
@@ -1074,6 +1088,90 @@ function leechTick(a, dt) {
   }
   if (L.t <= 0) a.st.leech = null;
 }
+// ---------------------------------------------------------------- Thane: chain lightning and storm clouds
+function arcFire(a) {
+  const W = a.H.weapon, eye = eyePos(a), d = shotDir(a, W.spread + (Math.hypot(a.vel.x, a.vel.z) > 1 ? W.spreadMove : 0), new V3());
+  a.ammo--;
+  const wh = World.ray(eye.x, eye.y, eye.z, d.x, d.y, d.z, W.range, a.team), maxT = wh ? wh.t : W.range;
+  let best = null; for (const t of Game.actors) { if (!t.alive || !isEnemy(a, t)) continue; const h = rayActor(eye, d, t, maxT, 0.12); if (h && (!best || h.t < best.t)) best = h; }
+  const o = a === Game.me ? View.muzzleWorld(0) : (a.model ? a.model.muzzle.getWorldPosition(new V3()) : eye), mul = dmgMul(a);
+  let end = best ? best.pt : eye.clone().addScaledVector(d, maxT);
+  emit(['fx', 'arc', r2(o.x), r2(o.y), r2(o.z), [r2(end.x), r2(end.y), r2(end.z)], 0]);
+  if (best) {
+    hitActor(a, best.a, W.dmg * mul * (best.head ? W.head : 1), { head: best.head, how: 'arc' });
+    const hit = new Set([best.a]); let from = best.a, k = W.jumpMul;
+    for (let j = 0; j < W.jumps; j++) {
+      let nx = null, nd = W.jumpR; const fp = chest(from);
+      for (const t of Game.actors) { if (!t.alive || !isEnemy(a, t) || hit.has(t) || isSub(t)) continue; const c = chest(t), dd = c.distanceTo(fp); if (dd < nd && World.clear(fp.x, fp.y, fp.z, c.x, c.y, c.z)) { nd = dd; nx = t; } }
+      if (!nx) break;
+      const c = chest(nx); emit(['fx', 'arc', r2(fp.x), r2(fp.y), r2(fp.z), [r2(c.x), r2(c.y), r2(c.z)], 0]);
+      hitActor(a, nx, W.dmg * mul * k, { how: 'arc' }); hit.add(nx); from = nx; k *= W.jumpMul;
+    }
+  } else if (wh && wh.wall) emit(['wh', wh.wall.id, W.dmg]);
+  if (a === Game.me) { View.kick(W.recoil); View.flash(); }
+}
+function cloudPack(P) { return { d: P.dur, ev: P.every, dm: P.dmg, r: P.radius, ch: P.chains, mu: P.multi, st: P.stun, rv: P.reveal, vu: P.vuln, fo: P.follow, rn: P.rain, rf: P.refund ? 1 : 0 }; }
+function placeCloud(a) {
+  const e = eyePos(a), d = aimDir(a.yaw, a.pitch), h = World.ray(e.x, e.y, e.z, d.x, d.y, d.z, 38, -9), c = h ? new V3(h.x, h.y, h.z).addScaledVector(d, -0.3) : e.clone().addScaledVector(d, 38);
+  c.y = World.groundAt(c.x, c.z, c.y + 0.5);
+  emit(['cl', a.id + '#c' + ((a.pw.n = (a.pw.n | 0) + 1)), a.id, r2(c.x), r2(c.y), r2(c.z), cloudPack(a.P)]);
+  Sfx.play('zap', a === Game.me ? null : a.pos, 0.6); if (a === Game.me) View.throwAnim();
+}
+function smite(a) {
+  const e = eyePos(a), d = aimDir(a.yaw, a.pitch), h = World.ray(e.x, e.y, e.z, d.x, d.y, d.z, 45, -9), c = h ? new V3(h.x, h.y, h.z) : e.clone().addScaledVector(d, 45);
+  c.y = World.groundAt(c.x, c.z, c.y + 0.5);
+  emit(['fx', 'smite', r2(c.x), r2(c.y), r2(c.z), 3, 0]);
+  for (const t of Game.actors) if (t.alive && isEnemy(a, t) && !isSub(t) && (t.renderPos || t.pos).distanceTo(c) < 3.2) hitActor(a, t, a.P.smite, { fx: { stun: 0.6 }, how: 'cloud' });
+  if (a === Game.me) View.throwAnim();
+}
+function placeCloud2(id, ownerId, pos, o) {
+  if (Game.clouds.some(c => c.id === id)) return;
+  const owner = Game.byId.get(ownerId), r = clamp(+o.r || 6, 1, 24);
+  const c = { id, owner: ownerId, pos: pos.clone(), o, r, t: clamp(+o.d || 6, 0.5, 9999), ev: clamp(+o.ev || 1, 0.2, 5), strikeT: 0.5, moveT: 0, goal: null, mesh: buildCloud(r, owner ? owner.H.look.glow : 0x8ad8ff) };
+  c.mesh.position.set(pos.x, pos.y + 8, pos.z); G.scene.add(c.mesh); Game.clouds.push(c);
+  if (!o.pm) Sfx.play('zap', pos, 0.6);
+}
+function cloudTick(dt) {
+  for (let i = Game.clouds.length - 1; i >= 0; i--) {
+    const c = Game.clouds[i], o = c.o, owner = Game.byId.get(c.owner);
+    c.t -= dt;
+    if (!owner || (o.pm && (!owner.alive || owner.P.key !== 'cloud' || !owner.P.perm))) c.t = 0;
+    // riding storms sit over their caller; wandering ones drift after the nearest enemy
+    if (o.ri && owner) { const p = owner.renderPos || owner.pos; c.pos.set(p.x, p.y, p.z); }
+    else if (o.fo && owner) {
+      if (!owner.remote) { let best = null, bd = 30; for (const t of Game.actors) { if (!t.alive || !isEnemy(owner, t)) continue; const d = t.pos.distanceTo(c.pos); if (d < bd) { bd = d; best = t; } } if (best) c.goal = best.pos.clone(); c.moveT -= dt; if (c.moveT <= 0) { c.moveT = 0.5; emit(['cm', c.id, r2(c.pos.x), r2(c.pos.y), r2(c.pos.z)]); } }
+      if (c.goal) { const v = c.goal.clone().sub(c.pos).setY(0), L = v.length(); if (L > 0.3) c.pos.addScaledVector(v.normalize(), Math.min(L, o.fo * dt)); c.pos.y = lerp(c.pos.y, World.groundAt(c.pos.x, c.pos.z, c.pos.y + 3), Math.min(1, dt * 2)); }
+    }
+    c.mesh.position.set(c.pos.x, c.pos.y + (o.ri ? 4.2 : 8), c.pos.z); c.mesh.rotation.y += dt * 0.3;
+    c.mesh.userData.puffs.forEach((m, k) => { m.position.y = Math.sin(G.time * 0.8 + k) * 0.15; });
+    if (Math.random() < dt * (o.rn ? 40 : 6)) { const a = Math.random() * TAU, rr = Math.random() * c.r * 0.8; Fx.spawn('add', c.pos.x + Math.cos(a) * rr, c.mesh.position.y - 0.8, c.pos.z + Math.sin(a) * rr, 0, -9, 0, 0.6, 0.9, 1.3, 0.03, 0.8); }
+    if (owner && !owner.remote && owner.alive !== undefined) {
+      if (o.rn) for (const t of Game.actors) if (t.alive && isEnemy(owner, t) && Math.hypot(t.pos.x - c.pos.x, t.pos.z - c.pos.z) < c.r && (c.rainT = (c.rainT || 0) - dt) <= -0.25) { c.rainT = 0; hitActor(owner, t, 0, { fx: { slow: [o.rn, 0.4] }, how: 'cloud' }); }
+      c.strikeT -= dt;
+      if (c.strikeT <= 0) {
+        c.strikeT = c.ev;
+        const near = Game.actors.filter(t => t.alive && isEnemy(owner, t) && !isSub(t) && Math.hypot(t.pos.x - c.pos.x, t.pos.z - c.pos.z) < c.r && t.pos.y < c.pos.y + 8).sort((x, y) => x.pos.distanceTo(c.pos) - y.pos.distanceTo(c.pos)).slice(0, Math.max(1, o.mu | 0));
+        const top = new V3(c.pos.x, c.mesh.position.y - 0.6, c.pos.z);
+        for (const t of near) {
+          const q = chest(t); emit(['fx', 'strike', r2(q.x), r2(q.y), r2(q.z), [r2(top.x), r2(top.y), r2(top.z)], 0]);
+          const fx = {}; if (o.st) fx.stun = o.st; if (o.rv) fx.reveal = o.rv; if (o.vu) fx.vuln = [1.25, o.vu];
+          hitActor(owner, t, +o.dm || 45, { fx, how: 'cloud' });
+          if (o.rf && owner.H.weapon.mag) owner.ammo = Math.min(owner.H.weapon.mag, owner.ammo + 2);
+          // and the bolt forks on to others nearby
+          const hit = new Set([t]); let from = t;
+          for (let j = 0; j < (o.ch | 0); j++) {
+            let nx = null, nd = 7; const fp = chest(from);
+            for (const u of Game.actors) { if (!u.alive || !isEnemy(owner, u) || hit.has(u) || isSub(u)) continue; const d = chest(u).distanceTo(fp); if (d < nd) { nd = d; nx = u; } }
+            if (!nx) break; const cq = chest(nx); emit(['fx', 'arc', r2(fp.x), r2(fp.y), r2(fp.z), [r2(cq.x), r2(cq.y), r2(cq.z)], 0]);
+            hitActor(owner, nx, (+o.dm || 45) * 0.7, { fx, how: 'cloud' }); hit.add(nx); from = nx;
+          }
+        }
+      }
+    }
+    if (c.t <= 0) { G.scene.remove(c.mesh); Game.clouds.splice(i, 1); }
+  }
+}
+
 // ---------------------------------------------------------------- Orrin: the star lance and gravity wells
 function lanceTick(a, dt, want) {
   const W = a.H.weapon;
@@ -1190,6 +1288,13 @@ function useUlt(a) {
       for (const t of Game.actors) if (t.alive && isEnemy(a, t) && !isSub(t) && chest(t).distanceTo(l.pos) < l.r + 0.5 && World.clear(l.pos.x, l.pos.y + 1.2, l.pos.z, t.pos.x, t.pos.y + 1.2, t.pos.z)) hitActor(a, t, 80, { fx: { blind: 2.5 }, how: 'flare' });
     }
   } else if (K === 'tide') emit(['zn', 'bog', r2(a.pos.x), r2(a.pos.y), r2(a.pos.z), 8, 35, 6, a.id, 0.6]);
+  else if (K === 'tempest') {
+    emit(['fx', 'stop', r2(a.pos.x), r2(a.pos.y + 1), r2(a.pos.z), 18, 0]);
+    for (let i = 0; i < 8; i++) later(0.2 + i * 0.8, () => {
+      if (!Game.match || !a.alive) return;
+      for (const t of Game.actors) if (t.alive && isEnemy(a, t) && !isSub(t) && t.pos.distanceTo(a.pos) < 18 && World.clear(a.pos.x, a.pos.y + 1.4, a.pos.z, t.pos.x, t.pos.y + 1.2, t.pos.z)) { const c = chest(t); emit(['fx', 'strike', r2(c.x), r2(c.y), r2(c.z), 0, 0]); hitActor(a, t, 35, { fx: { slow: [0.7, 0.6] }, how: 'tempest' }); }
+    });
+  }
   else if (K === 'meteor') {
     const e = eyePos(a), d = aimDir(a.yaw, a.pitch), h = World.ray(e.x, e.y, e.z, d.x, d.y, d.z, 40, -9), c = h ? new V3(h.x, h.y, h.z) : e.clone().addScaledVector(d, 40);
     c.y = World.groundAt(c.x, c.z, c.y + 1);
@@ -1288,6 +1393,13 @@ function namedFx(name, p, a, b) {
   else if (name === 'rewind') { const to = new V3(a, World.groundAt(a, b, p.y + 2) + 1, b); for (let i = 0; i <= 16; i++) { const q = p.clone().lerp(to, i / 16); Fx.spawn('add', q.x + rand(-0.2, 0.2), q.y + rand(-0.5, 0.5), q.z + rand(-0.2, 0.2), 0, 0.3, 0, 1.2, 2.4, 3, 0.09, 0.5 + i * 0.03); } Fx.ring(p.clone().setY(p.y - 0.9), 1.4, 0xa8e8ff, 0.4, 4); Fx.ring(to.clone().setY(to.y - 0.9), 1.4, 0xa8e8ff, 0.4, 4); }
   else if (name === 'stop') { Fx.sphere(p, a || 8, 0xa8e8ff, 0.6, 1.2); Fx.ring(p.clone().setY(p.y - 0.9), a || 8, 0xa8e8ff, 0.9, 3); Sfx.play('stop', p); muzzleLight(p, 0xa8e8ff, 14); }
   else if (name === 'anchor') { Fx.ring(p, 1.6, 0xa8e8ff, 0.8, 2); Fx.burst(p.clone().setY(p.y + 0.5), 0xa8e8ff, 16, 2, 0.6, 0.07); }
+  else if (name === 'arc' || name === 'strike') {
+    const end = Array.isArray(a) ? new V3(a[0], a[1], a[2]) : p.clone().setY(p.y + 9), from = name === 'strike' ? end : p, to = name === 'strike' ? p : end;
+    let prev = from.clone(); const n = Math.max(3, Math.round(from.distanceTo(to) / 1.6));
+    for (let i = 1; i <= n; i++) { const q = from.clone().lerp(to, i / n); if (i < n) q.add(new V3(rand(-0.35, 0.35), rand(-0.35, 0.35), rand(-0.35, 0.35))); Fx.tracer(prev, q, 0x8ad8ff, name === 'strike' ? 0.09 : 0.05, 0.16, 6); prev = q; }
+    Fx.burst(to, 0xbfeaff, name === 'strike' ? 14 : 6, 4, 0.3, 0.05, { k: 5 }); muzzleLight(to, 0x8ad8ff, name === 'strike' ? 10 : 5); Sfx.play(name === 'strike' ? 'thunder' : 'zap', to, name === 'strike' ? 0.9 : 0.5);
+  }
+  else if (name === 'smite') { for (let k = 0; k < 3; k++) namedFx('strike', p.clone().add(new V3(rand(-1, 1), 0.5, rand(-1, 1))), [p.x, p.y + 14, p.z], 0); Fx.explosion(p.clone().setY(p.y + 0.5), 3, 0x8ad8ff); Fx.ring(p.clone().setY(p.y + 0.1), 3.2, 0x8ad8ff, 0.6, 3); }
   else if (name === 'lance') { const end = Array.isArray(a) ? new V3(a[0], a[1], a[2]) : p.clone(), f = +b || 0; Fx.tracer(p, end, 0xffa8f0, 0.05 + f * 0.12, 0.25 + f * 0.25, 4); Fx.tracer(p, end, 0xffffff, 0.02 + f * 0.04, 0.2, 5); Fx.burst(end, 0xffa8f0, 10 + f * 20, 4, 0.4, 0.07, { k: 4 }); muzzleLight(p, 0xffa8f0, 4 + f * 8); Sfx.play('lance', p, 0.6 + f * 0.4); }
   else if (name === 'meteormark') { Fx.ring(p.clone().setY(p.y + 0.1), a || 7, 0xff8a3a, 2.6, 2, 0.2); Sfx.play('ult', p, 0.6); }
   else if (name === 'meteor') { const top = p.clone().add(new V3(rand(-6, 6), 34, rand(-6, 6))); Fx.tracer(top, p, 0xffb070, 0.35, 0.3, 4); Fx.explosion(p.clone().setY(p.y + 0.5), a || 3.2, 0xff8a3a); Fx.puff(p, 0x5a4a40, 8, 0.8, 1.2); Sfx.play('boom', p, 0.8); muzzleLight(p.clone().setY(p.y + 1), 0xff8a3a, 10); }
@@ -1301,7 +1413,7 @@ function deathFx(a) {
 }
 
 // ---------------------------------------------------------------- per-frame bookkeeping shared by every copy
-function worldTick(dt) { projTick(dt); snareTick(dt); lanternTick(dt); wellTick(dt); wallTick(dt); zoneTick(dt); decoyTick(dt); timerTick(dt); }
+function worldTick(dt) { projTick(dt); snareTick(dt); lanternTick(dt); wellTick(dt); cloudTick(dt); wallTick(dt); zoneTick(dt); decoyTick(dt); timerTick(dt); }
 function actorFlags(a) {
   let f = 0; const s = a.st, pw = a.pw, P = a.P;
   if (a.alive) f |= F_ALIVE; if (a.grounded) f |= F_GROUND; if (s.reveal > 0) f |= F_REVEAL; if (s.root > 0) f |= F_ROOT; if (s.stun > 0) f |= F_STUN;

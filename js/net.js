@@ -4,7 +4,7 @@
 // add-ons, its hero's state, and a rolling log of events. The host (earliest to join) also publishes the bots
 // and the match itself (mode, map, scores, clock, zone, rounds).
 // ============================================================================
-const NET_V = 4;
+const NET_V = 5;
 const Net = {
   room: null, chan: null, code: null, uid: 'p' + Math.random().toString(36).slice(2, 8), jt: null, joinT: 0, status: 'idle', open: [],
   seq: 0, ring: [], lastSend: 0, peers: new Map(), hostUid: null, lastAdv: null, team: 0, ready: false, _seen: new Set(), _conn: null,
@@ -139,7 +139,7 @@ const Net = {
   },
 };
 function cleanName(n) { n = (typeof n === 'string' ? n : '').replace(/[^\p{L}\p{N} _\-.]/gu, '').trim().slice(0, 14); return n || 'Player'; }
-function cleanAddons(a) { if (!Array.isArray(a)) return []; const o = []; for (const x of a) if (Number.isInteger(x) && x >= 0 && x < 16 && !o.includes(x)) o.push(x); return o.slice(0, 2); }
+function cleanAddons(a) { if (!Array.isArray(a)) return []; const o = []; for (const x of a) if (Number.isInteger(x) && x >= 0 && x < 24 && !o.includes(x)) o.push(x); return o.slice(0, 2); }
 function packState(a) {
   return [r2(a.pos.x), r2(a.pos.y), r2(a.pos.z), r3(a.yaw), r3(a.pitch), Math.round(a.hp), actorFlags(a), a.k, a.d, r2(a.vel.x), r2(a.vel.z), HERO_KEYS.indexOf(a.heroKey), Math.round(cloakLevel(a) * 100), Math.floor(a.ult), a.addons[0] != null ? a.addons[0] : -1, a.addons[1] != null ? a.addons[1] : -1, a.a, r2(a.vel.y), a.team, (a.P && a.P.key === 'glaive' && a.pw && a.pw.count) | 0];
 }

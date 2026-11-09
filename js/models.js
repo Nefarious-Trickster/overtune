@@ -116,7 +116,7 @@ const BONES = [
 ];
 const BI = {}; BONES.forEach((b, i) => { BI[b[0]] = i; });
 // per-hero tweaks to the skeleton: shoulder width
-const RIG_OPT = { gauge: { sh: 0.31 }, mire: { sh: 0.2 }, ivra: { sh: 0.19 }, marrow: { sh: 0.19 }, veil: { sh: 0.16 }, spindle: { sh: 0.17 }, wick: { sh: 0.17 }, lark: { sh: 0.17 }, sable: { sh: 0.18 }, orrin: { sh: 0.17 } };
+const RIG_OPT = { gauge: { sh: 0.31 }, mire: { sh: 0.2 }, ivra: { sh: 0.19 }, marrow: { sh: 0.19 }, veil: { sh: 0.16 }, spindle: { sh: 0.17 }, wick: { sh: 0.17 }, lark: { sh: 0.17 }, sable: { sh: 0.18 }, orrin: { sh: 0.17 }, thane: { sh: 0.18 } };
 function makeRig(opt = {}) {
   const bones = BONES.map(b => { const B = new THREE.Bone(); B.name = b[0]; B.position.set(b[2], b[3], b[4]); if (opt.sh && b[0].startsWith('clav')) B.position.x = Math.sign(b[2]) * opt.sh; return B; });
   BONES.forEach((b, i) => { if (b[1]) bones[BI[b[1]]].add(bones[i]); });
@@ -232,6 +232,17 @@ function weaponParts(key, w, look, ac) {
     w(sph(0.068, 12, 10), GL_(0x9aff5a, 3), [0, 0.0, -0.06], [0, 0, 0], [1, 0.75, 1]);
     cyl(0.024, 0.02, 0.04, P_(0x7a5a3a, 0.8, 0), [0, 0.18, -0.06]); w(new THREE.TorusGeometry(0.075, 0.004, 4, 16), MT, [0, 0.02, -0.06], [Math.PI / 2, 0, 0]);
     return { gripL: null, muzzle: [0, 0.05, -0.12], hold: [0.22, -0.1, -0.28] };
+  }
+  if (key === 'thane') {
+    // Arc Caster: a copper-coiled tuning fork on a pistol grip, sparks jumping between the tines
+    box(0.045, 0.13, 0.05, 0.015, WD, [0, -0.07, 0.04], [0.25, 0, 0]);
+    box(0.06, 0.06, 0.2, 0.02, DK, [0, 0.02, -0.04]);
+    for (let i = 0; i < 7; i++) w(new THREE.TorusGeometry(0.034, 0.008, 6, 14), P_(0xc87a3a, 0.3, 0.9), [0, 0.02, -0.0 - i * 0.025]);
+    for (const x of [-0.03, 0.03]) cyl(0.008, 0.01, 0.22, MT, [x, 0.02, -0.24], [Math.PI / 2, 0, 0], 8);
+    for (const x of [-0.03, 0.03]) w(sph(0.016, 8, 6), G, [x, 0.02, -0.35]);
+    w(new THREE.BoxGeometry(0.05, 0.004, 0.004), G, [0, 0.02, -0.33]);
+    box(0.062, 0.01, 0.12, 0.003, ac, [0, 0.055, -0.03]);
+    return { gripL: null, muzzle: [0, 0.02, -0.36], hold: [0.19, -0.13, -0.32] };
   }
   if (key === 'orrin') {
     // Star Lance: a long brass astrolabe rod with turning rings and a crystal star at its tip
@@ -399,6 +410,28 @@ function costume(K, key) {
     for (let i = 0; i < 4; i++) { const a = 2.4 + i * 0.5; K.on('hips', new THREE.CylinderGeometry(0.03, 0.04, 0.1, 10), P_(0x2a4a2a, 0.1, 0.2), [Math.cos(a) * 0.22, -0.05, Math.sin(a) * 0.22]); K.ball('hips', 0.028, GL_(0x9aff5a, 3), [Math.cos(a) * 0.22, -0.06, Math.sin(a) * 0.22]); }
     return { scale: 1.0, hunch: 0.3 };
   }
+  if (key === 'thane') {
+    // a weather-witch: a long oilskin, a sou'wester hat, a copper lightning rod on her back crackling at the tip
+    K.body({ suit: P_(0x22282c, 0.75, 0.05), skin: P_(L.skin, 0.55, 0), boot: P_(0x1a1614, 0.5, 0.2), noHead: true });
+    K.loft('chest', [[-0.02, 0.34, 0.23], [0.14, 0.4, 0.26], [0.26, 0.43, 0.25], [0.33, 0.31, 0.21], [0.37, 0.18, 0.16]], M);
+    K.loft('tail', [[-0.78, 0.56, 0.46], [-0.4, 0.46, 0.38], [-0.1, 0.39, 0.3], [0.05, 0.36, 0.27]], M, [0, 0, -0.06], null, null, 20, [-1.2, 4.35]);
+    for (let i = 0; i < 5; i++) K.box('chest', 0.03, 0.025, 0.02, 0.006, CL, [0.07, 0.02 + i * 0.06, -0.135]);
+    K.loft('chest', [[0.28, 0.4, 0.3], [0.38, 0.36, 0.3], [0.44, 0.24, 0.26]], CL, [0, 0, 0.02], null, null, 18, [-0.6, 3.75]);
+    for (const sd of ['R', 'L']) { K.loft('fore' + sd, [[-0.22, 0.12, 0.12], [-0.1, 0.11, 0.11], [0.0, 0.1, 0.1]], M); K.ball('clav' + sd, 0.1, M, [0, 0, 0], [1.2, 0.8, 1.1]); }
+    K.loft('head', [[0.0, 0.15, 0.17], [0.08, 0.19, 0.21], [0.18, 0.2, 0.22], [0.25, 0.18, 0.2], [0.29, 0.1, 0.12], [0.31, 0.01, 0.01]], P_(L.skin, 0.55, 0), [0, 0, 0.01]);
+    for (const x of [-0.045, 0.045]) K.ball('head', 0.016, GW, [x, 0.17, -0.1]);
+    K.box('head', 0.1, 0.012, 0.01, 0.004, P_(0x6a4a3a, 0.6, 0), [0, 0.105, -0.102]);
+    // the sou'wester: a soft crown and a wide brim, longer at the back
+    K.loft('head', [[0.24, 0.24, 0.26], [0.3, 0.24, 0.26], [0.36, 0.2, 0.22], [0.39, 0.04, 0.05]], CL, [0, 0, 0.01]);
+    K.lathe('head', [[0.0, 0], [0.26, 0], [0.27, -0.01], [0.2, 0.012], [0, 0.012]], CL, [0, 0.235, 0.04], [0.15, 0, 0], 22);
+    // the lightning rod across the back, crackling, and a coil of copper wire
+    K.cyl('chest', 0.018, 0.018, 1.25, P_(0xc87a3a, 0.3, 0.9), [0.05, 0.3, 0.16], [0, 0, -0.35], 8);
+    K.on('chest', new THREE.ConeGeometry(0.035, 0.14, 6), P_(0xc87a3a, 0.3, 0.9), [0.26, 0.9, 0.16], [0, 0, -0.35]);
+    K.ball('chest', 0.04, GL_(L.glow, 6), [0.28, 0.98, 0.16]);
+    for (let i = 0; i < 6; i++) K.tor('chest', 0.05, 0.008, P_(0xc87a3a, 0.3, 0.9), [-0.06 + i * 0.022, 0.04 + i * 0.06, 0.16], [0, 1.2, -0.35]);
+    K.tor('hips', 0.2, 0.02, LT, [0, 0.0, 0], [Math.PI / 2, 0, 0], TAU, 24);
+    return { scale: 1.02 };
+  }
   if (key === 'orrin') {
     // a robed astronomer: a hood full of night sky, planets circling the head, a star-chart cape
     K.body({ suit: P_(0x1a1630, 0.8, 0.05), skin: P_(L.skin, 0.6, 0), boot: P_(0x1a1424, 0.6, 0.2), thin: 0.9, noHead: true });
@@ -558,7 +591,7 @@ function poseIdle(M, t) { poseHero(M, { spd: 0, phase: 0, air: 0, pitch: -0.05, 
 // ---------------------------------------------------------------- the first-person view: forearms, hands and the weapon
 function buildViewmodel(key) {
   const H = HEROES[key], L = H.look, vm = new THREE.Group(), ac = P_(0x2a8aa0, 0.4, 0.6);
-  const VP = { marrow: [0.2, -0.25, -0.52, 0.8], lark: [0.2, -0.2, -0.42, 0.9], gauge: [0.23, -0.29, -0.52, 0.78], veil: [0.2, -0.22, -0.4, 1], ivra: [0.2, -0.23, -0.46, 0.85], wick: [0.25, -0.14, -0.56, 0.75], mire: [0.22, -0.24, -0.5, 0.75], spindle: [0.2, -0.23, -0.46, 0.9], sable: [0.2, -0.22, -0.44, 0.95], orrin: [0.19, -0.22, -0.46, 0.85] }[key] || [0.2, -0.2, -0.4, 1];
+  const VP = { marrow: [0.2, -0.25, -0.52, 0.8], lark: [0.2, -0.2, -0.42, 0.9], gauge: [0.23, -0.29, -0.52, 0.78], veil: [0.2, -0.22, -0.4, 1], ivra: [0.2, -0.23, -0.46, 0.85], wick: [0.25, -0.14, -0.56, 0.75], mire: [0.22, -0.24, -0.5, 0.75], spindle: [0.2, -0.23, -0.46, 0.9], sable: [0.2, -0.22, -0.44, 0.95], orrin: [0.19, -0.22, -0.46, 0.85], thane: [0.2, -0.22, -0.42, 0.95] }[key] || [0.2, -0.2, -0.4, 1];
   const sleeve = key === 'gauge' ? P_(L.metal, 0.35, 0.85) : key === 'ivra' ? P_(0xb8873a, 0.3, 0.95) : key === 'spindle' ? P_(L.main, 0.55, 0.2) : P_(L.main, 0.6, 0.15);
   const glove = key === 'gauge' ? P_(0x3a3632, 0.45, 0.7) : key === 'spindle' ? P_(0xe0d6c4, 0.8, 0) : key === 'mire' ? P_(L.skin, 0.65, 0) : key === 'wick' ? P_(0xe8d8b0, 0.4, 0) : P_(0x2a2420, 0.7, 0.05);
   const groups = {};
@@ -581,7 +614,7 @@ function buildViewmodel(key) {
   // the power in the off hand
   if (key === 'marrow') { const s = buildSnare(TEAM_HEX[0]); s.scale.setScalar(0.38); s.position.set(0.02, 0.06, -0.06); s.rotation.x = 0.6; O.g.add(s); extra.prop = s; }
   if (key === 'ivra') { const g = buildGlaive(L.glow, 1.2); g.position.set(0.02, 0.1, -0.02); g.rotation.set(0.2, 0, 1.2); O.g.add(g); extra.prop = g; }
-  if (key === 'lark' || key === 'spindle' || key === 'mire' || key === 'sable' || key === 'orrin') { const o = new THREE.Mesh(sph(0.05, 14, 10), mGlow(L.glow, 6)); o.position.set(0, 0.07, -0.05); O.g.add(o); extra.orb = o; const r = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.006, 6, 24), mGlow(0xffffff, 4)); r.position.copy(o.position); O.g.add(r); extra.ring = r; }
+  if (key === 'lark' || key === 'spindle' || key === 'mire' || key === 'sable' || key === 'orrin' || key === 'thane') { const o = new THREE.Mesh(sph(0.05, 14, 10), mGlow(L.glow, 6)); o.position.set(0, 0.07, -0.05); O.g.add(o); extra.orb = o; const r = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.006, 6, 24), mGlow(0xffffff, 4)); r.position.copy(o.position); O.g.add(r); extra.ring = r; }
   if (key === 'wick') { const l = buildLantern(L.glow); l.scale.setScalar(0.35); l.position.set(0.0, -0.05, -0.05); O.g.add(l); extra.prop = l; }
   for (const k in groups) { const geos = groups[k].pb.bake(false); for (const t of ['lit', 'glow']) if (geos[t]) { const m = new THREE.Mesh(geos[t], heroMat(t === 'lit' ? 'lit' : 'glow')); m.frustumCulled = false; m.userData.base = m.material; groups[k].g.add(m); } }
   const muzzle = new THREE.Object3D(); muzzle.position.set(...hold.muzzle); R.g.add(muzzle);
@@ -632,6 +665,16 @@ function buildShard(glow) { const g = new THREE.Group(); const c = new THREE.Mes
 function buildMoth(glow) { const g = new THREE.Group(); const b = new THREE.Mesh(new THREE.CapsuleGeometry(0.03, 0.08, 3, 6), mGlow(glow, 1.4)); b.rotation.x = Math.PI / 2; g.add(b); const wm = new THREE.MeshBasicMaterial({ color: hdrCol(0xffe8b0, 1.3), side: THREE.DoubleSide, transparent: true, opacity: 0.85 }); const wings = []; for (const s of [-1, 1]) { const piv = new THREE.Group(); const w = new THREE.Mesh(new THREE.CircleGeometry(0.11, 8), wm); w.position.x = s * 0.1; w.scale.set(1, 0.7, 1); w.rotation.x = Math.PI / 2; piv.add(w); g.add(piv); wings.push(piv); } g.userData.wings = wings; return g; }
 function buildFlask(glow) { const g = new THREE.Group(); const b = new THREE.Mesh(sph(0.08, 10, 8), new THREE.MeshStandardMaterial({ color: 0x2a4a2a, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.7 })); g.add(b); const in_ = new THREE.Mesh(sph(0.06, 8, 6), mGlow(glow, 3)); g.add(in_); const n = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.025, 0.08, 8), mStd(0x7a5a3a, 0.8, 0)); n.position.y = 0.09; g.add(n); return g; }
 function buildHand(glow) { const g = new THREE.Group(); const b = new THREE.Mesh(extG([[0, 0], [0.02, 0.05], [0.01, 0.34], [0, 0.4], [-0.01, 0.34], [-0.02, 0.05]], 0.01), mStd(0xc89a4a, 0.3, 0.9)); b.rotation.x = -Math.PI / 2; b.position.z = 0.2; g.add(b); const c = new THREE.Mesh(extG([[0, 0.05], [0.008, 0.3], [0, 0.36], [-0.008, 0.3]], 0.014, 0.002), mGlow(glow, 4)); c.rotation.x = -Math.PI / 2; c.position.z = 0.2; g.add(c); return g; }
+function buildCloud(r, glow) {
+  const g = new THREE.Group(), mat = new THREE.MeshStandardMaterial({ color: 0x3a4250, roughness: 1, transparent: true, opacity: 0.92, flatShading: true }), puffs = [];
+  const n = Math.round(6 + r * 0.8);
+  for (let i = 0; i < n; i++) { const a = i / n * TAU, rr = r * (0.25 + Math.random() * 0.45), m = new THREE.Mesh(new THREE.IcosahedronGeometry(0.9 + Math.random() * 0.9 + r * 0.08, 1), mat); const q = new THREE.Group(); q.position.set(Math.cos(a) * rr, 0, Math.sin(a) * rr); m.scale.y = 0.6; q.add(m); g.add(q); puffs.push(m); }
+  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(1.6 + r * 0.1, 1), mat); core.scale.y = 0.6; g.add(core); puffs.push(core);
+  const glowM = new THREE.Mesh(new THREE.CircleGeometry(r * 0.5, 24), new THREE.MeshBasicMaterial({ color: hdrCol(glow, 0.9), transparent: true, opacity: 0.35, depthWrite: false, side: THREE.DoubleSide })); glowM.rotation.x = Math.PI / 2; glowM.position.y = -0.7; g.add(glowM);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(r - 0.1, r, 40), new THREE.MeshBasicMaterial({ color: hdrCol(glow, 0.7), transparent: true, opacity: 0.25, depthWrite: false, side: THREE.DoubleSide })); ring.rotation.x = Math.PI / 2; ring.position.y = -0.9; g.add(ring);
+  g.userData = { puffs };
+  return g;
+}
 function buildStar(glow) { const g = new THREE.Group(); const c = new THREE.Mesh(new THREE.OctahedronGeometry(0.14, 0), mGlow(glow, 3)); g.add(c); const h = new THREE.Mesh(sph(0.22, 10, 8), new THREE.MeshBasicMaterial({ color: hdrCol(glow, 0.8), transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false })); g.add(h); return g; }
 // a gravity well: a dark core, a lensing shell and a ring that shrinks inward (or grows outward when it repels)
 function buildWell(r, glow, push) {

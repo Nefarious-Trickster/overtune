@@ -14,7 +14,7 @@ const Mode = {
   create(o) {
     const sz = clamp(o.sz | 0, 1, 8);
     return {
-      mode: o.mode, map: o.map, sz, df: clamp(o.df | 0, 0, 2), st: 'play', t: 0, tl: MODES[o.mode].time, sc: [0, 0],
+      mode: o.mode, map: o.map, sz, df: clamp(o.df | 0, 0, 3), st: 'play', t: 0, tl: MODES[o.mode].time, sc: [0, 0],
       target: o.mode === 'tdm' ? (sz <= 2 ? 12 : sz <= 3 ? 20 : 28) : o.mode === 'ffa' ? 12 : o.mode === 'koth' ? 100 : 3,
       zone: { own: -1, cap: 0, capTeam: -1, contest: false }, rd: { n: 1, w: [0, 0], ph: 'pre', t: 4 }, win: null, winName: '', endT: 0, seed: (Math.random() * 1e9) | 0,
     };
@@ -322,6 +322,7 @@ const Flow = {
     for (const l of [...Game.lanterns.values()]) removeLantern(l);
     for (const z of Game.zones) G.scene.remove(z.mesh); Game.zones = [];
     for (const w of Game.wells) G.scene.remove(w.mesh); Game.wells = [];
+    for (const c of Game.clouds) G.scene.remove(c.mesh); Game.clouds = [];
     Game.timers = [];
     scrubHeroes(Showcase.model ? [Showcase.model.root] : []);
     Bots.B.clear(); Game.me = null; Game.match = null;
@@ -348,7 +349,7 @@ const Flow = {
     const freeNames = BOT_NAMES.map((nm, i) => i).filter(i => !usedNames.has(BOT_NAMES[i])), n = freeNames.length ? pick(freeNames) : Math.floor(Math.random() * BOT_NAMES.length);
     const free = HERO_KEYS.filter(k => !taken.has(k)), hero = pick(free.length ? free : HERO_KEYS);
     const id = 'b' + (++Game.seq + Math.floor(Math.random() * 1000) * 100);
-    const a = addActor({ id, name: BOT_NAMES[n % BOT_NAMES.length], team, hero, addons: randomLoadout(hero), bot: true, nameIdx: n % BOT_NAMES.length });
+    const a = addActor({ id, name: BOT_NAMES[n % BOT_NAMES.length], team, hero, addons: botLoadout(hero, Game.match ? Game.match.df : Settings.diff), bot: true, nameIdx: n % BOT_NAMES.length });
     if (Game.state === 'play' && Game.match && Game.match.mode !== 'elim') spawnActor(a);
     return a;
   },
@@ -359,7 +360,17 @@ const Flow = {
     Sfx.play(M.win === -1 ? 'zone' : won ? 'win' : 'lose');
     // add-on drops for the hero you finished the match as (only once you've played a real stretch of it)
     let drops = null;
-    if (me && M.t > 45 && !M.awarded) { M.awarded = true; drops = Object.assign({ hero: me.heroKey, won: M.win === -1 ? 0 : won ? 1 : -1 }, Inventory.award(me.heroKey, M.win === -1 ? 0 : won ? 1 : -1)); }
+    if (me && M.t > 45 && !M.awarded) {
+      M.awarded = true;
+      const result = M.win === -1 ? 0 : won ? 1 : -1;
+      // how hard you won (or how close you came): the score gap as a share of what it took to win
+      let margin = 0;
+      if (M.mode === 'ffa') { const ks = Game.actors.map(a => a.k).sort((x, y) => y - x), mine = me.k, other = mine >= ks[0] ? (ks[1] || 0) : ks[0]; margin = (mine - other) / Math.max(1, M.target); }
+      else if (M.mode === 'elim') margin = (M.rd.w[me.team] - M.rd.w[1 - me.team]) / 3;
+      else margin = (M.sc[me.team] - M.sc[1 - me.team]) / Math.max(1, M.target);
+      const mvp = Game.actors.every(a => a === me || a.k < me.k) && me.k > 0;
+      drops = Object.assign({ hero: me.heroKey, won: result }, Inventory.award(me.heroKey, { result, df: M.df, margin: clamp(margin, -1, 1), mvp }));
+    }
     HUD.end(won, drops);
     Input.unlock();
   },

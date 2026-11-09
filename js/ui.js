@@ -61,7 +61,7 @@ const View = {
   setHero(key) {
     if (this.vm) G.vmScene.remove(this.vm.vm);
     this.hero = key; this.vm = buildViewmodel(key); G.vmScene.add(this.vm.vm);
-    const V = this.vm, s = new THREE.Sprite(this.flashMat.clone()); s.material.color = hdrCol(HEROES[key].look.glow, 2.5); s.scale.setScalar(0.2); s.visible = false; V.muzzle.add(s); this.flashes = V.kind === 'proj' || V.kind === undefined ? [s] : [];
+    const V = this.vm, s = new THREE.Sprite(this.flashMat.clone()); s.material.color = hdrCol(HEROES[key].look.glow, 2.5); s.scale.setScalar(0.2); s.visible = false; V.muzzle.add(s); this.flashes = V.kind === 'proj' || V.kind === 'arc' || V.kind === undefined ? [s] : [];
     this.vmMats = []; V.vm.traverse(o => { if (o.isMesh) this.vmMats.push(o); });
     this.fadeLook = null;
     V.rightRest = V.right.position.clone(); V.leftRest = V.left.position.clone();
@@ -139,7 +139,7 @@ const View = {
     if (P.key === 'glaive' && (pw.winding || this.throwT > 0)) { offOn = true; const w = pw.winding ? clamp(pw.wind / P.windMax, 0, 1) : 0; if (this.throwT > 0) { this.throwT -= dt; const k = 1 - this.throwT / 0.35; off.position.set(-0.1 + k * 0.1, -0.15 - k * 0.25, -0.6 - k * 0.3); off.rotation.set(-0.3 - k, 0, 0.6); } else { off.position.set(-0.3 - w * 0.1, -0.12 + w * 0.08, -0.32 + w * 0.12); off.rotation.set(0.2 + w * 0.5, 0, 0.4 + w * 0.3); } if (V.extra.prop) V.extra.prop.rotation.y = G.time * (pw.winding ? 14 * w : 0); }
     if (P.key === 'blink' && (pw.charging || this.blinkT > 0)) { offOn = true; const k = pw.charging ? clamp(pw.chargeT / P.chargeTime, 0, 1) : 1; off.position.set(-0.24, -0.24 + k * 0.04, -0.46); off.rotation.set(-0.2, 0, 0); V.extra.orb.scale.setScalar(0.5 + k * 1.2 + Math.sin(G.time * 30) * 0.08); V.extra.ring.rotation.set(G.time * 3, G.time * 5, 0); V.extra.ring.scale.setScalar(0.6 + k); }
     if (P.key === 'lantern' && (pw.placing > 0 || pw.chan > 0 || pw.hold > 0.1)) { offOn = true; const k = pw.placing > 0 ? 1 - pw.placing / P.place : pw.chan > 0 ? 1 - pw.chan / P.walk : 0.3; off.position.set(-0.2, -0.32 + k * 0.1, -0.42 - k * 0.1); off.rotation.set(-0.2 - k * 0.3, 0, 0); if (V.extra.prop) V.extra.prop.userData.flame.scale.setScalar(1 + (pw.chan > 0 ? k * 2 : 0) + Math.sin(G.time * 25) * 0.1); }
-    if ((P.key === 'line' || P.key === 'sub' || P.key === 'rewind' || P.key === 'well') && this.throwT > 0 && V.extra.orb) { offOn = true; this.throwT -= dt; const k = 1 - this.throwT / 0.35; off.position.set(-0.22 + k * 0.08, -0.22 + k * 0.05, -0.42 - k * 0.25); off.rotation.set(-0.4 * k, 0, 0); V.extra.orb.scale.setScalar(1.4 - k); V.extra.ring.rotation.set(G.time * 6, G.time * 4, 0); V.extra.ring.scale.setScalar(0.5 + k * 1.5); }
+    if ((P.key === 'line' || P.key === 'sub' || P.key === 'rewind' || P.key === 'well' || P.key === 'cloud') && this.throwT > 0 && V.extra.orb) { offOn = true; this.throwT -= dt; const k = 1 - this.throwT / 0.35; off.position.set(-0.22 + k * 0.08, -0.22 + k * 0.05, -0.42 - k * 0.25); off.rotation.set(-0.4 * k, 0, 0); V.extra.orb.scale.setScalar(1.4 - k); V.extra.ring.rotation.set(G.time * 6, G.time * 4, 0); V.extra.ring.scale.setScalar(0.5 + k * 1.5); }
     else if (this.throwT > 0 && P.key !== 'glaive') this.throwT -= dt;
     if (this.blinkT > 0) this.blinkT -= dt;
     off.visible = offOn;
@@ -320,6 +320,7 @@ const HUD = {
     else if (P.key === 'lantern') { if (P.carried) label = 'CARRIED'; else { pips = pipHTML(pw.charges, P.carry); if (pw.chan > 0) { bar = 1 - pw.chan / P.walk; label = 'WALKING'; state = 'charging'; } else if (pw.placing > 0) label = 'LIGHTING'; else if (pw.walkCd > 0) cd = pw.walkCd; else if (pw.charges < P.carry) bar = pw.rech / P.recharge; } }
     else if (P.key === 'sub') { if (pw.state === 'under') { bar = 1 - pw.t / P.maxTime; label = 'SUBMERGED'; state = 'active'; } else if (pw.state === 'sinking') { label = 'SINKING'; state = 'charging'; } else if (pw.cd > 0) cd = pw.cd; }
     else if (P.key === 'line') { pips = pipHTML(pw.charges, P.charges); if (pw.charges < P.charges) bar = pw.rech / P.cd; }
+    else if (P.key === 'cloud') { pips = pipHTML(pw.charges, P.charges); if (pw.charges < P.charges) bar = pw.rech / P.cd; if (P.perm) label = 'STORM RIDING'; }
     else if (P.key === 'well') { pips = pipHTML(pw.charges, P.charges); if (pw.charges < P.charges) bar = pw.rech / P.cd; }
     else if (P.key === 'rewind') { pips = pipHTML(pw.charges, P.charges); if (pw.anchor) { bar = 1 - (Game.t - pw.anchor.t) / P.anchor; label = 'ANCHORED'; state = 'active'; } else if (pw.charges < P.charges) bar = pw.rech / P.cd; }
     else if (P.key === 'glaive') { pips = pipHTML(pw.count, P.cap); if (P.orbit && pw.count) label = 'ORBITING'; if (pw.winding) { bar = clamp((pw.wind - P.windMin) / (P.windMax - P.windMin), 0, 1); label = bar >= 1 ? 'FULL' : 'WIND'; state = 'charging'; } else if (pw.count < P.cap) bar = pw.rech / P.regen; }
@@ -373,7 +374,7 @@ function fmtTime(t) { t = Math.max(0, Math.ceil(t)); return Math.floor(t / 60) +
 function scoreText(t) { const M = Game.match; if (!M) return 0; if (M.mode === 'koth') return Math.floor(M.sc[t]) + '%'; if (M.mode === 'elim') return M.rd.w[t]; return Math.floor(M.sc[t]); }
 function howName(k, how) {
   if (!k) return how;
-  const map = { snare: k.H.power.name, blink: 'Rift Step', ram: 'Ramjet', glaive: 'Glaive', ambush: 'Ambush', backstab: 'Backstab', knives: 'Whisper Knives', slam: k.H.ult.name, burn: 'Burning', bleed: 'Bleed', poison: 'Venom', acid: 'Acid', flame: 'Boiler', beam: 'Tidecaller', furnace: 'Furnace', lantern: 'Lantern', beacon: 'Beacon', flare: k.H.ult.name, geyser: 'Geyser', drown: 'Drowned', line: 'Marionette Line', leech: k.H.util.name, cradle: k.H.ult.name, heart: k.H.ult.name, bolt: 'Rattlejaw', shard: 'Shardcaster', moth: 'Moth Swarm', flask: "Brewer's Flasks", needle: 'Thread Needles', hand: 'Second Hand', rewind: 'Rewind', stop: k.H.ult.name, lance: 'Star Lance', well: 'Gravity Well', meteor: 'Meteor Shower' };
+  const map = { snare: k.H.power.name, blink: 'Rift Step', ram: 'Ramjet', glaive: 'Glaive', ambush: 'Ambush', backstab: 'Backstab', knives: 'Whisper Knives', slam: k.H.ult.name, burn: 'Burning', bleed: 'Bleed', poison: 'Venom', acid: 'Acid', flame: 'Boiler', beam: 'Tidecaller', furnace: 'Furnace', lantern: 'Lantern', beacon: 'Beacon', flare: k.H.ult.name, geyser: 'Geyser', drown: 'Drowned', line: 'Marionette Line', leech: k.H.util.name, cradle: k.H.ult.name, heart: k.H.ult.name, bolt: 'Rattlejaw', shard: 'Shardcaster', moth: 'Moth Swarm', flask: "Brewer's Flasks", needle: 'Thread Needles', hand: 'Second Hand', rewind: 'Rewind', stop: k.H.ult.name, lance: 'Star Lance', well: 'Gravity Well', meteor: 'Meteor Shower', arc: 'Arc Caster', cloud: 'Thunderhead', tempest: 'Tempest', boltstep: 'Bolt Step' };
   return map[how] || how;
 }
 
@@ -390,6 +391,7 @@ function powerStats(heroKey, addons) {
   if (P.key === 'glaive') { row('Glaives carried', 'cap', n); row('Return time', 'regen', s, -1); if (P.orbit) row('Glaives orbit you', 'orbit', yes); else { row('Full wind-up', 'windMax', s, -1); row('Damage', 'dmgMax', v => `${Math.round(P.dmgMin)}–${Math.round(v)}`); row('Throw speed', 'spdMax', v => Math.round(v) + ' m/s'); row('Move while winding', 'slow', pct); } opt('Venom', 'venom', n); opt('Ricochets', 'ricochet', n); opt('Burst damage', 'blast', n); opt('Twin throw', 'twin', yes); opt('Bloodtrail reveal', 'mark', s); opt('Full wind-up kills', 'oneshot', yes); opt('Glaives return', 'returning', yes); opt('Pierce', 'pierce', yes); }
   if (P.key === 'lantern') { if (P.carried) row('Lantern carried with you', 'carried', yes); else { row('Lanterns hung', 'carry', n); row('Recharge', 'recharge', s, -1); row('Lantern walk', 'walk', s, -1); row('Walk cooldown', 'walkCd', s, -1); } row('Light radius', 'radius', m); row('Slow in light', 'slow', v => Math.round((1 - v) * 100) + '%', -1); opt('Light lingers', 'linger', s); opt('Throw range', 'throwDist', m); opt('Echo reveal', 'echo', s); opt('Roots on first touch', 'root', s); opt('Burn', 'burn', ps); opt('Beams between lanterns', 'beacon', n); opt('Hidden from enemies', 'hidden', yes); opt('Turret moths every', 'turret', s, -1); opt('Moth damage', 'mothBoost', pct); }
   if (P.key === 'sub') { row('Sink time', 'sink', s, -1); row('Max time under', 'maxTime', s); row('Speed under', 'speed', pct); row('Cooldown', 'cd', s, -1); row('Geyser damage', 'dmg', n); row('Geyser radius', 'radius', m); row('Launch', 'knock', n); opt('Heal under', 'heal', ps); opt('Acid pool', 'pool', ps); opt('Pulls enemies in', 'pull', yes); opt('Roots', 'root', s); opt('Drown above you', 'drown', ps); opt('Acid trail', 'trail', ps); opt('Flask ring', 'flaskRing', yes); opt('Throw from below', 'artillery', yes); opt('Fen: everything bigger', 'fen', yes); }
+  if (P.key === 'cloud') { if (P.perm) { row('Storm over you', 'perm', yes); row('Smite damage', 'smite', n); row('Smite cooldown', 'cd', s, -1); } else { row('Clouds', 'charges', n); row('Cooldown', 'cd', s, -1); row('Lasts', 'dur', s); row('Strike radius', 'radius', m); row('Strike every', 'every', s, -1); row('Strike damage', 'dmg', n); } opt('Targets per strike', 'multi', n); opt('Jumps to', 'chains', n); opt('Stun', 'stun', s); opt('Reveal', 'reveal', s); opt('Vulnerable', 'vuln', s); opt('Drifts at', 'follow', v => v + ' m/s'); opt('Rain slow', 'rain', v => Math.round((1 - v) * 100) + '%'); opt('Refunds ammo', 'refund', yes); }
   if (P.key === 'well') { row('Wells', 'charges', n); row('Cooldown', 'cd', s, -1); row('Pull radius', 'radius', m); row(P.push ? 'Push strength' : 'Pull strength', 'pull', v => (Math.round(v * 10) / 10) + ' m/s'); row('Lasts', 'dur', s); row('Throw speed', 'speed', v => Math.round(v) + ' m/s'); opt('Damage inside', 'dps', ps); opt('Slow inside', 'slow', v => Math.round((1 - v) * 100) + '%'); opt('Reveals', 'reveal', yes); opt('Implosion', 'implode', n); opt('Lifts enemies', 'lift', yes); opt('Pushes instead', 'push', yes); opt('Centre damage', 'horizon', ps); opt('Two wells per throw', 'twin', yes); opt('Destroys below', 'exec', pct); }
   if (P.key === 'rewind') { if (P.anchor) row('Anchor lasts', 'anchor', s); else row('Reaches back', 'back', s); row('Rewinds', 'charges', n); row('Cooldown', 'cd', s, -1); row('Restores health', 'heal', yes); opt('Bonus heal', 'bonus', n); opt('Reloads', 'reload', yes); opt('Silent', 'silent', yes); opt('Cleanses', 'cleanse', yes); opt('Echo lasts', 'decoy', s); opt('Departure blast', 'depart', n); opt('Arrival blast', 'arrive', n); opt('Sand slow', 'sand', s); opt('Cheats death', 'paradox', yes); opt('Drags a victim back', 'retro', yes); opt('Freezes nearby for', 'freeze', s); }
   if (P.key === 'line') { row('Lines', 'charges', n); row('Recharge', 'cd', s, -1); row('Range', 'range', m); row('Line speed', 'speed', v => Math.round(v) + ' m/s'); row('Damage', 'dmg', n); opt('Stun', 'stun', s); opt('Vulnerable', 'vuln', s); opt('Slow', 'slow', s); opt('Swap places', 'swap', yes); opt('Choke (root)', 'choke', s); if (P.multi > 1) row('Catches up to', 'multi', n); opt('Gallows: hurl up', 'gallows', yes); opt('Puppet for', 'puppet', s); opt('Web', 'web', yes); opt('Meet them halfway', 'meet', yes); }
@@ -436,6 +438,7 @@ const UI = {
       case 'useHero': this.useHero(); break;
       case 'loadoutBack': if (Game.state === 'play') { this.show('pause'); } else this.show(this.back === 'loadout' ? 'main' : this.back); break;
       case 'resume': this.resume(); break;
+      case 'craft': { const key = this.loadoutHero || Settings.hero; if (Inventory.craft(key, +arg)) { Sfx.play('pickup'); this.renderLoadout(); this.tip(key, +arg); } else this.toast('Not enough prism shards — you earn them from every add-on you draw.'); break; }
       case 'openCache': if (Cache.pending) Cache.open(Cache.pending); break;
       case 'pauseLoadout': this.loadoutHero = Game.me ? (Game.me.pendingHero ? Game.me.pendingHero.h : Game.me.heroKey) : Settings.hero; this.back = 'pause'; this.show('loadout'); break;
       case 'pauseSettings': this.back = 'pause'; this.show('settings'); break;
@@ -506,7 +509,7 @@ const UI = {
     $('#lo-slots').innerHTML = [0, 1].map(i => { const a = cur[i] != null ? H.addons[cur[i]] : null; return a ? `<button class="slot r${a.r}" data-act="unslot" data-arg="${i}" title="Remove">${iconSVG(a.icon)}<span>${esc(a.name)}</span><em>×</em></button>` : `<div class="slot empty"><span>Empty slot</span></div>`; }).join('');
     $('#lo-kit').innerHTML = `<div><small>UTILITY · SHIFT</small><b>${H.util.name}</b><p>${H.util.desc}</p></div><div><small>ULTIMATE · Q</small><b>${H.ult.name}</b><p>${H.ult.desc}</p></div>`;
     const sorted = [...H.addons].sort((a, b) => a.r - b.r || a.idx - b.idx);
-    $('#lo-gridhead').innerHTML = `ADD-ONS · <b>${Inventory.total(key)}</b> owned — slotting one uses it up when the match starts. Win a match to earn 3, lose to earn 1.`;
+    $('#lo-gridhead').innerHTML = `ADD-ONS · <b>${Inventory.total(key)}</b> owned · <b>◆ ${Settings.shards | 0}</b> shards — slotting one uses it up when the match starts. Earn more from every match (more for harder bots and bigger wins), or craft them with shards.`;
     $('#lo-grid').innerHTML = sorted.map(a => { const n = Inventory.count(key, a.idx); return `<button class="addon r${a.r} ${cur.includes(a.idx) ? 'on' : ''} ${n ? '' : 'locked'}" data-act="equip" data-arg="${a.idx}" data-tip="${a.idx}">${iconSVG(a.icon)}<span>${esc(a.name)}</span>${n ? `<em>×${n}</em>` : '<em class="no">0</em>'}</button>`; }).join('');
     $$('#lo-grid .addon').forEach(b => { b.addEventListener('mouseenter', () => this.tip(key, +b.dataset.tip)); b.addEventListener('focus', () => this.tip(key, +b.dataset.tip)); });
     this.tip(key, cur.length ? cur[cur.length - 1] : sorted[0].idx);
@@ -520,7 +523,7 @@ const UI = {
   tip(key, idx) {
     const a = HEROES[key].addons[idx]; if (!a) return;
     const n = Inventory.count(key, idx), odds = Math.round(RARITY[a.r].drop * 100 / HEROES[key].addons.filter(x => x.r === a.r).length * 10) / 10;
-    $('#lo-tip').innerHTML = `<div class="tip-head r${a.r}">${iconSVG(a.icon)}<div><b>${esc(a.name)}</b><small>${RARITY[a.r].name} add-on · ${n ? 'you own ' + n : 'not owned yet'}</small></div></div>${a.d.map(l => `<p class="${l[0] === '-' ? 'minus' : 'plus'}">${esc(l.slice(2))}</p>`).join('')}<p class="odds">About ${odds}% per draw</p>`;
+    $('#lo-tip').innerHTML = `<div class="tip-head r${a.r}">${iconSVG(a.icon)}<div><b>${esc(a.name)}</b><small>${RARITY[a.r].name} add-on · ${n ? 'you own ' + n : 'not owned yet'}</small></div></div>${a.d.map(l => `<p class="${l[0] === '-' ? 'minus' : 'plus'}">${esc(l.slice(2))}</p>`).join('')}<p class="odds">About ${odds}% per draw</p><div class="craft"><button class="btn small" data-act="craft" data-arg="${idx}" ${(Settings.shards | 0) < Inventory.CRAFT[a.r] ? 'disabled' : ''}>Craft one · ◆ ${Inventory.CRAFT[a.r]}</button><span>you have ◆ ${Settings.shards | 0}</span></div>`;
   },
   equip(idx) {
     const key = this.loadoutHero || Settings.hero, cur = loadoutFor(key).slice();
@@ -550,6 +553,7 @@ function weaponLine(W) {
   if (W.kind === 'flame') return `${W.dps} dmg/s · ${W.range} m · overheats`;
   if (W.kind === 'beam') return `${W.dpsMin}–${W.dpsMax} dmg/s · ${W.range} m`;
   if (W.kind === 'melee') return `${W.dmg} per cut · ×${W.backstab} from behind`;
+  if (W.kind === 'arc') return `${W.dmg} dmg · jumps to ${W.jumps} more · ${W.mag} shots`;
   if (W.kind === 'proj') return `${W.burst ? W.burst + '×' : W.volley ? W.volley + '×' : ''}${W.dmg} dmg${W.splash ? ' + ' + W.splash + ' splash' : ''} · ${W.mag} shots`;
   return `${W.dmg} dmg · ${W.mag} rounds`;
 }
@@ -588,7 +592,7 @@ const Lobby = {
       <div class="row"><small>MODE</small><div class="segs">${seg('mode', MODE_KEYS, k => MODES[k].name)}</div></div>
       <div class="row"><small>MAP</small><div class="segs">${seg('map', MAP_KEYS, k => MAPS[k].name)}</div></div>
       <div class="row"><small>${teams ? 'TEAM SIZE' : 'PLAYERS'}</small><div class="segs">${seg('sz', teams ? [1, 2, 3, 4, 5] : [4, 6, 8], n => teams ? n + 'v' + n : n)}</div></div>
-      <div class="row"><small>BOTS</small><div class="segs">${seg('df', [0, 1, 2], i => BOT_DIFF[i].name)}</div></div>`;
+      <div class="row"><small>BOTS</small><div class="segs">${seg('df', [0, 1, 2, 3], i => BOT_DIFF[i].name)}</div></div>`;
     $('#lb-start').hidden = !host; $('#lb-wait').hidden = host;
     $('#lb-kit').innerHTML = kitSummary(Settings.hero, loadoutFor(Settings.hero)) + `<div class="lb-heroes">${heroCards(Settings.hero, 'lbHero')}</div>`;
     $$('#lb-kit [data-act=lbHero]').forEach(b => b.onclick = () => { Settings.hero = b.dataset.arg; Settings.save(); this.render(); Showcase.focus(Settings.hero); });
@@ -644,56 +648,112 @@ const Showcase = {
   hide() { if (this.model) { G.scene.remove(this.model.root); this.model = null; } if (this.key) { this.key.visible = false; this.rim.visible = false; } },
 };
 
-// ---------------------------------------------------------------- the cache: add-ons won at the end of a match, revealed one card at a time
+// ---------------------------------------------------------------- the cache: add-ons won at the end of a match
+// Crack the crystal (its glow betrays the best thing inside), turn the cards one at a time, then spend Overtune tokens
+// to gamble a card up a rarity. Every draw is also worth prism shards for crafting add-ons outright.
 const Cache = {
-  pending: null, d: null, open_: 0,
+  pending: null, d: null,
   open(d) {
     if (this.d === d && !$('#cache').hidden) return;
-    this.d = d; this.pending = null; this.revealed = new Set(); this.busy = 0;
-    const H = HEROES[d.hero], el = $('#cache'), seen = {};
+    this.d = d; this.pending = null; this.revealed = new Set(); this.tokens = d.tokens || 0; this.cracks = 0; this.pickMode = false; this.dealt = false;
+    const H = HEROES[d.hero], el = $('#cache'), best = Math.max(...d.draws.map(x => x.r));
     const kind = d.won > 0 ? 'VICTORY CACHE' : d.won === 0 ? 'DRAW CACHE' : 'CONSOLATION CACHE';
-    const cards = d.draws.map((x, i) => {
-      const a = H.addons[x.idx], first = !seen[x.idx]; seen[x.idx] = 1;
-      const isNew = first && Inventory.count(d.hero, x.idx) === d.draws.filter(y => y.idx === x.idx).reduce((n, y) => n + (y.dbl ? 2 : 1), 0);
-      return `<button class="ccard tell${x.r}" data-i="${i}" style="--i:${i}"><div class="cback"><svg viewBox="0 0 64 64"><path d="M32 6 L56 32 L32 58 L8 32 Z" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="32" cy="32" r="7" fill="currentColor"/></svg><span>?</span></div><div class="cfront r${a.r}">${x.forced ? '<em class="tag pity">GUARANTEED</em>' : ''}${x.dbl ? '<em class="tag dbl">DOUBLE ×2</em>' : ''}${isNew ? '<em class="tag new">NEW</em>' : ''}<i>${iconSVG(a.icon)}</i><b>${esc(a.name)}</b><span>${RARITY[a.r].name}</span><p>${esc(a.d[0].slice(2))}</p><small>${Inventory.count(d.hero, x.idx)} owned</small></div></button>`;
-    }).join('');
-    const P = d.pity, left = r => Math.max(1, Inventory.PITY[r] - P[r]);
-    el.innerHTML = `<div class="cache-in" style="--hero:#${new THREE.Color(H.look.glow).getHexString()}">
+    el.innerHTML = `<div class="cache-in" style="--hero:#${new THREE.Color(H.look.glow).getHexString()};--best:${RARITY[best].glow}">
       <small>${kind} · ${esc(H.name.toUpperCase())}</small><h2>${d.draws.length} add-ons</h2>
-      <div class="cbonus">${d.bonuses.map(b => `<span>${esc(b)}</span>`).join('')}</div>
-      <div class="ccards">${cards}</div>
-      <div class="cpity"><span>Rare+ guaranteed within <b>${left(2)}</b> draws</span><span>Very Rare+ within <b>${left(3)}</b></span><span>Iridescent within <b>${left(4)}</b></span></div>
-      <div class="cact"><button class="btn ghost" id="cache-all">Reveal all</button><button class="btn primary" id="cache-done" hidden>Collect</button></div></div>`;
+      <div class="cbonus">${d.bonuses.map((b, i) => `<span style="--i:${i}">${esc(b)}</span>`).join('')}</div>
+      <div class="cstage"><button class="crystal" id="cache-crystal" title="Crack it open"><svg viewBox="0 0 120 160"><path class="cf" d="M60 4 L108 52 L88 150 L32 150 L12 52 Z"/><path class="cl" d="M60 4 L60 150 M12 52 L108 52 M32 150 L60 52 L88 150"/><path class="ck ck1" d="M60 30 L50 62 L66 80 L54 110"/><path class="ck ck2" d="M30 60 L46 74 L40 98 M86 64 L76 84 L90 104"/><path class="ck ck3" d="M44 128 L60 112 L78 132 M60 52 L72 40 L84 56"/></svg><span>Click to crack</span></button><div class="ccards" hidden></div></div>
+      <div class="cpity" hidden></div>
+      <div class="cfoot"><span class="cshards">◆ <b id="cache-shards">${(Settings.shards | 0) - d.shards}</b> prism shards</span><span class="ctokens" id="cache-tokens"></span></div>
+      <div class="cact"><button class="btn ghost" id="cache-all">Reveal all</button><button class="btn" id="cache-tune" hidden></button><button class="btn primary" id="cache-done" hidden>Collect</button></div></div>`;
     el.hidden = false; el.classList.remove('flash3', 'flash4');
-    $$('#cache .ccard').forEach(b => b.onclick = () => this.reveal(+b.dataset.i));
+    $('#cache-crystal').onclick = () => this.crack();
     $('#cache-all').onclick = () => this.revealAll();
     $('#cache-done').onclick = () => this.close();
+    $('#cache-tune').onclick = () => this.togglePick();
+    this.renderTokens();
     Sfx.play('round', null, 0.6);
+  },
+  // three blows to break it; the glow shows the best rarity inside from the second
+  crack(all) {
+    const c = $('#cache-crystal'); if (!c || this.cracks >= 3) return;
+    this.cracks = all ? 3 : this.cracks + 1;
+    c.className = 'crystal c' + this.cracks; void c.offsetWidth; c.classList.add('hit');
+    Sfx.play('tick', null, 0.4 + this.cracks * 0.2); Sfx.play('glass', null, 0.2 + this.cracks * 0.15);
+    if (this.cracks >= 3) { if (all) this.deal(); else setTimeout(() => this.deal(), 380); }
+  },
+  deal() {
+    if (this.dealt) return; this.dealt = true;
+    const c = $('#cache-crystal');
+    {
+      {
+        if (c) c.remove(); Sfx.play('boom', null, 0.5);
+        const d = this.d, H = HEROES[d.hero], seen = {}, box = $('#cache .ccards');
+        box.innerHTML = d.draws.map((x, i) => {
+          const first = !seen[x.idx]; seen[x.idx] = 1;
+          const isNew = first && Inventory.count(d.hero, x.idx) === d.draws.filter(y => y.idx === x.idx).reduce((n, y) => n + (y.dbl ? 2 : 1), 0);
+          return `<button class="ccard tell${x.r}" data-i="${i}" style="--i:${i}"><div class="cback"><svg viewBox="0 0 64 64"><path d="M32 6 L56 32 L32 58 L8 32 Z" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="32" cy="32" r="7" fill="currentColor"/></svg><span>?</span></div><div class="cfront r${x.r}">${this.front(H, x, isNew)}</div></button>`;
+        }).join('');
+        box.hidden = false; box.classList.toggle('many', d.draws.length > 8); box.classList.toggle('lots', d.draws.length > 12);
+        $$('#cache .ccard').forEach(b => b.onclick = () => this.pickMode ? this.tune(+b.dataset.i) : this.reveal(+b.dataset.i));
+        const P = d.pity, left = r => Math.max(1, Inventory.PITY[r] - P[r]), pe = $('#cache .cpity');
+        pe.innerHTML = `<span>Rare+ guaranteed within <b>${left(2)}</b> draws</span><span>Very Rare+ within <b>${left(3)}</b></span><span>Iridescent within <b>${left(4)}</b></span>`; pe.hidden = false;
+      }
+    }
+  },
+  front(H, x, isNew) {
+    const a = H.addons[x.idx];
+    const tags = [isNew ? '<em class="tag new">NEW</em>' : '', x.dbl ? '<em class="tag dbl">×2</em>' : '', x.forced ? '<em class="tag pity">GUARANTEED</em>' : '', x.tuned ? '<em class="tag tuned">OVERTUNED</em>' : ''].join('');
+    return `${tags ? `<div class="tags">${tags}</div>` : ''}<i>${iconSVG(a.icon)}</i><b>${esc(a.name)}</b><span>${RARITY[a.r].name}</span><p>${esc(a.d[0].slice(2))}</p><small>${Inventory.count(this.d.hero, x.idx)} owned</small>`;
   },
   // the card shakes and glows for longer the rarer it is, then flips
   reveal(i, after) {
     if (this.revealed.has(i)) { if (after) after(); return; }
-    this.revealed.add(i); this.busy++;
+    this.revealed.add(i);
     const x = this.d.draws[i], card = $(`#cache .ccard[data-i="${i}"]`), wait = [250, 380, 650, 1000, 1500][x.r];
+    if (!card) { this.revealed.delete(i); if (after) after(); return; }
     card.classList.add('charging'); card.style.setProperty('--wait', wait + 'ms');
     const ticks = Math.round(wait / 120); for (let k = 0; k < ticks; k++) setTimeout(() => Sfx.play('tick', null, 0.25 + k / ticks * 0.4), k * 120);
     setTimeout(() => {
       card.classList.remove('charging'); card.classList.add('flipped');
-      Sfx.play('rev' + x.r, null, 0.9);
-      if (x.r >= 3) { const el = $('#cache'); el.classList.remove('flash3', 'flash4'); void el.offsetWidth; el.classList.add(x.r === 4 ? 'flash4' : 'flash3'); }
-      this.busy--;
-      if (this.revealed.size === this.d.draws.length) { $('#cache-all').hidden = true; $('#cache-done').hidden = false; this.summary(); }
+      Sfx.play('rev' + x.r, null, 0.9); this.flash(x.r); this.bumpShards(Inventory.SHARD[x.r] * (x.dbl ? 2 : 1));
+      if (this.revealed.size === this.d.draws.length) this.finished();
       if (after) after();
     }, wait);
   },
+  flash(r) { if (r < 3) return; const el = $('#cache'); el.classList.remove('flash3', 'flash4'); void el.offsetWidth; el.classList.add(r === 4 ? 'flash4' : 'flash3'); },
+  bumpShards(n) { const e = $('#cache-shards'); if (!e) return; e.textContent = (+e.textContent || 0) + n; e.parentNode.classList.remove('pop'); void e.offsetWidth; e.parentNode.classList.add('pop'); },
   revealAll() {
-    const order = this.d.draws.map((_, i) => i).filter(i => !this.revealed.has(i));
-    const next = () => { const i = order.shift(); if (i == null) return; this.reveal(i, () => setTimeout(next, 180)); };
-    next();
+    if (this.cracks < 3) this.crack(true); this.deal();
+    const go = () => { const order = this.d.draws.map((_, i) => i).filter(i => !this.revealed.has(i)); const next = () => { const i = order.shift(); if (i == null) return; this.reveal(i, () => setTimeout(next, 150)); }; next(); };
+    if (!$('#cache .ccard')) setTimeout(go, 50); else go();
+  },
+  finished() { $('#cache-all').hidden = true; $('#cache-done').hidden = false; this.renderTokens(); this.summary(); },
+  renderTokens() {
+    const t = $('#cache-tokens'), b = $('#cache-tune'); if (!t) return;
+    t.innerHTML = this.tokens ? `<b>${this.tokens}</b> Overtune ${this.tokens > 1 ? 'tokens' : 'token'}` : '';
+    const done = this.d && this.revealed && this.revealed.size === this.d.draws.length;
+    b.hidden = !(done && this.tokens > 0); b.textContent = this.pickMode ? 'Cancel' : `Overtune a card (${this.tokens})`;
+    $('#cache').classList.toggle('picking', this.pickMode);
+  },
+  togglePick() { this.pickMode = !this.pickMode; this.renderTokens(); if (this.pickMode) Sfx.play('ui'); },
+  // gamble: the card spins; it either climbs a rarity or shatters into shards
+  tune(i) {
+    const x = this.d.draws[i]; if (!this.pickMode || this.tokens <= 0 || x.r >= 4 || x.busy || Inventory.count(this.d.hero, x.idx) <= 0) return;
+    const card = $(`#cache .ccard[data-i="${i}"]`); if (!card) return;
+    this.tokens--; this.pickMode = false; x.busy = true; this.renderTokens();
+    const res = Inventory.overtune(this.d.hero, x.idx), chance = Math.round(Inventory.OVERTUNE[x.r] * 100);
+    card.classList.add('tuning'); card.dataset.chance = chance + '%';
+    for (let k = 0; k < 10; k++) setTimeout(() => Sfx.play('tick', null, 0.3 + k * 0.06), k * 130);
+    setTimeout(() => {
+      card.classList.remove('tuning');
+      if (res && res.ok) { x.idx = res.idx; x.r += 1; x.tuned = true; card.querySelector('.cfront').className = 'cfront r' + x.r; card.querySelector('.cfront').innerHTML = this.front(HEROES[this.d.hero], x, Inventory.count(this.d.hero, x.idx) === 1); card.classList.add('upgraded'); Sfx.play('rev' + x.r, null, 1); this.flash(Math.max(3, x.r)); }
+      else { card.classList.add('shattered'); Sfx.play('glass', null, 1); if (res) this.bumpShards(res.shards); card.querySelector('.cfront').innerHTML = `<i>◆</i><b>Shattered</b><span>+${res ? res.shards : 0} shards</span>`; card.querySelector('.cfront').className = 'cfront r0'; }
+      x.busy = false; this.summary(); this.renderTokens();
+    }, 1400);
   },
   summary() {
     const H = HEROES[this.d.hero], counts = [0, 0, 0, 0, 0]; for (const x of this.d.draws) counts[x.r] += x.dbl ? 2 : 1;
     const D = $('#end-drops'); if (D) D.innerHTML = `<small>CACHE · ${esc(H.name.toUpperCase())}</small><div class="csum">${counts.map((c, r) => c ? `<span class="chip r${r}">${c} ${RARITY[r].name}</span>` : '').join('')}</div>`;
   },
-  close() { $('#cache').hidden = true; if (this.d && this.revealed.size < this.d.draws.length) this.summary(); },
+  close() { $('#cache').hidden = true; if (this.d) this.summary(); },
 };

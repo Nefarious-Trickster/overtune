@@ -5,11 +5,11 @@
 // Add-ons are earned by playing (see Inventory) and a slotted one is used up when you deploy with it.
 // ============================================================================
 const RARITY = [
-  { name: 'Common', css: '#8c6b4a', glow: '#b8916a', drop: 0.42 },
+  { name: 'Common', css: '#8c6b4a', glow: '#b8916a', drop: 0.36 },
   { name: 'Uncommon', css: '#c9a12e', glow: '#ffd75a', drop: 0.28 },
-  { name: 'Rare', css: '#3d9c55', glow: '#6ff08e', drop: 0.17 },
-  { name: 'Very Rare', css: '#8a46d0', glow: '#c48aff', drop: 0.09 },
-  { name: 'Iridescent', css: '#d8325a', glow: '#ff7aa0', drop: 0.04 },
+  { name: 'Rare', css: '#3d9c55', glow: '#6ff08e', drop: 0.2 },
+  { name: 'Very Rare', css: '#8a46d0', glow: '#c48aff', drop: 0.11 },
+  { name: 'Iridescent', css: '#d8325a', glow: '#ff7aa0', drop: 0.05 },
 ];
 
 const HEROES = {
@@ -38,8 +38,12 @@ const HEROES = {
       { id: 'bell', name: 'Bloodhound Bell', r: 2, icon: 'bell', d: ['+ Springing a snare reveals every enemy within 20 m for 8 s'], m: P => { P.bell = 20; } },
       { id: 'tripwire', name: 'Tripwire Chain', r: 3, icon: 'chain', d: ['+ A sprung snare pulses every snare of yours within 15 m', '+ Each pulse roots enemies within 4 m for 1.2 s and deals 25'], m: P => { P.chain = 15; } },
       { id: 'honing', name: 'Honing Stone', r: 3, icon: 'stone', d: ['+ Snared enemies are Exposed for 6 s: they take 50% more damage from everything'], m: P => { P.vuln = 6; } },
-      { id: 'iriMaw', name: 'Iridescent Maw', r: 4, icon: 'skull', d: ['+ Snares explode for 120 damage in a 5 m blast', '- Snares no longer root', '- Carry one fewer snare'], m: P => { P.explode = 120; P.explodeR = 5; P.noRoot = true; P.carry = Math.max(1, P.carry - 1); } },
-      { id: 'iriStone', name: 'Iridescent Stone', r: 4, icon: 'gem', d: ['+ Every 8 s a snare springs up by itself in an enemy\'s path, anywhere on the map (up to 10 at once)', '- You can no longer set snares by hand'], m: P => { P.auto = 8; P.carry = 10; } },
+      { id: 'spring', name: 'Hair Trigger', r: 1, icon: 'spring', d: ['+ Snares arm 40% faster', '+ Trigger radius 0.3 m wider'], m: P => { P.arm *= 0.6; P.radius += 0.3; } },
+      { id: 'wire', name: 'Barbed Wire', r: 2, icon: 'chain', d: ['+ Caught enemies bleed for 30 more', '+ Root lasts 0.5 s longer'], m: P => { P.bleed += 30; P.root += 0.5; } },
+      { id: 'hunt', name: 'Hunter\'s Mark', r: 3, icon: 'eye', d: ['+ A caught enemy is Vulnerable (+25% damage taken) for 4 s', '+ and revealed for 4 s longer'], m: P => { P.vuln = Math.max(P.vuln, 4); P.reveal += 4; } },
+      { id: 'longarm', name: 'Long Arm', r: 3, icon: 'hook', d: ['+ Throw snares up to 22 m away', '+ Carry one more snare'], m: P => { P.throwDist = 22; P.carry += 1; } },
+      { id: 'iriMaw', name: 'Iridescent Maw', r: 4, icon: 'skull', d: ['+ Snares explode for 160 damage in a 6 m blast', '+ and still root anyone who survives'], m: P => { P.explode = 160; P.explodeR = 6; } },
+      { id: 'iriStone', name: 'Iridescent Stone', r: 4, icon: 'gem', d: ['+ Every 5 s a snare springs up by itself in an enemy\'s path, anywhere on the map (up to 12)', '+ They arm instantly'], m: P => { P.auto = 5; P.carry = 12; P.arm = 0.05; } },
     ],
   },
   // ------------------------------------------------------------------------------------------------ LARK
@@ -67,8 +71,12 @@ const HEROES = {
       { id: 'fold', name: 'Vertical Fold', r: 2, icon: 'wing', d: ['+ Blink straight up or down at any angle — onto roofs, off ledges'], m: P => { P.vertical = true; } },
       { id: 'torn', name: 'Torn Lining', r: 3, icon: 'moon', d: ['+ No fatigue after a chain', '- Blinks recharge 60% slower'], m: P => { P.noFatigue = true; P.recharge *= 1.6; } },
       { id: 'shatter', name: 'Shatterpoint', r: 3, icon: 'shard', d: ['+ Each blink leaves a tear where you stood that bursts 1 s later for 70 damage in 3.5 m'], m: P => { P.rift = 70; } },
-      { id: 'iriThread', name: 'Iridescent Thread', r: 4, icon: 'gem', d: ['+ Blink distance more than doubled', '+ Blinking through an enemy deals 90 damage to them', '- Fatigue doubled'], m: P => { P.maxDist *= 2.2; P.lineDmg = 90; P.fatiguePer *= 2; } },
-      { id: 'iriHeart', name: 'Iridescent Heart', r: 4, icon: 'lung', d: ['+ Blinks no longer use charges and there is no fatigue — chain forever', '- Every blink costs 30 health'], m: P => { P.hpCost = 30; P.noFatigue = true; } },
+      { id: 'quartz', name: 'Quartz Lens', r: 1, icon: 'eye', d: ['+ Blinks charge 30% faster'], m: P => { P.chargeTime *= 0.7; } },
+      { id: 'after', name: 'Afterimage', r: 2, icon: 'mask', d: ['+ Leave a decoy where you blinked from', '+ Rift Strike window 1 s longer'], m: P => { P.decoy = Math.max(P.decoy, 3); P.strikeWin += 1; } },
+      { id: 'shatter', name: 'Shatterpoint', r: 3, icon: 'shard', d: ['+ Arriving shatters the air: 70 damage within 4 m'], m: P => { P.arriveDmg += 70; P.arriveR = Math.max(P.arriveR || 0, 4); } },
+      { id: 'mend', name: 'Mending Rift', r: 3, icon: 'lung', d: ['+ Each blink heals 20', '+ One extra blink per chain'], m: P => { P.heal += 20; P.charges += 1; } },
+      { id: 'iriThread', name: 'Iridescent Thread', r: 4, icon: 'gem', d: ['+ Blink 2.5× as far', '+ Blinking through an enemy deals 140 damage to them'], m: P => { P.maxDist *= 2.5; P.lineDmg = 140; } },
+      { id: 'iriHeart', name: 'Iridescent Heart', r: 4, icon: 'lung', d: ['+ Blinks no longer use charges and there is no fatigue — chain forever', '+ Rift Strikes deal 50% more', '- Every blink costs 15 health'], m: P => { P.hpCost = 15; P.noFatigue = true; P.strike *= 1.5; } },
     ],
   },
   // ------------------------------------------------------------------------------------------------ GAUGE
@@ -96,8 +104,12 @@ const HEROES = {
       { id: 'valve', name: 'Steam Valve', r: 2, icon: 'gear', d: ['+ Ramming someone vents the Boiler completely and sets them ablaze'], m: P => { P.vent = true; } },
       { id: 'pinball', name: 'Wrecking Frame', r: 3, icon: 'ring', d: ['+ Walls no longer stop you: the charge caroms off them', '+ Each carom throws a 4 m shockwave for 40'], m: P => { P.bounce = true; P.crashStun = 0; } },
       { id: 'jugg', name: 'Juggernaut Core', r: 3, icon: 'plate', d: ['+ While revving and charging: immune to roots, stuns and knockback', '+ and take half damage'], m: P => { P.jugg = true; } },
-      { id: 'iriPiston', name: 'Iridescent Piston', r: 4, icon: 'skull', d: ['+ Ramming an enemy below half health kills them outright', '- Cooldown 5 s longer'], m: P => { P.execute = 0.5; P.cd += 5; } },
-      { id: 'iriFurnace', name: 'Iridescent Furnace', r: 4, icon: 'flame', d: ['+ The charge lasts for as long as you hold it', '+ and leaves a wall of fire (35 damage per second)', '- Every second of charging costs you 15 health'], m: P => { P.furnace = true; P.dur = 999; P.trail = 35; } },
+      { id: 'grease', name: 'Greased Pistons', r: 1, icon: 'piston', d: ['+ Rev up 40% faster'], m: P => { P.rev *= 0.6; } },
+      { id: 'plate', name: 'Battering Plate', r: 2, icon: 'plate', d: ['+ Rams deal 30 more and knock 60% further'], m: P => { P.dmg += 30; P.knock *= 1.6; } },
+      { id: 'pinball', name: 'Pinball', r: 3, icon: 'ring', d: ['+ Bounce off walls instead of crashing', '+ Turn 50% sharper while charging'], m: P => { P.bounce = true; P.turn *= 1.5; } },
+      { id: 'unstop', name: 'Unstoppable Engine', r: 3, icon: 'gear', d: ['+ Nothing can stop or slow you while charging', '+ Plough through every enemy in your way'], m: P => { P.jugg = true; P.multi = true; } },
+      { id: 'iriPiston', name: 'Iridescent Piston', r: 4, icon: 'skull', d: ['+ Ramming an enemy below 60% health kills them outright', '+ Crashing into walls no longer stuns you'], m: P => { P.execute = 0.6; P.crashStun = 0; } },
+      { id: 'iriFurnace', name: 'Iridescent Furnace', r: 4, icon: 'flame', d: ['+ The charge lasts for as long as you hold it, 20% faster', '+ and leaves a wall of fire (60 damage per second)', '- Every second of charging costs you 15 health'], m: P => { P.furnace = true; P.dur = 999; P.trail = 60; P.speed *= 1.2; } },
     ],
   },
   // ------------------------------------------------------------------------------------------------ VEIL
@@ -125,8 +137,12 @@ const HEROES = {
       { id: 'cleave', name: 'Cleaving Veil', r: 2, icon: 'blade', d: ['+ The Ambush strike hits everyone in a wide arc, and reaches 1.5 m further'], m: P => { P.cleave = true; } },
       { id: 'storm', name: 'Windstorm', r: 3, icon: 'wing', d: ['+ Faded speed +40%', '- Your shimmer shows 5 m further away'], m: P => { P.speed += 0.4; P.shimmer += 5; } },
       { id: 'shadow', name: 'Shadow Step', r: 3, icon: 'mask', d: ['+ Unveiling while looking at an enemy within 16 m puts you right behind them'], m: P => { P.shadowStep = true; } },
-      { id: 'iriShroud', name: 'Iridescent Shroud', r: 4, icon: 'gem', d: ['+ Strike while faded: the hit unveils you instantly as an Ambush', '- Cooldown 6 s longer'], m: P => { P.shootCloaked = true; P.cd += 6; } },
-      { id: 'iriCoin', name: 'Iridescent Coin', r: 4, icon: 'moon', d: ['+ You are always faded: striking shows you for 2 s, then you vanish again by yourself', '- Maximum health −40%'], m: P => { P.perma = true; } },
+      { id: 'soles', name: 'Soft Soles', r: 1, icon: 'feather', d: ['+ Silent footsteps', '+ 10% faster while faded'], m: P => { P.silent = true; P.speed += 0.1; } },
+      { id: 'smoke', name: 'Smoke Vial', r: 2, icon: 'vial', d: ['+ Unveiling blinds enemies near you for 1.5 s'], m: P => { P.blind = Math.max(P.blind || 0, 1.5); } },
+      { id: 'stepper', name: 'Shadow Stepper', r: 3, icon: 'mask', d: ['+ Unveiling puts you right behind the nearest enemy', '+ 15 health per second while faded'], m: P => { P.shadowStep = true; P.regen += 15; } },
+      { id: 'hound', name: 'Bloodhound', r: 3, icon: 'eye', d: ['+ While faded you sense enemies within 25 m through walls', '+ Ambush window 1 s longer'], m: P => { P.sense = Math.max(P.sense || 0, 25); P.ambushWin += 1; } },
+      { id: 'iriShroud', name: 'Iridescent Shroud', r: 4, icon: 'gem', d: ['+ Strike while faded: the hit unveils you instantly as an Ambush', '+ Ambushes deal 50% more'], m: P => { P.shootCloaked = true; P.ambush *= 1.5; } },
+      { id: 'iriCoin', name: 'Iridescent Coin', r: 4, icon: 'moon', d: ['+ You are always faded: striking shows you for 2 s, then you vanish again by yourself', '+ 15% faster while faded', '- Maximum health −20%'], m: P => { P.perma = true; P.speed *= 1.15; } },
     ],
   },
   // ------------------------------------------------------------------------------------------------ IVRA
@@ -154,8 +170,12 @@ const HEROES = {
       { id: 'return', name: 'Returning Edge', r: 2, icon: 'hook', d: ['+ Glaives that strike a wall fly back to you, cutting through anyone on the way'], m: P => { P.returning = true; } },
       { id: 'blood', name: 'Bloodtrail', r: 3, icon: 'drop', d: ['+ Glaive hits reveal the target for 8 s', '+ and slow them by 35% for 3 s'], m: P => { P.mark = 8; } },
       { id: 'sunder', name: 'Sundering Glaive', r: 3, icon: 'blade', d: ['+ Glaives pass through every enemy in their path'], m: P => { P.pierce = true; } },
-      { id: 'iriGlaive', name: 'Iridescent Glaive', r: 4, icon: 'gem', d: ['+ A fully wound glaive kills outright', '- Carry only one glaive', '- Glaives take 16 s to come back'], m: P => { P.oneshot = true; P.cap = 1; P.regen = 16; } },
-      { id: 'iriRing', name: 'Iridescent Ring', r: 4, icon: 'ring', d: ['+ Your glaives orbit you as a ring of blades (40 to anyone they touch)', '+ Press the power to fling the whole ring outward at full strength', '- They no longer wind up or arc'], m: P => { P.orbit = true; } },
+      { id: 'grip', name: 'Light Grip', r: 1, icon: 'feather', d: ['+ Full wind-up 30% sooner'], m: P => { P.windMax *= 0.7; } },
+      { id: 'barb', name: 'Barbed Edge', r: 2, icon: 'blade', d: ['+ Glaives poison for 40', '+ and mark the target for 3 s'], m: P => { P.venom += 40; P.mark = Math.max(P.mark || 0, 3); } },
+      { id: 'rico', name: 'Ricochet Ring', r: 3, icon: 'ring', d: ['+ Glaives pass through enemies and ricochet 3 times'], m: P => { P.pierce = true; P.ricochet += 3; } },
+      { id: 'boomer', name: 'Boomerang', r: 3, icon: 'twin', d: ['+ Glaives fly back to you after hitting', '+ Carry one more'], m: P => { P.returning = true; P.cap += 1; } },
+      { id: 'iriGlaive', name: 'Iridescent Glaive', r: 4, icon: 'gem', d: ['+ A fully wound glaive kills outright', '- Carry two glaives; they take 8 s to come back'], m: P => { P.oneshot = true; P.cap = 2; P.regen = 8; } },
+      { id: 'iriRing', name: 'Iridescent Ring', r: 4, icon: 'ring', d: ['+ Your glaives orbit you as a ring of blades that cut anyone they touch', '+ Two extra glaives in the ring', '+ Press the power to fling the whole ring outward, 50% harder'], m: P => { P.orbit = true; P.cap += 2; P.dmgMax *= 1.5; P.dmgMin *= 1.5; } },
     ],
   },
   // ------------------------------------------------------------------------------------------------ WICK
@@ -183,8 +203,12 @@ const HEROES = {
       { id: 'hungry', name: 'Hungry Flame', r: 2, icon: 'flame', d: ['+ Enemies who stay in the light for 2 s are rooted for 1.2 s (once per lantern)'], m: P => { P.root = 1.2; } },
       { id: 'beacon', name: 'Beacon Network', r: 3, icon: 'web', d: ['+ Your lanterns are strung together with light', '+ Crossing a line between two lanterns deals 45 and reveals'], m: P => { P.beacon = 45; } },
       { id: 'wraith', name: 'Wraithlight', r: 3, icon: 'moon', d: ['+ Enemies cannot see your lanterns or their light, and are never told they are revealed'], m: P => { P.hidden = true; } },
-      { id: 'iriLamp', name: 'Iridescent Lamp', r: 4, icon: 'gem', d: ['+ You are the lantern: a 9 m light always around you that reveals, slows and burns (18/s)', '- You can no longer hang lanterns or walk between them'], m: P => { P.carried = true; P.radius = 9; P.burn = Math.max(P.burn, 18); } },
-      { id: 'iriMoth', name: 'Iridescent Moth', r: 4, icon: 'moth', d: ['+ Every lantern breeds moths and sends one at an enemy in its light every 1.2 s', '- One fewer lantern'], m: P => { P.turret = 1.2; P.carry = Math.max(1, P.carry - 1); } },
+      { id: 'wickl', name: 'Long Wick', r: 1, icon: 'candle', d: ['+ Light lingers on enemies for 3 s after they leave it', '+ Lanterns 1 m wider'], m: P => { P.linger = Math.max(P.linger || 0, 3); P.radius += 1; } },
+      { id: 'hidden', name: 'Shuttered Flame', r: 2, icon: 'lantern', d: ['+ Enemies can\'t see your lanterns', '+ Anyone who enters the light is revealed for 2 s'], m: P => { P.hidden = true; P.echo = Math.max(P.echo || 0, 2); } },
+      { id: 'beacons', name: 'Beacon Chain', r: 3, icon: 'bolt', d: ['+ Your lanterns link with beams of light that burn enemies crossing them (35 per second)'], m: P => { P.beacon = Math.max(P.beacon || 0, 35); } },
+      { id: 'snarel', name: 'Snaring Light', r: 3, icon: 'web', d: ['+ The light roots enemies for 1.2 s when they first step in', '+ and burns them (15 per second)'], m: P => { P.root = 1.2; P.burn += 15; } },
+      { id: 'iriLamp', name: 'Iridescent Lamp', r: 4, icon: 'gem', d: ['+ You are the lantern: an 11 m light always around you that reveals, slows and burns (30/s)', '- You can no longer hang lanterns or walk between them'], m: P => { P.carried = true; P.radius = 11; P.burn = Math.max(P.burn, 30); } },
+      { id: 'iriMoth', name: 'Iridescent Moth', r: 4, icon: 'moth', d: ['+ Every lantern breeds moths and sends one at an enemy in its light every 0.6 s', '+ Moths hit 50% harder'], m: P => { P.turret = 0.6; P.mothBoost = Math.max(P.mothBoost || 0, 1.5); } },
     ],
   },
   // ------------------------------------------------------------------------------------------------ MIRE
@@ -212,8 +236,12 @@ const HEROES = {
       { id: 'drown', name: 'Drowned Lungs', r: 2, icon: 'skull', d: ['+ Enemies standing over you while you are under take 35 damage per second'], m: P => { P.drown = 35; } },
       { id: 'bore', name: 'Tidal Bore', r: 3, icon: 'wave', d: ['+ You leave a trail of acid underground (25/s)', '+ and stay under 1 s longer'], m: P => { P.trail = 25; P.maxTime += 1; } },
       { id: 'witch', name: "Witch's Water", r: 3, icon: 'flask', d: ['+ Surfacing refills your flasks and hurls six of them out in a ring'], m: P => { P.flaskRing = true; } },
-      { id: 'iriAbyss', name: 'Iridescent Abyss', r: 4, icon: 'gem', d: ['+ No time limit underground', '+ Throw flasks from below: they burst up out of the ground where you aim', '- 40% slower underground'], m: P => { P.artillery = true; P.maxTime = 999; P.speed *= 0.6; } },
-      { id: 'iriFen', name: 'Iridescent Fen', r: 4, icon: 'leaf', d: ['+ Your acid pools are 2.5× wider and last 3× longer', '+ Standing in your own acid heals you 20 per second'], m: P => { P.fen = true; } },
+      { id: 'silt', name: 'Quick Silt', r: 1, icon: 'drop', d: ['+ Sink twice as fast', '+ Cooldown 2 s shorter'], m: P => { P.sink *= 0.5; P.cd -= 2; } },
+      { id: 'under', name: 'Undertow', r: 2, icon: 'wave', d: ['+ The geyser pulls enemies in before it throws them', '+ Geyser 1 m wider'], m: P => { P.pull = true; P.radius += 1; } },
+      { id: 'drownp', name: 'Drowning Pool', r: 3, icon: 'flask', d: ['+ Enemies standing over you drown (30 per second)', '+ The geyser leaves an acid pool (25 per second)'], m: P => { P.drown = Math.max(P.drown || 0, 30); P.pool = Math.max(P.pool || 0, 25); } },
+      { id: 'mire', name: 'Sucking Mud', r: 3, icon: 'leaf', d: ['+ The geyser roots everyone it hits for 1.5 s', '+ and rings you with flasks'], m: P => { P.root = Math.max(P.root || 0, 1.5); P.flaskRing = true; } },
+      { id: 'iriAbyss', name: 'Iridescent Abyss', r: 4, icon: 'gem', d: ['+ No time limit underground, and you heal 25 per second down there', '+ Throw flasks from below: they burst up out of the ground where you aim'], m: P => { P.artillery = true; P.maxTime = 999; P.heal = Math.max(P.heal, 25); } },
+      { id: 'iriFen', name: 'Iridescent Fen', r: 4, icon: 'leaf', d: ['+ Your acid pools are 2.5× wider and last 3× longer', '+ Standing in your own acid heals you 20 per second', '+ Your geyser hits 50% harder'], m: P => { P.fen = true; P.dmg *= 1.5; } },
     ],
   },
   // ------------------------------------------------------------------------------------------------ SPINDLE
@@ -241,8 +269,12 @@ const HEROES = {
       { id: 'cross', name: 'Crossed Wires', r: 2, icon: 'web', d: ['+ The line passes through and catches up to three enemies'], m: P => { P.multi = 3; } },
       { id: 'gallows', name: 'Gallows Knot', r: 3, icon: 'skull', d: ['+ Caught enemies are hoisted 9 m into the air instead, then dropped'], m: P => { P.gallows = true; } },
       { id: 'puppet', name: 'Puppet Strings', r: 3, icon: 'spool', d: ['+ Caught enemies are yours for 1.8 s: they walk toward you and cannot attack'], m: P => { P.puppet = 1.8; } },
-      { id: 'iriWeb', name: 'Iridescent Web', r: 4, icon: 'web', d: ['+ The line becomes a 7 m net: everyone it catches is bound in place for 2.5 s', '- Cooldown 4 s longer'], m: P => { P.web = true; P.cd += 4; } },
-      { id: 'iriSpindle', name: 'Iridescent Spindle', r: 4, icon: 'gem', d: ['+ The line drags you both together: you meet in the middle with a 100-damage collision', '+ Two stitched needles are enough to Stitch'], m: P => { P.meet = true; } },
+      { id: 'wax', name: 'Waxed Thread', r: 1, icon: 'thread', d: ['+ The line flies 40% faster and 6 m further'], m: P => { P.speed *= 1.4; P.range += 6; } },
+      { id: 'noose', name: 'Hangman\'s Knot', r: 2, icon: 'chain', d: ['+ Caught enemies are hurled into the air', '+ and take 20 more damage'], m: P => { P.gallows = true; P.dmg += 20; } },
+      { id: 'paw', name: 'Cat\'s Paw', r: 3, icon: 'spool', d: ['+ The line catches up to 3 enemies in a row', '+ Caught enemies are slowed for 2 s'], m: P => { P.multi = 3; P.slow = Math.max(P.slow || 0, 2); } },
+      { id: 'strings', name: 'Puppet Strings', r: 3, icon: 'needle', d: ['+ A caught enemy becomes your puppet for 2.5 s: they walk where you look'], m: P => { P.puppet = 2.5; } },
+      { id: 'iriWeb', name: 'Iridescent Web', r: 4, icon: 'web', d: ['+ The line becomes a 7 m net: everyone it catches is bound in place for 2.5 s', '+ One extra line'], m: P => { P.web = true; P.charges += 1; } },
+      { id: 'iriSpindle', name: 'Iridescent Spindle', r: 4, icon: 'gem', d: ['+ The line drags you both together: you meet in the middle with a 100-damage collision', '+ Two stitched needles are enough to Stitch', '+ One extra line'], m: P => { P.meet = true; P.charges += 1; } },
     ],
   },
   sable: {
@@ -269,8 +301,44 @@ const HEROES = {
       { id: 'sand', name: 'Hourglass Sand', r: 2, icon: 'vial', d: ['+ Enemies near the spot you left (5 m) are slowed by 50% for 3 s'], m: P => { P.sand = 3; } },
       { id: 'paradox', name: 'Paradox Engine', r: 3, icon: 'skull', d: ['+ While Rewind is ready, a killing blow rewinds you instead of killing you', '- Rewind reaches 1 s less far back'], m: P => { P.paradox = true; P.back -= 1; } },
       { id: 'retro', name: 'Retrograde', r: 3, icon: 'chain', d: ['+ The last enemy you hurt is rewound too: dragged back to where they stood when you were there'], m: P => { P.retro = true; } },
-      { id: 'iriAnchor', name: 'Ouroboros Anchor', r: 4, icon: 'coil', d: ['+ Press to drop an anchor. Press again within 15 s to return to it with the health and ammo you had then', '- Cooldown 4 s longer, and it starts only once you return'], m: P => { P.anchor = 15; P.cd += 4; } },
-      { id: 'iriStop', name: 'The Stopped Clock', r: 4, icon: 'clock', d: ['+ Arriving stops time around you: enemies within 8 m are frozen for 2 s', '- Rewind reaches only 2 s back'], m: P => { P.freeze = 2; P.freezeR = 8; P.back = 2; } },
+      { id: 'cog', name: 'Spare Cog', r: 1, icon: 'gear', d: ['+ Cooldown 2 s shorter', '+ Rewinding reloads your weapon'], m: P => { P.cd -= 2; P.reload = true; } },
+      { id: 'echoch', name: 'Echo Chamber', r: 2, icon: 'mask', d: ['+ An echo of you stays behind for 4 s', '+ and bursts for 40 damage when you leave'], m: P => { P.decoy = 4; P.depart = Math.max(P.depart, 40); } },
+      { id: 'shieldt', name: 'Temporal Shield', r: 3, icon: 'plate', d: ['+ Rewinding heals an extra 60', '+ and shakes off every bad status'], m: P => { P.bonus += 60; P.cleanse = true; } },
+      { id: 'gear2', name: 'Grandfather Gear', r: 3, icon: 'clock', d: ['+ One extra rewind before the cooldown', '+ You arrive with a 60-damage blast'], m: P => { P.charges += 1; P.arrive = Math.max(P.arrive, 60); } },
+      { id: 'iriAnchor', name: 'Ouroboros Anchor', r: 4, icon: 'coil', d: ['+ Press to drop an anchor. Press again within 25 s to return to it with the health and ammo you had then, plus 100 health'], m: P => { P.anchor = 25; P.bonus += 100; } },
+      { id: 'iriStop', name: 'The Stopped Clock', r: 4, icon: 'clock', d: ['+ Arriving stops time around you: enemies within 10 m are frozen for 3 s'], m: P => { P.freeze = 3; P.freezeR = 10; } },
+    ],
+  },
+  thane: {
+    key: 'thane', name: 'Thane', title: 'The Stormcaller', role: 'Controller', hp: 300, speed: 5.2,
+    blurb: 'A weather-witch in a salt-stiff oilskin, a lightning rod strapped to her back and a storm on a leash. Where she points, the sky answers.',
+    look: { skin: 0xc8a888, main: 0x2a3a3e, second: 0x1a2226, cloth: 0xc8a24a, metal: 0x8a9aa8, glow: 0x8ad8ff },
+    weapon: { name: 'Arc Caster', kind: 'arc', desc: 'Shoots a bolt of lightning that jumps from the enemy you hit to up to two more enemies close to them.', dmg: 32, head: 1.3, rof: 0.5, mag: 8, reload: 2.0, range: 32, jumps: 2, jumpR: 7, jumpMul: 0.7, spread: 0.004, spreadMove: 0.01, recoil: 0.02, sound: 'zap' },
+    power: { name: 'Thunderhead', key: 'cloud', desc: 'Put a storm cloud where you aim. For 6 seconds it strikes the closest enemy under it with lightning every second.',
+      charges: 1, cd: 13, dur: 6, every: 1.0, dmg: 45, radius: 6, chains: 0, multi: 1, stun: 0, slow: 0, reveal: 0, vuln: 0, follow: 0, rain: 0, refund: false, ride: false, perm: false, smite: 0 },
+    util: { name: 'Bolt Step', key: 'boltstep', cd: 9, desc: 'Turn into lightning and dart 9 m forward, shocking enemies you pass through (30 damage).' },
+    ult: { name: 'Tempest', key: 'tempest', desc: 'For 6 seconds, lightning strikes every enemy you can see within 18 m, again and again (35 damage each strike).' },
+    addons: [
+      { id: 'rod', name: 'Copper Rod', r: 0, icon: 'bolt', d: ['+ The cloud strikes from 1.5 m further out'], m: P => { P.radius += 1.5; } },
+      { id: 'static', name: 'Static Charge', r: 0, icon: 'spring', d: ['+ Strikes come 20% more often'], m: P => { P.every *= 0.8; } },
+      { id: 'squall', name: 'Long Squall', r: 0, icon: 'moon', d: ['+ The cloud lasts 2 s longer'], m: P => { P.dur += 2; } },
+      { id: 'ozone', name: 'Ozone', r: 0, icon: 'drop', d: ['+ Cooldown 2 s shorter'], m: P => { P.cd -= 2; } },
+      { id: 'clap', name: 'Thunderclap', r: 0, icon: 'bell', d: ['+ Anyone struck is shown to your team for 2 s'], m: P => { P.reveal = 2; } },
+      { id: 'fork', name: 'Forked Bolt', r: 1, icon: 'twin', d: ['+ Every strike jumps to one more enemy nearby'], m: P => { P.chains += 1; } },
+      { id: 'twincloud', name: 'Twin Clouds', r: 1, icon: 'twin', d: ['+ Two clouds before the cooldown', '- Cooldown 3 s longer'], m: P => { P.charges = 2; P.cd += 3; } },
+      { id: 'rain', name: 'Driving Rain', r: 1, icon: 'wave', d: ['+ Enemies under the cloud are slowed by 30%'], m: P => { P.rain = 0.7; } },
+      { id: 'heavy', name: 'Heavy Charge', r: 1, icon: 'plate', d: ['+ Strikes deal 20 more'], m: P => { P.dmg += 20; } },
+      { id: 'wander', name: 'Wandering Storm', r: 1, icon: 'feather', d: ['+ The cloud drifts after the nearest enemy'], m: P => { P.follow = 3.5; } },
+      { id: 'stunb', name: 'Stunning Bolt', r: 2, icon: 'star', d: ['+ Strikes stun for 0.5 s'], m: P => { P.stun = Math.max(P.stun, 0.5); } },
+      { id: 'ball', name: 'Ball Lightning', r: 2, icon: 'ring', d: ['+ Each strike hits the two closest enemies'], m: P => { P.multi = Math.max(P.multi, 2); } },
+      { id: 'cumulo', name: 'Cumulonimbus', r: 2, icon: 'moon', d: ['+ The cloud is 3 m wider and strikes 10 harder', '- Strikes come 20% less often'], m: P => { P.radius += 3; P.dmg += 10; P.every *= 1.2; } },
+      { id: 'lrod', name: 'Lightning Rod', r: 2, icon: 'bolt', d: ['+ Every strike puts 2 rounds back in your Arc Caster'], m: P => { P.refund = true; } },
+      { id: 'super', name: 'Supercharged', r: 3, icon: 'fuse', d: ['+ Strikes deal 60% more and come 20% more often'], m: P => { P.dmg *= 1.6; P.every *= 0.8; } },
+      { id: 'chainst', name: 'Chain Storm', r: 3, icon: 'chain', d: ['+ Every strike jumps to two more enemies nearby'], m: P => { P.chains += 2; } },
+      { id: 'electro', name: 'Electrocution', r: 3, icon: 'skull', d: ['+ Strikes stun for 1 s and leave the target Vulnerable (+25% damage taken) for 3 s'], m: P => { P.stun = Math.max(P.stun, 1); P.vuln = 3; } },
+      { id: 'overcast', name: 'Overcast', r: 3, icon: 'moon', d: ['+ The cloud lasts 12 s', '+ and drifts after the nearest enemy'], m: P => { P.dur = Math.max(P.dur, 12); P.follow = Math.max(P.follow, 3); } },
+      { id: 'iriSupercell', name: 'Iridescent Supercell', r: 4, icon: 'gem', d: ['+ The cloud is twice as wide and strikes three enemies every half second', '+ Every strike jumps to two more'], m: P => { P.radius *= 2; P.multi = 3; P.every = Math.min(P.every, 0.5); P.chains += 2; } },
+      { id: 'iriEye', name: 'Iridescent Eye', r: 4, icon: 'eye', d: ['+ A storm rides above you forever, striking enemies within 9 m every 0.8 s for 50', '+ The power instead calls one huge bolt where you aim: 150 damage in 3 m (6 s cooldown)'], m: P => { P.perm = true; P.smite = 150; P.cd = 6; } },
     ],
   },
   orrin: {
@@ -297,8 +365,12 @@ const HEROES = {
       { id: 'repulsor', name: 'Repulsor', r: 2, icon: 'wave', d: ['+ The well pushes enemies out instead of pulling them in', '+ It lasts 2 s longer'], m: P => { P.push = true; P.dur += 2; } },
       { id: 'horizon', name: 'Event Horizon', r: 3, icon: 'skull', d: ['+ Enemies dragged to the very middle take 60 damage per second'], m: P => { P.horizon = 60; } },
       { id: 'supermassive', name: 'Supermassive', r: 3, icon: 'gem', d: ['+ The well is 60% bigger and pulls 60% harder', '- Cooldown 4 s longer'], m: P => { P.radius *= 1.6; P.pull *= 1.6; P.cd += 4; } },
-      { id: 'iriBinary', name: 'Binary Star', r: 4, icon: 'twin', d: ['+ Every throw splits into two wells, side by side', '+ A beam between them burns enemies who cross it (40 per second)'], m: P => { P.twin = true; } },
-      { id: 'iriHole', name: 'Black Hole', r: 4, icon: 'coil', d: ['+ The well lasts 6 s and pulls twice as hard', '+ Enemies who reach the middle below 30% health are destroyed', '- Cooldown 8 s longer'], m: P => { P.dur = 6; P.pull *= 2; P.exec = 0.3; P.cd += 8; } },
+      { id: 'dust', name: 'Bright Dust', r: 1, icon: 'star', d: ['+ Enemies in the well are shown to your team for 3 s', '+ Throw 20% further'], m: P => { P.reveal = 3; P.speed *= 1.2; } },
+      { id: 'glens', name: 'Gravity Lens', r: 2, icon: 'eye', d: ['+ The well is 2 m wider', '+ and slows enemies inside by 30%'], m: P => { P.radius += 2; P.slow = P.slow ? Math.min(P.slow, 0.7) : 0.7; } },
+      { id: 'stellar', name: 'Stellar Collapse', r: 3, icon: 'fuse', d: ['+ When the well ends it implodes for 140', '+ and deals 10 per second while it lasts'], m: P => { P.implode = Math.max(P.implode, 140); P.dps += 10; } },
+      { id: 'twinorb', name: 'Twin Orbits', r: 3, icon: 'twin', d: ['+ Two wells before the cooldown', '+ Each lasts 1 s longer'], m: P => { P.charges = Math.max(P.charges, 2); P.dur += 1; } },
+      { id: 'iriBinary', name: 'Binary Star', r: 4, icon: 'twin', d: ['+ Every throw splits into two wells, side by side, 20% bigger', '+ A beam between them burns enemies who cross it (40 per second)', '+ The wells deal 20 damage per second'], m: P => { P.twin = true; P.radius *= 1.2; P.dps += 20; } },
+      { id: 'iriHole', name: 'Black Hole', r: 4, icon: 'coil', d: ['+ The well lasts 6 s and pulls twice as hard', '+ Enemies who reach the middle below 40% health are destroyed', '- Cooldown 3 s longer'], m: P => { P.dur = 6; P.pull *= 2; P.exec = 0.4; P.cd += 3; } },
     ],
   },
 
@@ -327,9 +399,9 @@ const Inventory = {
   add(hero, i, n = 1) { const h = this.get(hero); h[i] = (h[i] | 0) + n; Settings.save(); },
   take(hero, i) { const h = this.get(hero); if ((h[i] | 0) <= 0) return false; h[i]--; if (!h[i]) delete h[i]; Settings.save(); return true; },
   // a roll on the drop table, for this hero; `min` forces at least that rarity (the pity guarantee)
-  roll(hero, min = 0) {
-    // the more you play a hero, the better the draws get (up to about double the odds of the top two rarities)
-    const xp = Math.min(1, (Settings.played[hero] | 0) / 40), w = RARITY.map((R, i) => i < min ? 0 : R.drop * (i >= 3 ? 1 + xp : i === 0 ? 1 - xp * 0.35 : 1)), sum = w.reduce((a, b) => a + b, 0);
+  roll(hero, min = 0, luck = 1) {
+    // the more you play a hero, the better the draws get (up to about double the odds of the top two rarities); harder enemies add luck
+    const xp = Math.min(1, (Settings.played[hero] | 0) / 30), w = RARITY.map((R, i) => i < min ? 0 : R.drop * (i >= 3 ? (1 + xp) * luck : i === 2 ? Math.sqrt(luck) : i === 0 ? 1 - xp * 0.35 : 1)), sum = w.reduce((a, b) => a + b, 0);
     let x = Math.random() * sum, r = 0; for (; r < 4; r++) { x -= w[r]; if (x < 0) break; }
     const pool = HEROES[hero].addons.filter(a => a.r === r); return pick(pool).idx;
   },
@@ -338,7 +410,7 @@ const Inventory = {
     if (Settings.invV !== 2) { Settings.inv = {}; Settings.loadouts = {}; Settings.given = {}; Settings.invV = 2; }
     let changed = false;
     for (const k of HERO_KEYS) {
-      if ((Settings.given[k] | 0) >= 2) continue; Settings.given[k] = 2; changed = true;
+      if ((Settings.given[k] | 0) >= 3) continue; Settings.given[k] = 3; changed = true;
       const h = this.get(k);
       for (const a of HEROES[k].addons) if (a.r <= 1) h[a.idx] = Math.max(h[a.idx] | 0, 2);
     }
@@ -355,29 +427,52 @@ const Inventory = {
     for (const i of a.addons) { const k = a.heroKey + ':' + i; if (!M.paid[k] && this.take(a.heroKey, i)) M.paid[k] = 1; }
   },
   // pity counters: draws since the last Rare-or-better, Very-Rare-or-better and Iridescent, per hero
-  PITY: [0, 0, 10, 30, 60],
+  PITY: [0, 0, 6, 18, 35],
+  SHARD: [1, 2, 4, 8, 16],                 // prism shards each draw is also worth
+  CRAFT: [6, 12, 25, 60, 140],             // and what it costs to craft one outright
   pity(hero) { const P = Settings.pity || (Settings.pity = {}); return P[hero] || (P[hero] = [0, 0, 0, 0, 0]); },
-  // the end of a match: five draws for a win, three for a draw, two for a loss, for the hero you finished as,
-  // plus bonus draws for the day's first win and for win streaks; any draw can come up double
-  award(hero, result) {
-    const bonuses = [], today = new Date().toDateString();
-    let n = result > 0 ? 5 : result === 0 ? 3 : 2;
+  // the end of a match. ctx: { result: 1 win / 0 draw / -1 loss, df: bot difficulty 0-3, margin: -1..1 how hard you won or lost, mvp }
+  // more draws for harder enemies and for bigger wins; bonus draws for the day's first win and for streaks; any draw can come up double
+  award(hero, ctx) {
+    const { result, df = 1, margin = 0, mvp = false } = ctx, bonuses = [], today = new Date().toDateString();
+    let n = result > 0 ? 4 : result === 0 ? 3 : 2;
+    const dfB = (result > 0 ? [0, 1, 3, 5] : [0, 1, 2, 3])[clamp(df | 0, 0, 3)];
+    if (dfB) { n += dfB; bonuses.push(`${BOT_DIFF[clamp(df | 0, 0, 3)].name} enemies +${dfB}`); }
     if (result > 0) {
+      const m = Math.round(clamp(margin, 0, 1) * 4);
+      if (m > 0) { n += m; bonuses.push(`${['', 'Clear', 'Decisive', 'Crushing', 'Flawless'][m]} win +${m}`); }
       Settings.streak = (Settings.streak | 0) + 1;
       if (Settings.firstWin !== today) { Settings.firstWin = today; n += 2; bonuses.push('First win of the day +2'); }
       if (Settings.streak >= 3) { const b = Math.min(3, Settings.streak - 2); n += b; bonuses.push(`${Settings.streak}-win streak +${b}`); }
-    } else Settings.streak = 0;
+    } else {
+      Settings.streak = 0;
+      if (margin > -0.15) { n += 1; bonuses.push('Close fight +1'); }
+    }
+    if (mvp) { n += 1; bonuses.push('Top of the board +1'); }
+    const luck = [1, 1.15, 1.5, 2][clamp(df | 0, 0, 3)];
     const pity = this.pity(hero), draws = [];
+    let shards = 0;
     for (let i = 0; i < n; i++) {
       for (let r = 2; r <= 4; r++) pity[r]++;
       let min = 0; for (let r = 4; r >= 2; r--) if (pity[r] >= this.PITY[r]) { min = r; break; }
-      const idx = this.roll(hero, min), r = HEROES[hero].addons[idx].r, dbl = Math.random() < 0.08;
+      const idx = this.roll(hero, min, luck), r = HEROES[hero].addons[idx].r, dbl = Math.random() < 0.1;
       for (let q = 2; q <= r; q++) pity[q] = 0;
-      this.add(hero, idx, dbl ? 2 : 1);
+      this.add(hero, idx, dbl ? 2 : 1); shards += this.SHARD[r];
       draws.push({ idx, r, dbl, forced: min > 0 && r >= min });
     }
+    Settings.shards = (Settings.shards | 0) + shards;
     Settings.played[hero] = (Settings.played[hero] | 0) + 1; Settings.save();
-    return { draws, bonuses, pity: pity.slice() };
+    const tokens = 1 + (result > 0 && margin >= 0.5 ? 1 : 0) + (df >= 3 ? 1 : 0);
+    return { draws, bonuses, pity: pity.slice(), shards, tokens };
+  },
+  // spend prism shards to make one copy of any add-on
+  craft(hero, idx) { const a = HEROES[hero].addons[idx], c = this.CRAFT[a.r]; if ((Settings.shards | 0) < c) return false; Settings.shards -= c; this.add(hero, idx, 1); return true; },
+  // Overtune: gamble one copy of an add-on for a chance at a random add-on one rarity higher; failure shatters it into shards
+  OVERTUNE: [0.7, 0.55, 0.4, 0.25],
+  overtune(hero, idx) {
+    const a = HEROES[hero].addons[idx]; if (a.r >= 4 || !this.take(hero, idx)) return null;
+    if (Math.random() < this.OVERTUNE[a.r]) { const pool = HEROES[hero].addons.filter(x => x.r === a.r + 1), got = pick(pool).idx; this.add(hero, got, 1); return { ok: true, idx: got }; }
+    const sh = this.SHARD[a.r] * 3; Settings.shards = (Settings.shards | 0) + sh; Settings.save(); return { ok: false, shards: sh };
   },
 };
 function loadoutFor(heroKey) { return Inventory.loadout(heroKey); }
@@ -428,4 +523,4 @@ const ICONS = {
   web: '<circle cx="32" cy="32" r="22" fill="none" stroke-width="3"/><circle cx="32" cy="32" r="12" fill="none" stroke-width="3"/><path d="M32 8v48M8 32h48M15 15l34 34M49 15L15 49" stroke-width="3"/>',
 };
 function iconSVG(name) { return `<svg viewBox="0 0 64 64" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" fill="none">${ICONS[name] || ICONS.gem}</svg>`; }
-const POWER_ICON = { snare: 'jaw', blink: 'shard', ram: 'piston', fade: 'mask', glaive: 'twin', lantern: 'lantern', sub: 'wave', line: 'spool', rewind: 'clock', well: 'gem' };
+const POWER_ICON = { snare: 'jaw', blink: 'shard', ram: 'piston', fade: 'mask', glaive: 'twin', lantern: 'lantern', sub: 'wave', line: 'spool', rewind: 'clock', well: 'gem', cloud: 'bolt' };

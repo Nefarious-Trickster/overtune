@@ -6,8 +6,33 @@ const BOT_DIFF = [
   { name: 'Recruit', react: 0.6, err: 0.11, track: 4.5, tol: 0.09, see: 0.8, power: 0.5 },
   { name: 'Veteran', react: 0.34, err: 0.055, track: 8, tol: 0.05, see: 1.0, power: 0.85 },
   { name: 'Elite', react: 0.18, err: 0.025, track: 13, tol: 0.03, see: 1.15, power: 1.0 },
+  { name: 'Overtuned', react: 0.12, err: 0.018, track: 16, tol: 0.026, see: 1.25, power: 1.0, iri: true },
 ];
-const PREF_RANGE = { marrow: 22, lark: 14, gauge: 4.5, veil: 1.8, ivra: 12, wick: 15, mire: 13, spindle: 17, sable: 14, orrin: 26 };
+// how each hero likes to fight. pref: the range it wants; band: slack around it; retreat: health fraction at which it backs off;
+// kite: backpedal when an enemy gets this close; perch: hold high ground; flank: chance to circle behind the target;
+// stalk: approach unseen from behind; rush: close in no matter what; light: fight inside its own lanterns; dive: jump onto targets
+const STYLE = {
+  marrow: { pref: 24, band: 5, retreat: 0.4, kite: 10, perch: true, flank: 0, peek: true },
+  lark: { pref: 13, band: 4, retreat: 0.3, kite: 0, flank: 0.35, jumpy: 0.25 },
+  gauge: { pref: 3.5, band: 1, retreat: 0.12, rush: true },
+  veil: { pref: 1.6, band: 0.6, retreat: 0.45, flank: 1, stalk: true },
+  ivra: { pref: 12, band: 3, retreat: 0.3, kite: 6, flank: 0.15 },
+  wick: { pref: 14, band: 4, retreat: 0.35, kite: 9, light: true },
+  mire: { pref: 10, band: 3, retreat: 0.3, flank: 0.6 },
+  spindle: { pref: 17, band: 4, retreat: 0.35, kite: 8, perch: true },
+  sable: { pref: 9, band: 3, retreat: 0.2, flank: 0.4, jumpy: 0.2, dive: true },
+  orrin: { pref: 28, band: 6, retreat: 0.4, kite: 12, perch: true, peek: true },
+  thane: { pref: 18, band: 4, retreat: 0.3, kite: 8, flank: 0.2 },
+};
+const PREF_RANGE = new Proxy({}, { get: (_, k) => (STYLE[k] || { pref: 14 }).pref });
+// what bots slot: better add-ons on harder settings; on Overtuned, always both Iridescents
+function botLoadout(hero, df) {
+  const A = HEROES[hero].addons, iri = A.filter(a => a.r === 4).map(a => a.idx);
+  if (df >= 3 && iri.length >= 2) return iri.slice(0, 2);
+  const cap = df <= 0 ? 1 : df === 1 ? 2 : 3, floor = df >= 2 ? 2 : 0, out = [];
+  for (let k = 0; k < 20 && out.length < 2; k++) { const r = floor + Math.floor(Math.random() * (cap - floor + 1)), pool = A.filter(a => a.r === r && !out.includes(a.idx)); if (pool.length) out.push(pick(pool).idx); }
+  return out;
+}
 
 const Bots = {
   B: new Map(),
@@ -18,7 +43,14 @@ const Bots = {
   },
   forget(a) { this.B.delete(a.id); },
   hurt(a, src) { const b = this.brain(a); if (src) { b.threat = src; b.threatT = Game.t; } },
-  diff() { return BOT_DIFF[clamp(Game.match ? Game.match.df : Settings.diff, 0, 2)]; },
+  diff() { return BOT_DIFF[clamp(Game.match ? Game.match.df : Settings.diff, 0, BOT_DIFF.length - 1)]; },
+  // high spots with a view over the middle, for snipers to hold
+  perches() {
+    if (World._perch && World._perch.map === World.def.key) return World._perch.list;
+    const N = World.nav.nodes, list = [];
+    for (let i = 0; i < N.length; i += 3) { const n = N[i]; if (n.y < 2.2 || n.e.length < 6) continue; if (World.clear(n.x, n.y + 1.6, n.z, 0, (World.zone ? World.zone.y : 0) + 1.5, 0)) list.push(n); }
+    World._perch = { map: World.def.key, list }; return list;
+  },
 
   // can this bot make out that enemy right now?
   sees(a, o) {
@@ -66,19 +98,35 @@ const Bots = {
     // --- where to go
     let moveDir = null; const pref = PREF_RANGE[me];
     if (T && b.vis) {
-      // fight: hold a preferred range and strafe
-      b.strafeT -= dt; if (b.strafeT <= 0) { b.strafeT = rand(0.5, 1.6); b.strafe = Math.random() < 0.5 ? -1 : 1; if (Math.random() < 0.15) I.jump = true; }
+      // fight, the way this hero fights
+      let followed = false; const fol = (g) => { followed = true; return this.follow(a, b, g, dt); };
+      const S = STYLE[me] || { pref: 14, band: 3, retreat: 0.3 };
+      b.strafeT -= dt; if (b.strafeT <= 0) { b.strafeT = rand(0.5, 1.6); b.strafe = Math.random() < 0.5 ? -1 : 1; if (Math.random() < (S.jumpy || 0.12)) I.jump = true; b.flankNow = Math.random() < (S.flank || 0); }
       const to = tp.clone().sub(a.pos).setY(0); const dn = to.length(); to.normalize();
       const side = new V3(-to.z, 0, to.x).multiplyScalar(b.strafe);
-      const band = me === 'veil' || me === 'gauge' ? 0.7 : 3, want = dn > pref + band ? 1 : dn < pref - band ? -0.8 : 0;
-      moveDir = to.clone().multiplyScalar(want).add(side.multiplyScalar(0.85));
+      const want = S.rush ? (dn > pref ? 1 : 0) : dn > pref + S.band ? 1 : dn < pref - S.band ? -0.8 : 0;
+      moveDir = to.clone().multiplyScalar(want).add(side.multiplyScalar(S.rush ? 0.35 : 0.85));
+      const tf = T.yaw != null ? flatFwd(T.yaw) : new V3(), facingMe = tf.dot(to.clone().negate()) > 0.35;
+      const cloaked = a.P.key === 'fade' && a.pw.state === 'cloaked';
       if (me === 'mire' && isSub(a)) moveDir = to.clone();
-      else if (a.hp < a.maxHp * 0.3 && me !== 'gauge' && me !== 'veil') moveDir = to.clone().multiplyScalar(-1).add(side);
+      else if (a.hp < a.maxHp * S.retreat && !(S.stalk && cloaked)) {
+        // back off: to a health pack if one is close, otherwise away from the threat
+        const pk = Pickups.nearest(a.pos);
+        moveDir = pk && pk.dist < 25 ? fol(pk.pos) : to.clone().multiplyScalar(-1).add(side);
+      }
+      else if ((S.stalk || b.flankNow) && dn > 3.5 && (S.stalk ? (cloaked || !facingMe) : !facingMe || dn > pref + S.band)) {
+        // circle round behind the target and come at its back
+        const behind = tp.clone().addScaledVector(tf, -2.6).addScaledVector(new V3(-tf.z, 0, tf.x), b.strafe * 1.5);
+        moveDir = fol(behind);
+      }
+      else if (S.kite && dn < S.kite) moveDir = to.clone().multiplyScalar(-1).add(side.clone().multiplyScalar(0.6));
+      else if (S.light) { const L = [...Game.lanterns.values()].filter(l => l.owner === a.id).sort((x, y) => x.pos.distanceTo(a.pos) - y.pos.distanceTo(a.pos))[0]; if (L && L.pos.distanceTo(a.pos) > L.r * 0.7 && L.pos.distanceTo(a.pos) < 14) moveDir = fol(L.pos).normalize().add(side.clone().multiplyScalar(0.3)); }
+      // a sniper on its perch holds still and shoots, peeking a step either side
+      if (S.perch && b.perched && dn > 9 && a.hp > a.maxHp * S.retreat) moveDir = S.peek ? side.clone().multiplyScalar(0.25) : new V3();
       // don't strafe into walls or off into a corner: probe ahead
-      const probe = a.pos.clone().addScaledVector(moveDir.clone().normalize(), 1.2);
-      if (!World.clear(a.pos.x, a.pos.y + 0.8, a.pos.z, probe.x, probe.y + 0.8, probe.z)) { b.strafe *= -1; moveDir = to.clone().multiplyScalar(want); }
-      if (moveDir.lengthSq() < 0.01 || (dn > pref + 6 && !World.clear(a.pos.x, a.pos.y + 0.5, a.pos.z, tp.x, tp.y + 0.5, tp.z))) moveDir = this.follow(a, b, tp, dt);
-      else b.path = null;
+      if (moveDir.lengthSq() > 0.001) { const probe = a.pos.clone().addScaledVector(moveDir.clone().normalize(), 1.2); if (!World.clear(a.pos.x, a.pos.y + 0.8, a.pos.z, probe.x, probe.y + 0.8, probe.z)) { b.strafe *= -1; moveDir = to.clone().multiplyScalar(want); } }
+      if ((moveDir.lengthSq() < 0.01 && !(S.perch && b.perched)) || (dn > pref + 6 && !World.clear(a.pos.x, a.pos.y + 0.5, a.pos.z, tp.x, tp.y + 0.5, tp.z))) moveDir = fol(tp);
+      else if (!followed) b.path = null;
       // Control: fight your way onto the point rather than away from it
       const Z = World.zone, M = Game.match;
       if (M.mode === 'koth' && Z && a.hp > a.maxHp * 0.25) {
@@ -90,7 +138,13 @@ const Bots = {
       let goal = b.goal;
       if (T && !b.vis) goal = tp.clone();
       else if (b.lastSeen && Game.t - b.seenT < 4) goal = b.lastSeen;
-      else if (!goal || b.goalT <= 0 || a.pos.distanceTo(goal) < 2) { goal = this.pickGoal(a); b.goalT = rand(6, 12); }
+      else if (!goal || b.goalT <= 0 || a.pos.distanceTo(goal) < 2) {
+        const S = STYLE[me] || {}, perch = S.perch && Game.match.mode !== 'koth' ? this.perches() : [];
+        if (perch.length && (!b.perched || b.goalT <= 0) && Math.random() < 0.75) { const n = pick(perch); goal = new V3(n.x, n.y, n.z); b.perchGoal = goal; b.goalT = rand(14, 24); }
+        else { goal = this.pickGoal(a); b.goalT = rand(6, 12); }
+      }
+      b.perched = !!(b.perchGoal && a.pos.distanceTo(b.perchGoal) < 2.5);
+      if (b.perched && goal === b.perchGoal) { b.goal = goal; I.fwd = 0; I.side = 0; const look = World.zone ? new V3(World.zone.x, World.zone.y, World.zone.z) : new V3(0, 1, 0), d0 = look.sub(a.pos); a.yaw += angDiff(a.yaw, Math.atan2(-d0.x, -d0.z)) * Math.min(1, dt * 3); moveDir = null; this.powers(a, b, T, dist, D, dt); return; }
       if (Game.match.mode === 'koth' && World.zone && (!T || b.vis === false)) { const Z = World.zone; if (Math.hypot(a.pos.x - Z.x, a.pos.z - Z.z) > Z.r * 0.7 && (!goal || Math.hypot(goal.x - Z.x, goal.z - Z.z) > Z.r)) { goal = this.pickGoal(a); b.goalT = rand(4, 8); } }
       if (a.hp < a.maxHp * 0.4) { const pk = Pickups.nearest(a.pos); if (pk && pk.dist < 30) goal = pk.pos; }
       b.goal = goal;
@@ -199,13 +253,14 @@ const Bots = {
       if (U === 'shell' && vis && a.hp < a.maxHp * 0.6 && Game.t - b.threatT < 1.5) I.util = true;
       if (U === 'leech' && Game.actors.some(o => o.alive && isEnemy(a, o) && o.pos.distanceTo(a.pos) < 6)) I.util = true;
       if (U === 'grapple' && !vis && cool('grapple', rand(8, 16)) && Math.random() < 0.4) I.util = true;
+      if (U === 'boltstep' && ((vis && dist > 8 && dist < 20 && a.hp > a.maxHp * 0.5 && cool('bolt', rand(2, 5))) || (vis && a.hp < a.maxHp * 0.3 && Game.t - b.threatT < 1.5))) I.util = true;
       if (U === 'float' && ((vis && a.hp < a.maxHp * 0.4 && Game.t - b.threatT < 1.5) || (!vis && cool('float', rand(10, 20)) && Math.random() < 0.3))) I.util = true;
       if (U === 'haste' && ((vis && (dist > 16 || a.ammo === 0)) || (a.hp < a.maxHp * 0.3 && Game.t - b.threatT < 2))) I.util = true;
     }
     // ultimates
     if (a.ult >= 100) {
       const K = a.H.ult.key, near = Game.actors.filter(o => o.alive && isEnemy(a, o) && o.pos.distanceTo(a.pos) < 7).length;
-      if ((K === 'field' && (!vis || Game.t - b.seenT > 3)) || (K === 'unbound' && vis && a.hp > a.maxHp * 0.4) || (K === 'slam' && near >= 1 && dist < 6) || (K === 'night' && vis && dist < 25) || (K === 'storm' && vis && dist < 24) || (K === 'flare' && [...Game.lanterns.values()].some(L => L.owner === a.id && Game.actors.some(o => o.alive && isEnemy(a, o) && o.pos.distanceTo(L.pos) < L.r))) || (K === 'tide' && near >= 1) || (K === 'cradle' && vis && dist < 20) || (K === 'stop' && (near >= 2 || (vis && dist < 14))) || (K === 'meteor' && vis && dist < 38)) I.ult = true;
+      if ((K === 'field' && (!vis || Game.t - b.seenT > 3)) || (K === 'unbound' && vis && a.hp > a.maxHp * 0.4) || (K === 'slam' && near >= 1 && dist < 6) || (K === 'night' && vis && dist < 25) || (K === 'storm' && vis && dist < 24) || (K === 'flare' && [...Game.lanterns.values()].some(L => L.owner === a.id && Game.actors.some(o => o.alive && isEnemy(a, o) && o.pos.distanceTo(L.pos) < L.r))) || (K === 'tide' && near >= 1) || (K === 'cradle' && vis && dist < 20) || (K === 'stop' && (near >= 2 || (vis && dist < 14))) || (K === 'meteor' && vis && dist < 38) || (K === 'tempest' && (near >= 1 || (vis && dist < 15)))) I.ult = true;
     }
     if (key === 'marrow') {
       b.snareT -= dt;
@@ -253,6 +308,9 @@ const Bots = {
       if (st === 'up') I.power = !a.prev.power && pw.cd <= 0 && a.grounded && ((vis && dist < 13 && dist > 2.5) || (vis && a.hp < a.maxHp * 0.3)) && cool('sub', 0.8);
       else if (st === 'under') I.power = !a.prev.power && ((T && dist < P.radius * 0.6) || pw.t > P.maxTime - 0.3);
       else I.power = false;
+    } else if (key === 'thane') {
+      if (P.smite) I.power = !a.prev.power && pw.charges > 0 && vis && dist < 42 && b.react <= 0 && cool('smite', rand(0.3, 1));
+      else { const Z = World.zone, onZ = Game.match.mode === 'koth' && Z && Game.actors.some(o => o.alive && isEnemy(a, o) && Math.hypot(o.pos.x - Z.x, o.pos.z - Z.z) < Z.r); I.power = !a.prev.power && pw.charges > 0 && ((vis && dist < 34) || onZ) && b.react <= 0 && cool('cloud', rand(1, 3)); }
     } else if (key === 'orrin') {
       I.power = !a.prev.power && pw.charges > 0 && vis && dist > 5 && dist < 24 && b.react <= 0 && cool('well', rand(1, 3));
     } else if (key === 'sable') {

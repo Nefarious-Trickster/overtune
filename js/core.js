@@ -25,7 +25,7 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 // ---------------------------------------------------------------- settings
 const Settings = {
   name: 'Player' + Math.floor(Math.random() * 900 + 100), sens: 1.0, fov: 95, q: 2, vol: 0.8, music: 0.5, invertY: false,
-  hero: 'marrow', loadouts: {}, tipsShown: 0, mode: 'tdm', map: 'kiln', size: 4, diff: 1, ffaSize: 6, showFps: false, xhair: 1, inv: {}, invV: 0, played: {}, given: {}, pity: {}, streak: 0, firstWin: '',
+  hero: 'marrow', loadouts: {}, tipsShown: 0, mode: 'tdm', map: 'kiln', size: 4, diff: 1, ffaSize: 6, showFps: false, xhair: 1, inv: {}, invV: 0, played: {}, given: {}, pity: {}, streak: 0, firstWin: '', shards: 0,
   load() {
     try { const s = JSON.parse(localStorage.getItem('overtune.settings') || '{}'); for (const k in s) if (k in this && typeof this[k] !== 'function') this[k] = s[k]; } catch (e) { /* private window */ }
     if (typeof this.loadouts !== 'object' || !this.loadouts) this.loadouts = {};
@@ -169,6 +169,8 @@ const Sfx = {
     tick(t, o) { this.osc(t, 0.02, 3000, 2800, 'square', 0.12, o); this.osc(t + 0.25, 0.02, 2400, 2300, 'square', 0.1, o); },
     rewind(t, o) { this.osc(t, 0.45, 300, 1600, 'sawtooth', 0.12, o, 0.02); this.nz(t, 0.45, 1200, 2, 'bandpass', 0.5, o, 0.3, 'lin'); for (let i = 0; i < 6; i++) this.osc(t + i * 0.05, 0.02, 3000 - i * 200, 2800 - i * 200, 'square', 0.08, o); },
     stop(t, o) { this.osc(t, 2.2, 110, 108, 'sine', 0.8, o); this.osc(t, 2.0, 220, 218, 'triangle', 0.3, o); this.osc(t, 1.6, 554, 550, 'sine', 0.15, o); this.nz(t, 0.6, 600, 1, 'lowpass', 0.6, o, 0.01); },
+    zap(t, o) { this.nz(t, 0.12, 5000, 2, 'bandpass', 0.8, o); this.osc(t, 0.12, 1800, 300, 'sawtooth', 0.18, o); this.nz(t + 0.03, 0.08, 9000, 1, 'highpass', 0.4, o); },
+    thunder(t, o) { this.nz(t, 0.08, 7000, 1, 'highpass', 0.9, o); this.nz(t + 0.02, 1.2, 300, 0.8, 'lowpass', 1.6, o, 0.01); this.osc(t, 0.8, 70, 35, 'sine', 0.8, o); },
     lance(t, o) { this.osc(t, 0.5, 1800, 200, 'sawtooth', 0.25, o); this.osc(t, 0.6, 900, 120, 'sine', 0.5, o); this.nz(t, 0.35, 4000, 1, 'bandpass', 0.6, o); },
     well(t, o) { this.osc(t, 1.0, 60, 140, 'sine', 0.6, o, 0.1); this.osc(t, 0.9, 400, 90, 'triangle', 0.15, o, 0.05); this.nz(t, 0.8, 300, 2, 'lowpass', 0.4, o, 0.2); },
     rev0(t, o) { this.osc(t, 0.25, 520, 520, 'triangle', 0.25, o); this.osc(t + 0.06, 0.25, 780, 780, 'triangle', 0.18, o); },
