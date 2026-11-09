@@ -141,6 +141,7 @@ function applyFx(a, fx, srcId) {
 function hitActor(src, tgt, dmg, opts = {}) {
   if (!tgt || !tgt.alive || (isSub(tgt) && !opts.subOk)) return;
   const sid = src ? src.id : opts.srcId;
+  if (dmg > 0 && src && src.isBot && !src.remote && src !== tgt) dmg *= Bots.diff().dmg || 1;
   if (dmg > 0 && src && !src.remote) { src.ult = Math.min(100, src.ult + dmg * 0.03 * (src.st.unbound || src.st.night ? 0 : 1)); src.dmg += dmg; }
   if (src === Game.me && dmg > 0) HUD.hit(tgt, dmg, !!opts.head);
   if (src && dmg > 0 && src !== tgt) { src.lastDealt = tgt.id; src.lastDealtT = Game.t; }
@@ -218,6 +219,7 @@ function onEvent(E, remote) {
     }
     case 'fb': { for (const s of Game.snares.values()) if (s.owner === E[1]) s.boostT = E[2]; break; }
     case 'cl': placeCloud2(E[1], E[2], new V3(E[3], E[4], E[5]), E[6] || {}); break;
+    case 'cx': { const c = Game.clouds.find(x => x.id === E[1]); if (c) { c.t = 0; c.done = true; } break; }
     case 'cm': { const c = Game.clouds.find(x => x.id === E[1]); if (c && remote) c.goal = new V3(E[2], E[3], E[4]); break; }
     case 'wv': placeWell(E[1], E[2], new V3(E[3], E[4], E[5]), E[6] || {}); break;
     case 'zn': addZone(E[1], new V3(E[2], E[3], E[4]), E[5], E[6], E[7], E[8], E[9] || 1); break;
@@ -274,6 +276,7 @@ function stepLocal(a, dt) {
     }
   } else if (P.key === 'blink') {
     const free = a.st.unbound > 0 || P.hpCost > 0;
+    if (P.tether && pw.origin && !pw.charging) { pw.tetherT -= dt; if (pw.tetherT <= 0) tetherBack(a); }
     if (pw.charges < P.charges) { pw.rech += dt; if (pw.rech >= P.recharge) { pw.rech = 0; pw.charges++; } }
     if (pw.chainT > 0) { pw.chainT -= dt; if (pw.chainT <= 0 && pw.used > 0) endChain(a); }
     if (a.st.fatigue > 0) { speedMul *= 0.45; noFire = true; pw.charging = false; pw.chargeT = 0; }
@@ -295,8 +298,9 @@ function stepLocal(a, dt) {
         const lim = P.turn * dt, d = angDiff(a.ramYaw, a.yaw); a.yaw = a.ramYaw + clamp(d, -lim, lim); a.ramYaw = a.yaw;
         forced = flatFwd(a.yaw).multiplyScalar(P.speed * Math.min(1, 0.4 + pw.t * 4));
         if (P.trail) { pw.trailT -= dt; if (pw.trailT <= 0) { pw.trailT = 0.25; emit(['zn', 'fire', r2(a.pos.x), r2(a.pos.y), r2(a.pos.z), 1.5, P.trail, 3, a.id, 1]); } }
-        if (P.furnace) { pw.bleedAcc += 15 * dt; if (pw.bleedAcc >= 5) { applyDamage(a, pw.bleedAcc, a.id, { how: 'furnace' }); pw.bleedAcc = 0; if (!a.alive) return; } }
+        if (P.furnace) { pw.bleedAcc += (P.furnace === true ? 15 : P.furnace) * dt; if (pw.bleedAcc >= 5) { applyDamage(a, pw.bleedAcc, a.id, { how: 'furnace' }); pw.bleedAcc = 0; if (!a.alive) return; } }
         ramContacts(a);
+        if (P.pin && pw.pinned && pw.pinned.size) pinTick(a, dt);
       }
     } else if (pw.state === 'crash') { pw.t -= dt; noFire = true; if (pw.t <= 0) { pw.state = 'idle'; pw.cd = P.cd; } }
   } else if (P.key === 'fade') {
@@ -315,12 +319,13 @@ function stepLocal(a, dt) {
   } else if (P.key === 'glaive') {
     if (pw.count < P.cap) { pw.rech += dt; if (pw.rech >= P.regen) { pw.rech = 0; pw.count++; } }
     if (P.orbit) {
-      orbitTick(a, dt);
+      orbitTick(a, dt); if (P.ringSlow && pw.count > 0) speedMul *= P.ringSlow;
       if (pressed('power') && pw.count > 0 && !stunned) { const n = pw.count; pw.count = 0; for (let i = 0; i < n; i++) throwGlaive(a, 1, i / n * TAU, true, true); }
     } else if (I.power && pw.count > 0 && !stunned) { if (!pw.winding) { pw.winding = true; pw.wind = 0; Sfx.play('windup', a.pos, 0.5); } pw.wind += dt; noFire = true; speedMul *= P.slow; }
     else if (pw.winding) { pw.winding = false; if (pw.wind >= P.windMin && !stunned) throwGlaive(a, clamp((pw.wind - P.windMin) / Math.max(0.05, P.windMax - P.windMin), 0, 1)); pw.wind = 0; }
   } else if (P.key === 'lantern') {
     if (pw.walkCd > 0) pw.walkCd -= dt;
+    if (P.glow) a.st.reveal = Math.max(a.st.reveal || 0, 0.3);
     if (!P.carried) {
       if (pw.charges < P.carry) { pw.rech += dt; if (pw.rech >= P.recharge) { pw.rech = 0; pw.charges++; } }
       if (pw.chan > 0) {
@@ -331,7 +336,7 @@ function stepLocal(a, dt) {
       } else if (pw.placing > 0) { pw.placing -= dt; speedMul *= 0.5; noFire = true; if (pw.placing <= 0) finishLantern(a); }
       else if (I.power && !stunned) {
         if (pw.hold >= 0) pw.hold += dt;
-        if (pw.hold >= 0.3 && pw.walkCd <= 0 && !rooted) { const L = lanternInSights(a); if (L) { pw.chan = P.walk; pw.chanTo = L.id; pw.hold = -1; Sfx.play('blinkCharge', a.pos, 0.6); } }
+        if (pw.hold >= 0.3 && pw.walkCd <= 0 && !rooted && !P.noWalk) { const L = lanternInSights(a); if (L) { pw.chan = P.walk; pw.chanTo = L.id; pw.hold = -1; Sfx.play('blinkCharge', a.pos, 0.6); } }
       } else {
         if (pw.hold > 0 && pw.hold < 0.3 && pw.charges > 0 && !stunned) { pw.placing = P.place; Sfx.play('snarePlace', a.pos, 0.5); }
         pw.hold = 0;
@@ -353,9 +358,16 @@ function stepLocal(a, dt) {
     if (pressed('power') && pw.charges > 0 && !stunned) { pw.charges--; fireLine(a); }
   } else if (P.key === 'cloud') {
     if (pw.charges < P.charges) { pw.rech += dt; if (pw.rech >= P.cd) { pw.rech = 0; pw.charges++; } }
-    if (P.perm && !Game.clouds.some(c => c.owner === a.id && c.o.pm)) emit(['cl', a.id + '#perm' + ((pw.n = (pw.n | 0) + 1)), a.id, r2(a.pos.x), r2(a.pos.y), r2(a.pos.z), Object.assign(cloudPack(P), { pm: 1, ri: 1, ev: 0.8, r: 9, dm: 50, d: 9999 })]);
-    if (pressed('power') && pw.charges > 0 && !stunned) { pw.charges--; if (P.smite) smite(a); else placeCloud(a); }
+    if (P.perm && !Game.clouds.some(c => c.owner === a.id && c.o.pm)) emit(['cl', a.id + '#perm' + ((pw.n = (pw.n | 0) + 1)), a.id, r2(a.pos.x), r2(a.pos.y), r2(a.pos.z), Object.assign(cloudPack(P), { pm: 1, ri: 1, ev: 1.5, r: 7, dm: 30, d: 9999 })]);
+    if (P.perm) a.st.reveal = Math.max(a.st.reveal || 0, 0.3);
+    const held = P.capacitor ? Game.clouds.find(c => c.owner === a.id && c.o.cap && c.t > 0) : null;
+    if (pressed('power') && held && !stunned) discharge(a, held);
+    else if (pressed('power') && pw.charges > 0 && !stunned) {
+      if (P.perm && P.surge) { const c = Game.clouds.find(c => c.owner === a.id && c.o.pm); if (c) { pw.charges--; c.surge = P.surge; c.strikeT = 0; emit(['fx', 'stop', r2(a.pos.x), r2(a.pos.y + 1), r2(a.pos.z), 7, 0]); Sfx.play('thunder', a === Game.me ? null : a.pos, 0.9); } }
+      else { pw.charges--; if (P.smite) smite(a); else placeCloud(a); }
+    }
   } else if (P.key === 'well') {
+    if (P.self && Game.wells.some(w => w.owner === a.id && w.o.fo && w.t > 0)) speedMul *= 0.65;
     if (pw.charges < P.charges) { pw.rech += dt; if (pw.rech >= P.cd) { pw.rech = 0; pw.charges++; } }
     if (pressed('power') && pw.charges > 0 && !stunned) { pw.charges--; throwWell(a); }
   } else if (P.key === 'rewind') {
@@ -370,7 +382,8 @@ function stepLocal(a, dt) {
     if (pw.anchor && Game.t - pw.anchor.t > P.anchor) { pw.anchor = null; pw.charges = Math.max(0, pw.charges - 1); if (a === Game.me) HUD.note('Anchor faded'); }
     if (pw.charges < P.charges && !pw.anchor) { pw.rech += dt; if (pw.rech >= P.cd) { pw.rech = 0; pw.charges++; } }
     if (pressed('power') && pw.charges > 0 && !stunned) {
-      if (P.anchor && !pw.anchor) { pw.anchor = { x: a.pos.x, y: a.pos.y, z: a.pos.z, hp: a.hp, ammo: a.ammo, t: Game.t }; emit(['fx', 'anchor', r2(a.pos.x), r2(a.pos.y + 0.1), r2(a.pos.z), 0, 0]); Sfx.play('tick', a === Game.me ? null : a.pos, 0.8); }
+      if (P.stopOnly) { pw.charges--; stopTime(a); if (a === Game.me) View.throwAnim(); }
+      else if (P.anchor && !pw.anchor) { pw.anchor = { x: a.pos.x, y: a.pos.y, z: a.pos.z, hp: a.hp, ammo: a.ammo, t: Game.t }; emit(['fx', 'anchor', r2(a.pos.x), r2(a.pos.y + 0.1), r2(a.pos.z), 0, 0]); Sfx.play('tick', a === Game.me ? null : a.pos, 0.8); }
       else { const to = rewindPoint(a); if (to) doRewind(a, to, false); }
     }
   }
@@ -621,7 +634,7 @@ function killProj(p) { const i = Game.projs.indexOf(p); if (i >= 0) Game.projs.s
 function projTick(dt) {
   for (let i = Game.projs.length - 1; i >= 0; i--) {
     const p = Game.projs[i]; if (!p) continue;
-    if (p.stuck != null) { p.stuck -= dt; if (p.stuck <= 0) killProj(p); continue; }
+    if (p.stuck != null) { p.stuck -= dt; if (p.saw) sawTick(p, dt); if (p.stuck <= 0) killProj(p); continue; }
     p.t += dt; const o = p.o, owner = Game.byId.get(p.owner);
     if (o.hm && owner) {
       let best = null, bd = 1e9; const v = p.vel.clone().normalize();
@@ -675,6 +688,7 @@ function projHitActor(p, h, owner) {
     hitActor(owner, t, d, { head: h.head, fx, how: 'glaive', oneshot: !!o.os });
     Fx.burst(h.pt || p.pos, 0xff3048, 14, 6, 0.4, 0.08, { k: 4 }); Sfx.play('glaiveHit', p.pos, 1);
     if (o.bl) splash(p, o.bl, o.br, t);
+    if (o.sw && !o.pi && !p.back) { p.pos.y = World.groundAt(p.pos.x, p.pos.z, p.pos.y + 0.5) + 0.35; sawDown(p); return true; }
     if (o.pi || p.back) return false;
     killProj(p); return true;
   }
@@ -692,6 +706,7 @@ function projImpact(p, wh, owner) {
   if (p.kind === 'glaive') {
     Fx.sparks(p.pos, { x: wh.nx, y: wh.ny, z: wh.nz }, 0xffe0a0, 10); Sfx.play('glaiveHit', p.pos, 0.7);
     if (o.bl) { if (p.local) splash(p, o.bl, o.br, null); Fx.explosion(p.pos, o.br * 0.6, 0xff8a3a); }
+    if (o.sw) { sawDown(p); return; }
     p.stuck = 2.5; p.mesh.rotation.x = Math.PI / 2 - 0.4; return;
   }
   if (p.kind === 'flask') {
@@ -707,6 +722,19 @@ function projImpact(p, wh, owner) {
   if (p.kind === 'bolt') { p.stuck = 3; return; }
   killProj(p);
 }
+// Iridescent Glaive: the blade bites in and keeps spinning
+function sawDown(p) { p.stuck = p.o.sw; p.saw = true; p.sawAcc = {}; p.mesh.rotation.set(0, 0, 0); p.mesh.scale.setScalar(1.25); Sfx.play('windup', p.pos, 0.8); }
+function sawTick(p, dt) {
+  p.mesh.rotation.y += dt * 30;
+  if (Math.random() < dt * 30) Fx.sparks(p.pos, { x: rand(-1, 1), y: 0.6, z: rand(-1, 1) }, 0xffe0a0, 2);
+  const owner = Game.byId.get(p.owner); if (!p.local || !owner) return;
+  for (const t of Game.actors) {
+    if (!t.alive || !isEnemy(owner, t) || isSub(t)) continue;
+    const q = t.renderPos || t.pos; if (Math.hypot(q.x - p.pos.x, q.z - p.pos.z) > 2.5 || Math.abs(q.y + 0.6 - p.pos.y) > 1.8) continue;
+    p.sawAcc[t.id] = (p.sawAcc[t.id] || 0) + 60 * dt;
+    if (p.sawAcc[t.id] >= 15) { hitActor(owner, t, p.sawAcc[t.id], { fx: { slow: [0.7, 0.4] }, how: 'glaive' }); p.sawAcc[t.id] = 0; Sfx.play('glaiveHit', p.pos, 0.4); }
+  }
+}
 function splash(p, dmg, r, skip) {
   const owner = Game.byId.get(p.owner); if (!owner || !dmg) return;
   for (const a of Game.actors) {
@@ -719,7 +747,7 @@ function splash(p, dmg, r, skip) {
 function stitchHit(owner, t) {
   const s = owner.stitch[t.id] || (owner.stitch[t.id] = { n: 0, t: 0 });
   if (Game.t - s.t > 1.5) s.n = 0; s.n++; s.t = Game.t;
-  if (s.n >= (owner.P.meet ? 2 : 3)) { s.n = 0; hitActor(owner, t, 0, { fx: { root: owner.H.weapon.stitch } }); emit(['fx', 'stitch', r2(t.pos.x), r2(t.pos.y + 1), r2(t.pos.z), 0, 0]); }
+  if (s.n >= 3) { s.n = 0; hitActor(owner, t, 0, { fx: { root: owner.H.weapon.stitch } }); emit(['fx', 'stitch', r2(t.pos.x), r2(t.pos.y + 1), r2(t.pos.z), 0, 0]); }
 }
 
 // ---------------------------------------------------------------- Marrow: snares
@@ -807,6 +835,7 @@ function doBlink(a) {
   const probe = { x: to.x, z: to.z }; World.collideXZ(probe, PHYS.r, to.y + PHYS.step, to.y + PHYS.h); to.x = probe.x; to.z = probe.z;
   const B = World.bounds; to.x = clamp(to.x, B.x0 + 0.6, B.x1 - 0.6); to.z = clamp(to.z, B.z0 + 0.6, B.z1 - 0.6); to.y = Math.max(to.y, 0);
   const from = a.pos.clone();
+  if (P.tether) { if (!pw.origin) pw.origin = from.clone(); pw.tetherT = P.tether; }
   if (P.decoy) emit(['dc', a.id, r2(from.x), r2(from.y), r2(from.z), r2(a.yaw), P.decoy]);
   a.pos.copy(to); a.vel.multiplyScalar(0.3); a.vel.y = Math.max(0, a.vel.y);
   emit(['bl', a.id, r2(from.x), r2(from.y), r2(from.z), r2(to.x), r2(to.y), r2(to.z), 0]);
@@ -821,6 +850,12 @@ function doBlink(a) {
   }
   if (P.rift) { emit(['fx', 'rift', r2(from.x), r2(from.y + 1), r2(from.z), 3.5, 0]); later(1, () => { emit(['fx', 'riftpop', r2(from.x), r2(from.y + 1), r2(from.z), 3.5, 0]); for (const t of Game.actors) if (t.alive && isEnemy(a, t) && t.pos.distanceTo(from) < 3.5) hitActor(a, t, P.rift, { how: 'blink' }); }); }
   if (pw.charges <= 0 && !(a.st.unbound > 0) && !P.hpCost) endChain(a);
+}
+function tetherBack(a) {
+  const pw = a.pw, from = a.pos.clone(), to = pw.origin; pw.origin = null; if (!to) return;
+  a.pos.copy(to); a.vel.set(0, 0, 0); a.grapple = null; a.dashT = 0;
+  emit(['bl', a.id, r2(from.x), r2(from.y), r2(from.z), r2(to.x), r2(to.y), r2(to.z), 0]);
+  endChain(a);
 }
 function endChain(a) {
   const P = a.P, pw = a.pw;
@@ -843,7 +878,10 @@ function spawnDecoy(a, pos, yaw, t) {
 function popDecoy(d) { d.t = 0; Fx.burst(d.pos.clone().setY(d.pos.y + 1), 0xb48aff, 30, 5, 0.6, 0.1); }
 
 // ---------------------------------------------------------------- Gauge: ramjet
-function endRam(a, cool) { const pw = a.pw; pw.state = 'idle'; pw.cd = cool ? a.P.cd : Math.max(pw.cd, 3); a.vel.x *= 0.3; a.vel.z *= 0.3; }
+function endRam(a, cool) {
+  const pw = a.pw;
+  if (pw.pinned && pw.pinned.size) { const f = flatFwd(a.yaw); for (const id of pw.pinned) { const t = Game.byId.get(id); if (t && t.alive) hitActor(a, t, 0, { fx: { knock: [f.x * 7, 4, f.z * 7] } }); } pw.pinned.clear(); }
+  pw.state = 'idle'; pw.cd = cool ? a.P.cd : Math.max(pw.cd, 3); a.vel.x *= 0.3; a.vel.z *= 0.3; }
 function ramContacts(a) {
   const P = a.P, pw = a.pw, fwd = flatFwd(a.yaw);
   for (const t of Game.actors) {
@@ -852,6 +890,7 @@ function ramContacts(a) {
     const along = rel.dot(fwd), side = Math.abs(rel.x * fwd.z - rel.z * fwd.x);
     if (along < -0.3 || along > 1.6 || side > 1.1) continue;
     pw.hit.add(t.id);
+    if (P.pin) { (pw.pinned = pw.pinned || new Set()).add(t.id); pw.pinT = 0; hitActor(a, t, P.dmg, { fx: { stun: 0.6 }, how: 'ram' }); emit(['fx', 'ram', r2(t.pos.x), r2(t.pos.y + 1), r2(t.pos.z), 0, 0]); if (a === Game.me) View.shake(0.5); continue; }
     const k = fwd.clone().multiplyScalar(P.knock), fx = { knock: [k.x, 4 + P.knock * 0.2, k.z], stun: 0.5 };
     if (P.vent) { fx.dot = [40, 3, 'burn']; a.heat = 0; a.overheat = 0; }
     hitActor(a, t, P.dmg, { fx, exec: P.execute, how: 'ram' });
@@ -860,8 +899,25 @@ function ramContacts(a) {
     if (!P.multi) { endRam(a, true); return; }
   }
 }
+// the wrecking ball: carry what you hit on the front of the charge
+function pinTick(a, dt) {
+  const pw = a.pw; pw.pinT -= dt; if (pw.pinT > 0) return; pw.pinT = 0.07;
+  const f = flatFwd(a.yaw); let k = 0;
+  for (const id of pw.pinned) {
+    const t = Game.byId.get(id); if (!t || !t.alive) { pw.pinned.delete(id); continue; }
+    const side = (k++ % 2 ? 1 : -1) * Math.floor(k / 2) * 0.9, q = a.pos.clone().addScaledVector(f, 1.35).add(new V3(-f.z * side, 0, f.x * side));
+    const probe = { x: q.x, z: q.z }; World.collideXZ(probe, PHYS.r, a.pos.y + PHYS.step, a.pos.y + PHYS.h);
+    hitActor(a, t, 0, { fx: { tp: [r2(probe.x), r2(a.pos.y), r2(probe.z)], stun: 0.3 } });
+  }
+}
 function ramCrash(a, w) {
   const P = a.P, pw = a.pw;
+  if (P.pin && pw.pinned && pw.pinned.size) {
+    emit(['fx', 'crash', r2(a.pos.x), r2(a.pos.y + 1), r2(a.pos.z), 3, 0]);
+    for (const id of pw.pinned) { const t = Game.byId.get(id); if (t && t.alive && t.pos.distanceTo(a.pos) < 4) hitActor(a, t, P.pin, { fx: { stun: 1.2, knock: [0, 3, 0] }, how: 'ram' }); }
+    pw.pinned.clear(); a.vel.set(0, 0, 0); if (a === Game.me) View.shake(1.1);
+    endRam(a, true); return;
+  }
   if (P.bounce && w) {
     const f = flatFwd(a.yaw), n = new V3(w.nx, 0, w.nz), r = f.sub(n.multiplyScalar(2 * f.dot(n)));
     a.yaw = Math.atan2(-r.x, -r.z); a.ramYaw = a.yaw; pw.hit.clear();
@@ -902,7 +958,7 @@ function throwGlaive(a, f, yawOff = 0, free = false, ring = false) {
   for (let i = 0; i < n; i++) {
     const yaw = a.yaw + (n > 1 ? (i ? 1 : -1) * 0.07 : 0) + yawOff, d = aimDir(yaw, ring ? 0.02 : a.pitch);
     const e = eyePos(a), o = ring ? e.clone().setY(e.y - 0.5).addScaledVector(d, 1.6) : e.clone().add(new V3(Math.cos(a.yaw), 0, -Math.sin(a.yaw)).multiplyScalar(-0.12)).addScaledVector(d, 0.5);
-    emit(['pr', 'glaive', a.id, r2(o.x), r2(o.y), r2(o.z), r2(d.x * speed), r2(d.y * speed), r2(d.z * speed), { d: r2(dmg), g: ring ? 2 : P.grav, v: P.venom, b: P.ricochet, bl: P.blast, br: P.blastR, m: P.mark, os: P.oneshot && full ? 1 : 0, ret: P.returning ? 1 : 0, pi: P.pierce ? 1 : 0 }]);
+    emit(['pr', 'glaive', a.id, r2(o.x), r2(o.y), r2(o.z), r2(d.x * speed), r2(d.y * speed), r2(d.z * speed), { d: r2(dmg), g: ring ? 2 : P.grav, v: P.venom, b: P.ricochet, bl: P.blast, br: P.blastR, m: P.mark, os: P.oneshot && full ? 1 : 0, ret: P.returning ? 1 : 0, pi: P.pierce ? 1 : 0, sw: ring ? 0 : P.saw || 0 }]);
   }
   if (a === Game.me) View.throwAnim();
 }
@@ -963,7 +1019,7 @@ function lanternTick(dt) {
       if (a.remote || !a.alive || !isEnemy(owner, a) || isSub(a)) continue;
       const c = chest(a); if (c.distanceTo(l.pos.clone().setY(l.pos.y + 1.2)) > l.r) { l.inT[a.id] = 0; continue; }
       if (!World.clear(l.pos.x, l.pos.y + 1.2, l.pos.z, c.x, c.y, c.z)) continue;
-      const fx = P.hidden ? { hrev: 0.3 + P.linger } : { reveal: 0.3 + P.linger }; fx.slow = [P.slow, 0.3];
+      const fx = P.noReveal ? {} : P.hidden ? { hrev: 0.3 + P.linger } : { reveal: 0.3 + P.linger }; if (P.slow < 1) fx.slow = [P.slow, 0.3];
       applyFx(a, fx, owner.id); a.st.lightT = 0.3;
       l.inT[a.id] = (l.inT[a.id] || 0) + dt;
       if (P.burn) { a._lb = (a._lb || 0) + P.burn * dt; if (a._lb >= 6) { applyDamage(a, a._lb, owner.id, { how: 'lantern' }); a._lb = 0; } }
@@ -973,7 +1029,7 @@ function lanternTick(dt) {
       l.turretT -= dt;
       if (l.turretT <= 0) {
         l.turretT = P.turret;
-        const t = Game.actors.find(x => x.alive && isEnemy(owner, x) && !isSub(x) && chest(x).distanceTo(l.pos) < l.r + 2);
+        const t = Game.actors.find(x => { if (!x.alive || !isEnemy(owner, x) || isSub(x)) return false; const c = chest(x); return c.distanceTo(l.pos) < l.r + 2 && World.clear(l.pos.x, l.pos.y + 1.5, l.pos.z, c.x, c.y, c.z); });
         if (t) { const o = l.pos.clone().setY(l.pos.y + 1.5), d = chest(t).sub(o).normalize().multiplyScalar(17); emit(['pr', 'moth', owner.id, r2(o.x), r2(o.y), r2(o.z), r2(d.x), r2(d.y), r2(d.z), { d: 20, hm: 4, g: 0 }]); }
       }
     }
@@ -1030,11 +1086,11 @@ function lineCatch(a, t) {
   const P = a.P, tp = (t.renderPos || t.pos).clone(), my = a.pos.clone(), to = my.clone().sub(tp).setY(0), dist = to.length(); to.normalize();
   const fx = { reveal: 3 };
   if (P.vuln) fx.vuln = [1.25, P.vuln]; if (P.slow) fx.slow = [0.6, P.slow];
-  if (P.web) fx.root = 2.5;
+  if (P.web) fx.root = 1.5;
   else if (P.choke) fx.root = P.choke;
   else if (P.gallows) fx.knock = [0, 14, 0];
   else if (P.swap) { fx.tp = [r2(my.x), r2(my.y), r2(my.z)]; a.pos.copy(tp); a.vel.set(0, 0, 0); emit(['bl', a.id, r2(my.x), r2(my.y), r2(my.z), r2(tp.x), r2(tp.y), r2(tp.z), 0]); }
-  else if (P.meet) { const s = Math.min(22, dist * 1.4) * 0.5; fx.knock = [to.x * s, 5, to.z * s]; a.vel.set(-to.x * s, 5, -to.z * s); a.grounded = false; a.knockT = 0.5; later(0.35, () => { if (t.alive && a.alive && a.pos.distanceTo(t.renderPos || t.pos) < 4.5) { hitActor(a, t, 100, { how: 'line' }); emit(['fx', 'ram', r2(t.pos.x), r2(t.pos.y + 1), r2(t.pos.z), 0, 0]); } }); }
+  else if (P.meet) { const s = Math.min(22, dist * 1.4) * 0.5; fx.knock = [to.x * s, 5, to.z * s]; a.vel.set(-to.x * s, 5, -to.z * s); a.grounded = false; a.knockT = 0.5; later(0.35, () => { if (t.alive && a.alive && a.pos.distanceTo(t.renderPos || t.pos) < 4.5) { hitActor(a, t, +P.meet || 70, { how: 'line' }); emit(['fx', 'ram', r2(t.pos.x), r2(t.pos.y + 1), r2(t.pos.z), 0, 0]); } }); }
   else { const s = Math.min(24, dist * 1.5); fx.knock = [to.x * s, 4.5, to.z * s]; }
   if (P.stun && !P.web && !P.choke) fx.stun = 0.45 + P.stun;
   if (P.puppet) fx.charm = P.puppet;
@@ -1066,7 +1122,7 @@ function useUtil(a) {
   } else if (U.key === 'shell') { a.st.shield = { hp: 100, t: 4 }; Sfx.play('wall', at); emit(['fx', 'shell', ...here, 0, 0]); }
   else if (U.key === 'boltstep') {
     const f = flatFwd(a.yaw), from = a.pos.clone(), hit = new Set();
-    for (let i = 0; i < 18; i++) { const before = a.pos.clone(); a.vel.set(f.x * 30, 0, f.z * 30); World.moveBody(a, 1 / 60); if (before.distanceTo(a.pos) < 0.1) break; for (const t of Game.actors) if (t.alive && isEnemy(a, t) && !hit.has(t) && !isSub(t) && (t.renderPos || t.pos).distanceTo(a.pos) < 1.4) { hit.add(t); hitActor(a, t, 30, { fx: { stun: 0.3 }, how: 'boltstep' }); } }
+    for (let i = 0; i < 18; i++) { const before = a.pos.clone(); a.vel.set(f.x * 30, 0, f.z * 30); World.moveBody(a, 1 / 60); if (before.distanceTo(a.pos) < 0.1) break; for (const t of Game.actors) if (t.alive && isEnemy(a, t) && !hit.has(t) && !isSub(t) && (t.renderPos || t.pos).distanceTo(a.pos) < 1.4) { hit.add(t); hitActor(a, t, 20, { fx: { stun: 0.2 }, how: 'boltstep' }); } }
     a.vel.set(f.x * 4, 0, f.z * 4);
     emit(['fx', 'arc', r2(from.x), r2(from.y + 1), r2(from.z), [r2(a.pos.x), r2(a.pos.y + 1), r2(a.pos.z)], 1]); Sfx.play('zap', at, 1);
   }
@@ -1110,7 +1166,7 @@ function arcFire(a) {
   } else if (wh && wh.wall) emit(['wh', wh.wall.id, W.dmg]);
   if (a === Game.me) { View.kick(W.recoil); View.flash(); }
 }
-function cloudPack(P) { return { d: P.dur, ev: P.every, dm: P.dmg, r: P.radius, ch: P.chains, mu: P.multi, st: P.stun, rv: P.reveal, vu: P.vuln, fo: P.follow, rn: P.rain, rf: P.refund ? 1 : 0 }; }
+function cloudPack(P) { return { cap: P.capacitor || 0, d: P.dur, ev: P.every, dm: P.dmg, r: P.radius, ch: P.chains, mu: P.multi, st: P.stun, rv: P.reveal, vu: P.vuln, fo: P.follow, rn: P.rain, rf: P.refund ? 1 : 0 }; }
 function placeCloud(a) {
   const e = eyePos(a), d = aimDir(a.yaw, a.pitch), h = World.ray(e.x, e.y, e.z, d.x, d.y, d.z, 38, -9), c = h ? new V3(h.x, h.y, h.z).addScaledVector(d, -0.3) : e.clone().addScaledVector(d, 38);
   c.y = World.groundAt(c.x, c.z, c.y + 0.5);
@@ -1147,9 +1203,11 @@ function cloudTick(dt) {
     if (Math.random() < dt * (o.rn ? 40 : 6)) { const a = Math.random() * TAU, rr = Math.random() * c.r * 0.8; Fx.spawn('add', c.pos.x + Math.cos(a) * rr, c.mesh.position.y - 0.8, c.pos.z + Math.sin(a) * rr, 0, -9, 0, 0.6, 0.9, 1.3, 0.03, 0.8); }
     if (owner && !owner.remote && owner.alive !== undefined) {
       if (o.rn) for (const t of Game.actors) if (t.alive && isEnemy(owner, t) && Math.hypot(t.pos.x - c.pos.x, t.pos.z - c.pos.z) < c.r && (c.rainT = (c.rainT || 0) - dt) <= -0.25) { c.rainT = 0; hitActor(owner, t, 0, { fx: { slow: [o.rn, 0.4] }, how: 'cloud' }); }
+      if (c.surge > 0) c.surge -= dt;
+      if (o.cap) c.strikeT = 99;
       c.strikeT -= dt;
       if (c.strikeT <= 0) {
-        c.strikeT = c.ev;
+        c.strikeT = c.surge > 0 ? 0.4 : c.ev;
         const near = Game.actors.filter(t => t.alive && isEnemy(owner, t) && !isSub(t) && Math.hypot(t.pos.x - c.pos.x, t.pos.z - c.pos.z) < c.r && t.pos.y < c.pos.y + 8).sort((x, y) => x.pos.distanceTo(c.pos) - y.pos.distanceTo(c.pos)).slice(0, Math.max(1, o.mu | 0));
         const top = new V3(c.pos.x, c.mesh.position.y - 0.6, c.pos.z);
         for (const t of near) {
@@ -1168,8 +1226,28 @@ function cloudTick(dt) {
         }
       }
     }
+    // Supercell: the cloud swells and crackles as it fills; it lets go by itself as it fades
+    if (o.cap) {
+      c.chg = Math.min(o.cap, (c.chg || 0) + dt); const f = c.chg / o.cap; c.mesh.scale.setScalar(0.85 + f * 0.35);
+      if (Math.random() < dt * (2 + f * 16)) { const an = Math.random() * TAU, rr = Math.random() * c.r * 0.7, q = new V3(c.pos.x + Math.cos(an) * rr, c.mesh.position.y - 0.3, c.pos.z + Math.sin(an) * rr); Fx.tracer(q, q.clone().add(new V3(rand(-1.5, 1.5), rand(-1, 0.4), rand(-1.5, 1.5))), 0x8ad8ff, 0.12, 0.04, 3); }
+      if (c.t <= 0 && owner && !owner.remote && !c.done) discharge(owner, c);
+    }
     if (c.t <= 0) { G.scene.remove(c.mesh); Game.clouds.splice(i, 1); }
   }
+}
+function discharge(owner, c) {
+  const o = c.o, n = Math.floor(c.chg || 0); c.done = true; c.t = 0; emit(['cx', c.id]);
+  const under = Game.actors.filter(t => t.alive && isEnemy(owner, t) && !isSub(t) && Math.hypot(t.pos.x - c.pos.x, t.pos.z - c.pos.z) < c.r + 0.5 && t.pos.y < c.pos.y + 8).sort((x, y) => x.pos.distanceTo(c.pos) - y.pos.distanceTo(c.pos));
+  const top = new V3(c.pos.x, c.mesh.position.y - 0.6, c.pos.z), got = new Map();
+  for (let k = 0, j = 0; k < n; k++) {
+    const live = under.filter(t => (got.get(t) || 0) < 3);
+    if (!live.length) { const an = Math.random() * TAU, rr = Math.random() * c.r, gx = c.pos.x + Math.cos(an) * rr, gz = c.pos.z + Math.sin(an) * rr; emit(['fx', 'strike', r2(gx), r2(World.groundAt(gx, gz, c.pos.y + 2)), r2(gz), [r2(top.x), r2(top.y), r2(top.z)], 0]); continue; }
+    const t = live[j++ % live.length]; got.set(t, (got.get(t) || 0) + 1);
+    const q = chest(t); emit(['fx', 'strike', r2(q.x), r2(q.y), r2(q.z), [r2(top.x), r2(top.y), r2(top.z)], 0]);
+    const fx = {}; if (o.st) fx.stun = o.st; if (o.rv) fx.reveal = o.rv; if (o.vu) fx.vuln = [1.25, o.vu];
+    hitActor(owner, t, 40, { fx, how: 'cloud' });
+  }
+  Sfx.play('thunder', c.pos, 1.2); if (owner === Game.me) View.shake(0.5);
 }
 
 // ---------------------------------------------------------------- Orrin: the star lance and gravity wells
@@ -1190,6 +1268,7 @@ function lanceTick(a, dt, want) {
 }
 function wellPack(P) { return { r: P.radius, d: P.dur, pl: P.pull, dp: P.dps, sl: P.slow, rv: P.reveal, lf: P.lift ? 1 : 0, im: P.implode, ps: P.push ? 1 : 0, hz: P.horizon, ex: P.exec, tw: P.twin ? 1 : 0 }; }
 function throwWell(a) {
+  if (a.P.self) { emit(['wv', a.id + '#w' + (a.pw.n = (a.pw.n | 0) + 1), a.id, r2(a.pos.x), r2(a.pos.y), r2(a.pos.z), Object.assign(wellPack(a.P), { fo: 1 })]); if (a === Game.me) View.throwAnim(); return; }
   const P = a.P, e = eyePos(a), d = aimDir(a.yaw, a.pitch + 0.1), o = e.clone().addScaledVector(d, 0.6);
   emit(['pr', 'star', a.id, r2(o.x), r2(o.y), r2(o.z), r2(d.x * P.speed), r2(d.y * P.speed), r2(d.z * P.speed), { g: 14, w: wellPack(P) }]);
   Sfx.play('well', a === Game.me ? null : a.pos, 0.7);
@@ -1213,6 +1292,7 @@ function wellTick(dt) {
   for (let i = Game.wells.length - 1; i >= 0; i--) {
     const w = Game.wells[i], o = w.o, owner = Game.byId.get(w.owner), k = 1 - w.t / w.life;
     w.t -= dt;
+    if (o.fo) { if (!owner || !owner.alive) w.t = Math.min(w.t, 0); else { const q = owner.renderPos || owner.pos; w.pos.set(q.x, q.y, q.z); w.mesh.position.copy(w.pos); } }
     w.mesh.userData.core.rotation.y += dt * 3; w.mesh.userData.ring.rotation.z += dt * (o.ps ? -2 : 2); w.mesh.userData.ring.scale.setScalar(1 - ((G.time * (o.ps ? -0.6 : 0.6)) % 1 + 1) % 1 * 0.85);
     if (Math.random() < dt * 30) { const ang = Math.random() * TAU, rr = w.r * (0.6 + Math.random() * 0.4), q = w.pos.clone().add(new V3(Math.cos(ang) * rr, 0.2 + Math.random() * 1.5, Math.sin(ang) * rr)), v = w.pos.clone().setY(w.pos.y + 1).sub(q).multiplyScalar(o.ps ? -0.8 : 0.8); Fx.spawn('add', q.x, q.y, q.z, v.x, v.y, v.z, 1.6, 0.8, 1.8, 0.07, 0.7); }
     if (owner && !owner.remote) {
@@ -1227,7 +1307,7 @@ function wellTick(dt) {
           hitActor(owner, t, dmg, { fx, how: 'well', exec: o.ex && d < 1.6 ? o.ex : 0 });
         }
         // Binary Star: a beam between the pair
-        if (o.link && w.id.endsWith('a')) { const mate = Game.wells.find(x => x.id === o.link + 'b'); if (mate) { const A = w.pos.clone().setY(w.pos.y + 1), B = mate.pos.clone().setY(mate.pos.y + 1), seg = B.clone().sub(A), L = seg.length(); seg.normalize(); for (const t of Game.actors) { if (!t.alive || !isEnemy(owner, t)) continue; const c = chest(t), u = clamp(c.clone().sub(A).dot(seg), 0, L); if (A.clone().addScaledVector(seg, u).distanceTo(c) < 0.9) hitActor(owner, t, 8, { how: 'well' }); } } }
+        if (o.link && w.id.endsWith('a')) { const mate = Game.wells.find(x => x.id === o.link + 'b'); if (mate) { const A = w.pos.clone().setY(w.pos.y + 1), B = mate.pos.clone().setY(mate.pos.y + 1), seg = B.clone().sub(A), L = seg.length(); seg.normalize(); for (const t of Game.actors) { if (!t.alive || !isEnemy(owner, t)) continue; const c = chest(t), u = clamp(c.clone().sub(A).dot(seg), 0, L); if (A.clone().addScaledVector(seg, u).distanceTo(c) < 0.9) hitActor(owner, t, 6, { how: 'well' }); } } }
       }
     }
     if (o.link && w.id.endsWith('a')) { const mate = Game.wells.find(x => x.id === o.link + 'b'); if (mate && Math.random() < dt * 24) { const q = w.pos.clone().lerp(mate.pos, Math.random()); Fx.spawn('add', q.x, q.y + 1, q.z, 0, 0, 0, 2.4, 1.2, 2.6, 0.09, 0.25); } }
@@ -1262,7 +1342,7 @@ function doRewind(a, to, saved) {
   if (P.depart) later(0.35, () => { emit(['fx', 'boom', fp[0], fp[1] + 1, fp[2], P.departR, 0xa8e8ff]); for (const t of Game.actors) if (t.alive && isEnemy(a, t) && t.pos.distanceTo(from) < P.departR) hitActor(a, t, P.depart, { how: 'rewind', fx: { knock: [0, 5, 0] } }); });
   if (P.sand) for (const t of Game.actors) if (t.alive && isEnemy(a, t) && t.pos.distanceTo(from) < 5) hitActor(a, t, 0, { fx: { slow: [0.5, P.sand] }, how: 'rewind' });
   if (P.arrive) { for (const t of Game.actors) if (t.alive && isEnemy(a, t) && t.pos.distanceTo(a.pos) < P.arriveR) hitActor(a, t, P.arrive, { how: 'rewind' }); emit(['fx', 'pulse', r2(a.pos.x), r2(a.pos.y), r2(a.pos.z), P.arriveR, 0]); }
-  if (P.freeze) { for (const t of Game.actors) if (t.alive && isEnemy(a, t) && !isSub(t) && t.pos.distanceTo(a.pos) < P.freezeR && World.clear(a.pos.x, a.pos.y + 1.2, a.pos.z, t.pos.x, t.pos.y + 1.2, t.pos.z)) hitActor(a, t, 0, { fx: { stun: P.freeze }, how: 'stop' }); emit(['fx', 'stop', r2(a.pos.x), r2(a.pos.y + 1), r2(a.pos.z), P.freezeR, 0]); }
+  if (P.freeze) stopTime(a);
   if (P.retro && a.lastDealt && Game.t - (a.lastDealtT || 0) < P.back + 1) {
     const t = Game.byId.get(a.lastDealt), snap = pw.ehist.find(e => e.t >= to.t - 0.05);
     if (t && t.alive && snap && snap.p[t.id]) { const q = snap.p[t.id], tp = t.renderPos || t.pos; emit(['fx', 'rewind', r2(tp.x), r2(tp.y + 1), r2(tp.z), r2(q[0]), r2(q[2])]); hitActor(a, t, 0, { fx: { tp: [q[0], q[1], q[2]], slow: [0.7, 1] }, how: 'rewind' }); }
@@ -1270,6 +1350,11 @@ function doRewind(a, to, saved) {
   if (!P.silent || a === Game.me) Sfx.play('rewind', at, 1);
   if (!P.silent) emit(['fx', 'rewind', fp[0], fp[1] + 1, fp[2], r2(a.pos.x), r2(a.pos.z)]);
   if (a === Game.me) { View.blink(); View.throwAnim(); if (saved) HUD.note('Paradox — not yet', 'big'); }
+}
+function stopTime(a) {
+  const P = a.P;
+  for (const t of Game.actors) if (t.alive && isEnemy(a, t) && !isSub(t) && t.pos.distanceTo(a.pos) < P.freezeR && World.clear(a.pos.x, a.pos.y + 1.2, a.pos.z, t.pos.x, t.pos.y + 1.2, t.pos.z)) hitActor(a, t, 0, { fx: { stun: P.freeze }, how: 'stop' });
+  emit(['fx', 'stop', r2(a.pos.x), r2(a.pos.y + 1), r2(a.pos.z), P.freezeR, 0]); Sfx.play('stop', a === Game.me ? null : a.pos, 0.8);
 }
 function useUlt(a) {
   const K = a.H.ult.key; a.ult = 0;
@@ -1289,10 +1374,10 @@ function useUlt(a) {
     }
   } else if (K === 'tide') emit(['zn', 'bog', r2(a.pos.x), r2(a.pos.y), r2(a.pos.z), 8, 35, 6, a.id, 0.6]);
   else if (K === 'tempest') {
-    emit(['fx', 'stop', r2(a.pos.x), r2(a.pos.y + 1), r2(a.pos.z), 18, 0]);
-    for (let i = 0; i < 8; i++) later(0.2 + i * 0.8, () => {
+    emit(['fx', 'stop', r2(a.pos.x), r2(a.pos.y + 1), r2(a.pos.z), 16, 0]);
+    for (let i = 0; i < 6; i++) later(0.2 + i * 1.0, () => {
       if (!Game.match || !a.alive) return;
-      for (const t of Game.actors) if (t.alive && isEnemy(a, t) && !isSub(t) && t.pos.distanceTo(a.pos) < 18 && World.clear(a.pos.x, a.pos.y + 1.4, a.pos.z, t.pos.x, t.pos.y + 1.2, t.pos.z)) { const c = chest(t); emit(['fx', 'strike', r2(c.x), r2(c.y), r2(c.z), 0, 0]); hitActor(a, t, 35, { fx: { slow: [0.7, 0.6] }, how: 'tempest' }); }
+      for (const t of Game.actors) if (t.alive && isEnemy(a, t) && !isSub(t) && t.pos.distanceTo(a.pos) < 16 && World.clear(a.pos.x, a.pos.y + 1.4, a.pos.z, t.pos.x, t.pos.y + 1.2, t.pos.z)) { const c = chest(t); emit(['fx', 'strike', r2(c.x), r2(c.y), r2(c.z), 0, 0]); hitActor(a, t, 28, { fx: { slow: [0.7, 0.6] }, how: 'tempest' }); }
     });
   }
   else if (K === 'meteor') {

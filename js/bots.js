@@ -3,10 +3,13 @@
 // Bots: perception, pathing over the nav graph, an aim model, and a plan for each hero's power
 // ============================================================================
 const BOT_DIFF = [
-  { name: 'Recruit', react: 0.6, err: 0.11, track: 4.5, tol: 0.09, see: 0.8, power: 0.5 },
-  { name: 'Veteran', react: 0.34, err: 0.055, track: 8, tol: 0.05, see: 1.0, power: 0.85 },
-  { name: 'Elite', react: 0.18, err: 0.025, track: 13, tol: 0.03, see: 1.15, power: 1.0 },
-  { name: 'Overtuned', react: 0.12, err: 0.018, track: 16, tol: 0.026, see: 1.25, power: 1.0, iri: true },
+  // react: delay before shooting a new target; err: aim wobble; track: how fast the aim catches up; tol: how lined-up a shot must be;
+  // see: sight range; power: how often powers get used well; hs: chance to aim for the head; lead: how well shots lead a mover;
+  // dmg: damage dealt; hunt: how much they go for human players; iri: always bring both Iridescents
+  { name: 'Recruit', react: 0.42, err: 0.065, track: 6.5, tol: 0.065, see: 0.95, power: 0.7, hs: 0.05, lead: 0.6, dmg: 0.9, hunt: 0 },
+  { name: 'Veteran', react: 0.22, err: 0.032, track: 11, tol: 0.038, see: 1.15, power: 0.95, hs: 0.18, lead: 0.85, dmg: 1.05, hunt: 3 },
+  { name: 'Elite', react: 0.11, err: 0.014, track: 19, tol: 0.022, see: 1.35, power: 1.0, hs: 0.35, lead: 0.95, dmg: 1.18, hunt: 6 },
+  { name: 'Overtuned', react: 0.06, err: 0.007, track: 28, tol: 0.016, see: 1.6, power: 1.0, hs: 0.5, lead: 1.0, dmg: 1.3, hunt: 9, iri: true },
 ];
 // how each hero likes to fight. pref: the range it wants; band: slack around it; retreat: health fraction at which it backs off;
 // kite: backpedal when an enemy gets this close; perch: hold high ground; flank: chance to circle behind the target;
@@ -77,13 +80,13 @@ const Bots = {
     // perception
     b.percT -= dt;
     if (b.percT <= 0) {
-      b.percT = 0.18 + Math.random() * 0.08;
+      b.percT = (0.1 + D.react * 0.25) + Math.random() * 0.06;
       let best = null, bs = 1e9;
       for (const o of Game.actors) {
         if (!isEnemy(a, o) || !o.alive) continue;
-        const vis = this.sees(a, o), kn = vis || (this.known(o) && a.pos.distanceTo(o.pos) < 40);
+        const vis = this.sees(a, o), kn = vis || (this.known(o) && a.pos.distanceTo(o.pos) < 40 + D.hunt * 3);
         if (!kn) continue;
-        const d = a.pos.distanceTo(o.renderPos || o.pos), s = d + o.hp * 0.04 - (o === b.target ? 8 : 0) - (o === b.threat && Game.t - b.threatT < 3 ? 6 : 0) + (vis ? 0 : 20);
+        const d = a.pos.distanceTo(o.renderPos || o.pos), s = d + o.hp * 0.04 - (o.isBot ? 0 : D.hunt || 0) - (o === b.target ? 8 : 0) - (o === b.threat && Game.t - b.threatT < 3 ? 6 : 0) + (vis ? 0 : 20);
         if (s < bs) { bs = s; best = o; best._vis = vis; }
       }
       const vis = best ? best._vis : false;
@@ -221,12 +224,13 @@ const Bots = {
   },
   aimPoint(a, T, b) {
     const p = (T.renderPos || T.pos).clone(), v = T.vel ? T.vel.clone() : new V3(), W = a.H.weapon;
-    p.y += a.H.key === 'marrow' && Math.random() < 0.3 ? 1.55 : 1.1;
+    if (b.headT == null || Game.t > b.headT) { b.headT = Game.t + rand(0.6, 1.4); b.head = Math.random() < (this.diff().hs || 0) + (a.H.key === 'marrow' ? 0.2 : 0); }
+    p.y += b.head ? 1.55 : 1.1;
     const eye = eyePos(a);
     // projectiles: lead the target and lob over the drop
     const lob = (speed, g) => {
       let q = p.clone();
-      for (let i = 0; i < 3; i++) { const t = eye.distanceTo(q) / speed; q = p.clone().addScaledVector(v, t * 0.8); }
+      for (let i = 0; i < 3; i++) { const t = eye.distanceTo(q) / speed; q = p.clone().addScaledVector(v, t * (this.diff().lead || 0.8)); }
       const d = Math.hypot(q.x - eye.x, q.z - eye.z), h = q.y - eye.y, v2 = speed * speed, disc = v2 * v2 - g * (g * d * d + 2 * h * v2);
       const pitch = disc > 0 ? Math.atan((v2 - Math.sqrt(disc)) / (g * d)) : Math.PI / 4;
       return eye.clone().add(new V3(q.x - eye.x, Math.tan(pitch) * d, q.z - eye.z));
@@ -309,14 +313,19 @@ const Bots = {
       else if (st === 'under') I.power = !a.prev.power && ((T && dist < P.radius * 0.6) || pw.t > P.maxTime - 0.3);
       else I.power = false;
     } else if (key === 'thane') {
-      if (P.smite) I.power = !a.prev.power && pw.charges > 0 && vis && dist < 42 && b.react <= 0 && cool('smite', rand(0.3, 1));
+      const held = P.capacitor ? Game.clouds.find(c => c.owner === a.id && c.o.cap && c.t > 0) : null;
+      if (held) { const under = Game.actors.filter(o => o.alive && isEnemy(a, o) && Math.hypot(o.pos.x - held.pos.x, o.pos.z - held.pos.z) < held.r).length; I.power = !a.prev.power && under > 0 && ((held.chg || 0) >= 4 || (under >= 2 && (held.chg || 0) >= 3) || held.t < 1); }
+      else if (P.perm && P.surge) I.power = !a.prev.power && pw.charges > 0 && vis && dist < 6.5 && cool('surge', rand(0.2, 0.8));
+      else if (P.smite) I.power = !a.prev.power && pw.charges > 0 && vis && dist < 42 && b.react <= 0 && cool('smite', rand(0.3, 1));
       else { const Z = World.zone, onZ = Game.match.mode === 'koth' && Z && Game.actors.some(o => o.alive && isEnemy(a, o) && Math.hypot(o.pos.x - Z.x, o.pos.z - Z.z) < Z.r); I.power = !a.prev.power && pw.charges > 0 && ((vis && dist < 34) || onZ) && b.react <= 0 && cool('cloud', rand(1, 3)); }
     } else if (key === 'orrin') {
-      I.power = !a.prev.power && pw.charges > 0 && vis && dist > 5 && dist < 24 && b.react <= 0 && cool('well', rand(1, 3));
+      if (P.self) I.power = !a.prev.power && pw.charges > 0 && vis && dist < 6.5 && cool('well', rand(0.3, 1));
+      else I.power = !a.prev.power && pw.charges > 0 && vis && dist > 5 && dist < 24 && b.react <= 0 && cool('well', rand(1, 3));
     } else if (key === 'sable') {
       // rewind out of trouble when it would give health back, or as an escape when nearly dead
       const to = rewindPoint(a), gain = to ? to.hp - a.hp : 0;
-      if (P.anchor) I.power = !a.prev.power && pw.charges > 0 && ((!pw.anchor && vis && dist < 18 && a.hp > a.maxHp * 0.7) || (pw.anchor && (a.hp < a.maxHp * 0.35 || Game.t - pw.anchor.t > P.anchor - 1))) && cool('rewind', 0.5);
+      if (P.stopOnly) I.power = !a.prev.power && pw.charges > 0 && vis && dist < P.freezeR - 1.5 && (Game.actors.filter(o => o.alive && isEnemy(a, o) && o.pos.distanceTo(a.pos) < P.freezeR).length >= 2 || a.hp < a.maxHp * 0.5 || dist < 5) && cool('rewind', 0.4);
+      else if (P.anchor) I.power = !a.prev.power && pw.charges > 0 && ((!pw.anchor && vis && dist < 18 && a.hp > a.maxHp * 0.7) || (pw.anchor && (a.hp < a.maxHp * 0.35 || Game.t - pw.anchor.t > P.anchor - 1))) && cool('rewind', 0.5);
       else I.power = !a.prev.power && pw.charges > 0 && to && ((gain > 70) || (a.hp < a.maxHp * 0.25 && Game.t - b.threatT < 1.5) || (P.arrive || P.freeze ? (T && to && T.pos.distanceTo(new V3(to.x, to.y, to.z)) < (P.freezeR || 4)) : false)) && cool('rewind', 0.6);
     } else if (key === 'spindle') {
       I.power = !a.prev.power && pw.charges > 0 && vis && dist > 4 && dist < P.range * 0.85 && b.react <= 0 && cool('line', rand(0.6, 1.6));
