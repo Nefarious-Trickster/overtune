@@ -14,7 +14,7 @@
     initGfx(cv); bar(0.55); msg('Laying out the arena…'); await tick();
     View.init(); HUD.init(); Input.init(cv); UI.init();
     msg('Gathering the heroes…');
-    try { await KK.load(f => bar(0.55 + f * 0.3)); } catch (e) { console.warn('hero models unavailable, using the classic ones', e); KK.failed = true; }
+    try { await Promise.all([KK.load(f => bar(0.55 + f * 0.3)), Env.load().catch(e => console.warn('set dressing unavailable', e))]); } catch (e) { console.warn('hero models unavailable, using the classic ones', e); KK.failed = true; }
     Showcase.enter(); bar(0.9); msg('Tuning powers…'); await tick();
     UI.show('main');
     requestAnimationFrame(frame);

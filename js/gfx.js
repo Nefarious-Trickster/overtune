@@ -75,7 +75,7 @@ function initGfx(canvas) {
     }`, { tSrc: { value: null }, tAdd: { value: null }, uTexel: { value: new THREE.Vector2() } });
   P.final = fsMat(`
     varying vec2 vUv; uniform sampler2D tScene; uniform sampler2D tBloom; uniform float uBloom; uniform float uTime; uniform vec2 uRes;
-    uniform float uDamage; uniform float uHeal; uniform float uDesat; uniform float uFlash; uniform float uVig; uniform float uExposure; uniform float uBlind; uniform float uTint; uniform vec3 uGrade; uniform float uCA;
+    uniform float uDamage; uniform float uHeal; uniform float uDesat; uniform float uFlash; uniform float uVig; uniform float uExposure; uniform float uBlind; uniform float uTint; uniform vec3 uGrade; uniform float uCA; uniform float uSat; uniform float uGrain;
     vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14), 0.0, 1.0); }
     float hash(vec2 p){ p = fract(p*vec2(123.34, 456.21)); p += dot(p, p+45.32); return fract(p.x*p.y); }
     void main(){
@@ -89,19 +89,21 @@ function initGfx(canvas) {
       col = aces(col);
       col = pow(col, vec3(1.0 / 2.2));
       l = dot(col, vec3(0.2126, 0.7152, 0.0722));
+      col = clamp(mix(vec3(l), col, uSat), 0.0, 1.0);
       col = mix(col, vec3(l) * vec3(0.85, 0.92, 1.1), uDesat);
-      col *= mix(1.0, smoothstep(0.65, 0.05, r2), 0.55 * uVig);
+      col *= mix(1.0, smoothstep(0.65, 0.05, r2), 0.25 * uVig);
       float edge = smoothstep(0.05, 0.42, r2);
       col = mix(col, vec3(0.95, 0.05, 0.1), uDamage * edge * 0.75);
       col = mix(col, vec3(0.35, 1.0, 0.65), uHeal * edge * 0.4);
       col = mix(col, vec3(0.55, 0.25, 0.95) * l, uTint * edge * 0.6);
       col = mix(col, vec3(0.02, 0.0, 0.04), uBlind * (0.55 + 0.4 * smoothstep(0.0, 0.25, r2)));
       col += uFlash;
-      col += (hash(vUv * uRes + fract(uTime) * 61.0) - 0.5) * 0.02;
+      col += (hash(vUv * uRes + fract(uTime) * 61.0) - 0.5) * uGrain;
       gl_FragColor = vec4(col, 1.0);
-    }`, { tScene: { value: null }, tBloom: { value: null }, uBloom: { value: 0.9 }, uTime: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) }, uDamage: { value: 0 }, uHeal: { value: 0 }, uDesat: { value: 0 }, uFlash: { value: 0 }, uVig: { value: 1 }, uExposure: { value: 1 }, uBlind: { value: 0 }, uTint: { value: 0 }, uGrade: { value: new THREE.Vector3(1.05, 1.0, 0.94) }, uCA: { value: 0.003 } });
+    }`, { tScene: { value: null }, tBloom: { value: null }, uBloom: { value: 0.9 }, uTime: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) }, uDamage: { value: 0 }, uHeal: { value: 0 }, uDesat: { value: 0 }, uFlash: { value: 0 }, uVig: { value: 1 }, uExposure: { value: 1 }, uBlind: { value: 0 }, uTint: { value: 0 }, uGrade: { value: new THREE.Vector3(1.05, 1.0, 0.94) }, uCA: { value: 0 }, uSat: { value: 1.25 }, uGrain: { value: 0 } });
   P.black = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1); P.black.needsUpdate = true;
   makeSurfaces();
+  if (window.makeToonSurfaces) makeToonSurfaces();
   Fx.init();
   applyQuality();
   window.addEventListener('resize', () => resizeGfx());
@@ -152,7 +154,7 @@ function renderFrame(withVm) {
   let bloomTex = P.black; const n = G.mips.length;
   if (n >= 2) {
     const d = P.down.uniforms;
-    d.tSrc.value = G.rtScene.texture; d.uTexel.value.set(1 / G.w, 1 / G.h); d.uPre.value = 1; d.uThr.value = G.hdr ? 1.1 : 0.8; blit(P.down, G.mips[0]); d.uPre.value = 0;
+    d.tSrc.value = G.rtScene.texture; d.uTexel.value.set(1 / G.w, 1 / G.h); d.uPre.value = 1; d.uThr.value = G.hdr ? 1.7 : 1.0; blit(P.down, G.mips[0]); d.uPre.value = 0;
     for (let i = 1; i < n; i++) { d.tSrc.value = G.mips[i - 1].texture; d.uTexel.value.set(1 / G.mips[i - 1].width, 1 / G.mips[i - 1].height); blit(P.down, G.mips[i]); }
     const u = P.up.uniforms; let src = G.mips[n - 1];
     for (let i = n - 2; i >= 0; i--) { u.tSrc.value = src.texture; u.tAdd.value = G.mips[i].texture; u.uTexel.value.set(1 / src.width, 1 / src.height); blit(P.up, G.ups[i]); src = G.ups[i]; }
@@ -407,7 +409,7 @@ function makeSky(kind, sunDir) {
   const S = SKIES[kind], c = h => new THREE.Color(h);
   const mat = new THREE.ShaderMaterial({
     vertexShader: 'varying vec3 vDir; void main(){ vDir = position; vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_Position = p.xyww; }',
-    fragmentShader: SKY_FRAG, side: THREE.BackSide, depthWrite: false,
+    fragmentShader: window.SKY_FRAG_T || SKY_FRAG, side: THREE.BackSide, depthWrite: false,
     uniforms: { uTop: { value: c(S.top) }, uHor: { value: c(S.hor) }, uBot: { value: c(S.bot) }, uSun: { value: new V3(...sunDir).normalize() }, uSunCol: { value: c(S.sunCol) }, uTime: { value: 0 }, uStars: { value: S.stars }, uCloud: { value: S.cloud }, uCloudCol: { value: c(S.cloudCol) } },
   });
   const m = new THREE.Mesh(new THREE.SphereGeometry(500, 48, 24), mat); m.frustumCulled = false; m.renderOrder = -10;
@@ -460,13 +462,13 @@ function buildLevel(def) {
       for (let i = 0; i < p.count; i++) { uv[i * 2] = (Math.atan2(p.getZ(i) - cz, p.getX(i) - cx) / TAU + 0.5) * rad * TAU / m.userData.scale; uv[i * 2 + 1] = p.getY(i) / m.userData.scale; }
       g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
       if (s.mat === 'pillar' && !s.round) { const cap = toNI(new THREE.BoxGeometry(rad * 2.5, 0.4, rad * 2.5)); cap.translate(cx, s.y1 - 0.2, cz); worldUV(cap, 2); (groups.temple = groups.temple || { m: SURF.temple, list: [] }).list.push(cap); const base = toNI(new THREE.BoxGeometry(rad * 2.5, 0.5, rad * 2.5)); base.translate(cx, s.y0 + 0.25, cz); worldUV(base, 2); groups.temple.list.push(base); }
-    } else g = worldUV(boxGeo(s), m.userData.scale);
+    } else g = worldUV((window.roundBoxGeo || boxGeo)(s), m.userData.scale);
     (groups[s.mat] = groups[s.mat] || { m, list: [] }).list.push(g);
     if (s.trim) {
-      const t = (trims[s.trim] = trims[s.trim] || []), y = s.y1 + 0.015, e = 0.045;
+      const t = (trims[s.trim] = trims[s.trim] || []), ri = window.roundInset ? roundInset(s) : 0, y = s.y1 + 0.015, e = 0.045;
       const add = (x, z, w, d) => { const b = toNI(new THREE.BoxGeometry(w, 0.03, d)); b.translate(x, y, z); t.push(b); };
-      add((s.x0 + s.x1) / 2, s.z0 + e / 2, s.x1 - s.x0, e); add((s.x0 + s.x1) / 2, s.z1 - e / 2, s.x1 - s.x0, e);
-      add(s.x0 + e / 2, (s.z0 + s.z1) / 2, e, s.z1 - s.z0); add(s.x1 - e / 2, (s.z0 + s.z1) / 2, e, s.z1 - s.z0);
+      add((s.x0 + s.x1) / 2, s.z0 + ri + e / 2, s.x1 - s.x0 - ri * 2, e); add((s.x0 + s.x1) / 2, s.z1 - ri - e / 2, s.x1 - s.x0 - ri * 2, e);
+      add(s.x0 + ri + e / 2, (s.z0 + s.z1) / 2, e, s.z1 - s.z0 - ri * 2); add(s.x1 - ri - e / 2, (s.z0 + s.z1) / 2, e, s.z1 - s.z0 - ri * 2);
     }
     if (s.y0 < 0.05 && s.y1 - s.y0 > 0.6 && s.mat !== 'pillar' && s.mat !== 'stack' && !s.round) dirt.push(s);
   }
@@ -502,6 +504,7 @@ function buildLevel(def) {
   // lights and set dressing
   for (const l of World.lights) addLightSource(l.x, l.y, l.z, l.color, l.intensity, l.dist, L);
   for (const p of World.props) { try { Props[p.type] && Props[p.type](p, L, def); } catch (e) { console.warn('prop', p.type, e); } }
+  if (window.toonDress) try { toonDress(def, L); } catch (e) { console.warn('dress', e); }
   mergeStatic(L);
   G.renderer.shadowMap.needsUpdate = true;
   Sfx.ambience(th.amb);

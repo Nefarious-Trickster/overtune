@@ -236,6 +236,7 @@ function drawActor(a, dt) {
   M.t += dt;
   // death: the legs go, the body folds and topples, then sinks away
   if (!a.alive) {
+    if (An.death > 0 && An.death < 0.001 && typeof ToonFx !== 'undefined') { ToonFx.confetti(new V3(p.x, p.y + 1.3, p.z), 60, 4); ToonFx.pop(new V3(p.x, p.y + 0.9, p.z), 1.1, 0xffffff, 6, 0.55); }
     if (a.fx) for (const k in a.fx) if (a.fx[k] && a.fx[k].isObject3D) a.fx[k].visible = false;
     if (An.death > 0 && M.kk) {
       An.death += dt; KK.die(M); KK.pose(M, { t: M.t }, dt); M.body.position.y = -Math.max(0, An.death - 2.0) * 0.6;

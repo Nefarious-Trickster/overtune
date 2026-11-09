@@ -1,0 +1,6 @@
+env.glb: set dressing from KayKit Medieval Hexagon Pack, KayKit Halloween Bits, KayKit City Builder Bits and KayKit Prototype Bits
+Created/distributed by Kay Lousberg (www.kaylousberg.com)
+License: Creative Commons Zero, CC0 — http://creativecommons.org/publicdomain/zero/1.0/
+Free to use in personal, educational and commercial projects. Thank you, Kay!
+
+The file here is trimmed for the web: a selection of models packed into one file with shared textures.

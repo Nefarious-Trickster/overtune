@@ -26,6 +26,8 @@ A 3D hero shooter you play in the browser. Thirteen heroes, each with a weapon t
 
 The heroes are built from [KayKit](https://kaylousberg.com)'s free (CC0) Adventurers and Skeletons character packs by Kay Lousberg, with KayKit's animation set. Each hero gets its own body, recoloured texture, hat or helmet, weapons from the packs and props of its own, and a team-coloured rim so friend and foe read at a glance. If the models can't load, the game falls back to its older hand-built heroes.
 
+The maps have a bright, toy-box look to match: candy-coloured surfaces with soft rounded edges, puffy clouds, floating islands on the horizon and bunting over the walls. Trees, rocks, clouds, hills and the little towns around the arenas come from KayKit's CC0 Medieval Hexagon, Halloween Bits, City Builder Bits and Prototype Bits packs. Effects are cartoon too: explosions are popping puff-balls, hits flash little stars, and knockouts burst into confetti.
+
 ## Add-ons
 
 Every hero has 20 add-ons (260 in all) in five rarities. Commons are clean upgrades; the higher you go the more they change the power. The two **Iridescent** add-ons per hero aren't bigger numbers — each one rewrites how the power works and comes with a real price: Marrow's snares become mines, Gauge carries enemies on his charge and crushes them into walls, Ivra's glaives become sawblades, Thane's cloud stores lightning to drop all at once, Orrin becomes the gravity well himself, Sable stops time instead of rewinding, and so on.
